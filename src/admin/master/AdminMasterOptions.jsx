@@ -1,0 +1,1190 @@
+import React, { useEffect, useState } from "react";
+import apiClient from "../../config/api";
+import { useNavigate } from "react-router-dom";
+import {
+  HiPlus,
+  HiPencil,
+  HiTrash,
+  HiCheck,
+  HiX,
+  HiChevronLeft,
+  HiChevronRight,
+  HiCollection,
+  HiEye,
+  HiSearch,
+} from "react-icons/hi";
+import AlertModal from "../../components/AlertModal";
+
+export default function AdminMasterOptions() {
+  const navigate = useNavigate();
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [success, setSuccess] = useState(null);
+  const [fieldErrors, setFieldErrors] = useState({});
+  const [formData, setFormData] = useState({
+    label: "",
+    value: "",
+  });
+  const [editingId, setEditingId] = useState(null);
+  const [editingData, setEditingData] = useState({
+    label: "",
+    value: "",
+  });
+  const [showForm, setShowForm] = useState(false);
+  const [viewModal, setViewModal] = useState({
+    isOpen: false,
+    option: null,
+  });
+  const [actionLoading, setActionLoading] = useState({
+    create: false,
+    update: false,
+    delete: false,
+  });
+  const [deleteConfirm, setDeleteConfirm] = useState({
+    isOpen: false,
+    id: null,
+    name: "",
+  });
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedItems, setSelectedItems] = useState([]);
+  const [isClosingForm, setIsClosingForm] = useState(false);
+  const [isClosingView, setIsClosingView] = useState(false);
+  const [isClosingEdit, setIsClosingEdit] = useState(false);
+
+  // Fetch options
+  const fetchOptions = async () => {
+    try {
+      const response = await apiClient.get("/options");
+      if (response.data?.status && response.data.data) {
+        setItems(
+          response.data.data.map((o) => ({
+            id: o.id,
+            label: o.label || o.option_text || o.optionText || o.name || "",
+            value: o.value !== undefined ? o.value : null,
+            questionId: o.question_id || o.questionId,
+          }))
+        );
+        setError(null);
+      } else {
+        setError("Failed to load options");
+      }
+    } catch (err) {
+      console.error("Error fetching options:", err);
+      if (err.response?.status === 401) {
+        localStorage.removeItem("adminToken");
+        localStorage.removeItem("adminUser");
+        setError("Session expired. Please login again.");
+        setTimeout(() => {
+          navigate("/admin/login");
+        }, 2000);
+      } else {
+        setError(
+          err.response?.data?.message ||
+            "Failed to load options. Please try again."
+        );
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchOptions();
+  }, [navigate]);
+
+  const handleFormChange = (field, value) => {
+    setFormData((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+    if (fieldErrors[field]) {
+      setFieldErrors((prev) => ({
+        ...prev,
+        [field]: "",
+      }));
+    }
+  };
+
+  const handleEditChange = (field, value) => {
+    setEditingData((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+  };
+
+  const resetForm = () => {
+    setFormData({
+      label: "",
+      value: "",
+    });
+    setFieldErrors({});
+  };
+
+  const closeForm = () => {
+    setIsClosingForm(true);
+    setTimeout(() => {
+      setIsClosingForm(false);
+      resetForm();
+      setShowForm(false);
+    }, 220);
+  };
+
+  const closeViewModal = () => {
+    setIsClosingView(true);
+    setTimeout(() => {
+      setIsClosingView(false);
+      setViewModal({ isOpen: false, option: null });
+    }, 220);
+  };
+
+  const closeEditModal = () => {
+    setIsClosingEdit(true);
+    setTimeout(() => {
+      setIsClosingEdit(false);
+      setEditingId(null);
+      setEditingData({
+        label: "",
+        value: "",
+      });
+    }, 220);
+  };
+
+  const add = async () => {
+    const labelText = formData.label.trim();
+    const valueNum = formData.value.trim();
+    const errors = {};
+    if (!labelText) {
+      errors.label = "Label is required";
+    }
+    if (!valueNum) {
+      errors.value = "Value is required";
+    } else if (isNaN(Number(valueNum))) {
+      errors.value = "Value must be a number";
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      return;
+    }
+
+    setFieldErrors({});
+    setActionLoading({ ...actionLoading, create: true });
+    try {
+      const response = await apiClient.post("/options", {
+        label: labelText,
+        value: Number(valueNum),
+      });
+
+      if (response.data?.status && response.data.data) {
+        const newOption = response.data.data;
+        setItems([
+          ...items,
+          {
+            id: newOption.id,
+            label:
+              newOption.label ||
+              newOption.option_text ||
+              newOption.optionText ||
+              newOption.name ||
+              "",
+            value: newOption.value !== undefined ? newOption.value : null,
+            questionId: newOption.question_id || newOption.questionId,
+          },
+        ]);
+        resetForm();
+        setShowForm(false);
+        setError(null);
+        setSuccess("Option created successfully!");
+        const totalPages = Math.ceil((items.length + 1) / itemsPerPage);
+        setCurrentPage(totalPages);
+      } else {
+        setError(response.data?.message || "Failed to create option");
+      }
+    } catch (err) {
+      console.error("Error creating option:", err);
+      if (err.response?.status === 401) {
+        localStorage.removeItem("adminToken");
+        localStorage.removeItem("adminUser");
+        navigate("/admin/login");
+      } else {
+        setError(
+          err.response?.data?.message ||
+            "Failed to create option. Please try again."
+        );
+      }
+    } finally {
+      setActionLoading({ ...actionLoading, create: false });
+    }
+  };
+  const handleDeleteClick = (id, label) => {
+    setDeleteConfirm({ isOpen: true, id, name: label || "this option" });
+  };
+
+  const del = async () => {
+    if (!deleteConfirm.id) return;
+
+    const id = deleteConfirm.id;
+    setDeleteConfirm({ isOpen: false, id: null, name: "" });
+    setActionLoading({ ...actionLoading, delete: id });
+
+    try {
+      const response = await apiClient.delete(`/options/${id}`);
+
+      if (
+        response.data?.status ||
+        response.status === 200 ||
+        response.status === 204
+      ) {
+        const newItems = items.filter((item) => item.id !== id);
+        setItems(newItems);
+        setError(null);
+        setSuccess("Option deleted successfully!");
+        const totalPages = Math.ceil(newItems.length / itemsPerPage);
+        if (currentPage > totalPages && totalPages > 0) {
+          setCurrentPage(totalPages);
+        }
+      } else {
+        setError(response.data?.message || "Failed to delete option");
+      }
+    } catch (err) {
+      console.error("Error deleting option:", err);
+      if (err.response?.status === 401) {
+        localStorage.removeItem("adminToken");
+        localStorage.removeItem("adminUser");
+        navigate("/admin/login");
+      } else {
+        setError(
+          err.response?.data?.message ||
+            "Failed to delete option. Please try again."
+        );
+      }
+    } finally {
+      setActionLoading({ ...actionLoading, delete: false });
+    }
+  };
+
+  // Filter by search query
+  const filtered = searchQuery.trim()
+    ? items.filter((item) => {
+        const searchLower = searchQuery.toLowerCase();
+        return (
+          item.label?.toLowerCase().includes(searchLower) ||
+          String(item.value).toLowerCase().includes(searchLower)
+        );
+      })
+    : items;
+
+  // Check if all items on current page are selected
+  const currentPageItems = filtered
+    .slice(
+      (currentPage - 1) * itemsPerPage,
+      currentPage * itemsPerPage
+    )
+    .map((item) => item.id);
+  const allCurrentPageSelected =
+    currentPageItems.length > 0 &&
+    currentPageItems.every((id) => selectedItems.includes(id));
+
+  // Handle select all
+  const handleSelectAll = (checked) => {
+    if (checked) {
+      setSelectedItems((prev) => [...new Set([...prev, ...currentPageItems])]);
+    } else {
+      setSelectedItems((prev) =>
+        prev.filter((id) => !currentPageItems.includes(id))
+      );
+    }
+  };
+
+  // Handle individual item selection
+  const handleItemSelect = (id, checked) => {
+    if (checked) {
+      setSelectedItems((prev) => [...prev, id]);
+    } else {
+      setSelectedItems((prev) => prev.filter((itemId) => itemId !== id));
+    }
+  };
+
+  // Delete selected items
+  const deleteSelected = async () => {
+    if (selectedItems.length === 0) return;
+
+    const idsToDelete = [...selectedItems];
+    setActionLoading({ ...actionLoading, delete: "bulk" });
+    try {
+      const deletePromises = idsToDelete.map((id) =>
+        apiClient.delete(`/options/${id}`)
+      );
+      await Promise.all(deletePromises);
+
+      const newItems = items.filter((item) => !idsToDelete.includes(item.id));
+      setItems(newItems);
+      setSelectedItems([]);
+      setError(null);
+      setSuccess(`${idsToDelete.length} option(s) deleted successfully!`);
+
+      const totalPages = Math.ceil(newItems.length / itemsPerPage);
+      if (currentPage > totalPages && totalPages > 0) {
+        setCurrentPage(totalPages);
+      }
+    } catch (err) {
+      console.error("Error deleting options:", err);
+      if (err.response?.status === 401) {
+        localStorage.removeItem("adminToken");
+        localStorage.removeItem("adminUser");
+        navigate("/admin/login");
+      } else {
+        setError(
+          err.response?.data?.message ||
+            "Failed to delete some options. Please try again."
+        );
+      }
+    } finally {
+      setActionLoading({ ...actionLoading, delete: false });
+    }
+  };
+
+  const save = async (id) => {
+    const labelText = editingData.label.trim();
+    const valueNum = editingData.value.trim();
+    const errors = {};
+    if (!labelText) {
+      errors.label = "Label is required";
+    }
+    if (!valueNum) {
+      errors.value = "Value is required";
+    } else if (isNaN(Number(valueNum))) {
+      errors.value = "Value must be a number";
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      return;
+    }
+
+    setFieldErrors({});
+    setActionLoading({ ...actionLoading, update: true });
+    try {
+      const response = await apiClient.put(`/options/${id}`, {
+        label: labelText,
+        value: Number(valueNum),
+      });
+
+      if (response.data?.status && response.data.data) {
+        const updatedOption = response.data.data;
+        setItems(
+          items.map((item) =>
+            item.id === id
+              ? {
+                  id: updatedOption.id,
+                  label:
+                    updatedOption.label ||
+                    updatedOption.option_text ||
+                    updatedOption.optionText ||
+                    updatedOption.name ||
+                    "",
+                  value: updatedOption.value !== undefined ? updatedOption.value : null,
+                  questionId: updatedOption.question_id || updatedOption.questionId,
+                }
+              : item
+          )
+        );
+        setEditingId(null);
+        setEditingData({
+          label: "",
+          value: "",
+        });
+        setError(null);
+        setSuccess("Option updated successfully!");
+      } else {
+        setError(response.data?.message || "Failed to update option");
+      }
+    } catch (err) {
+      console.error("Error updating option:", err);
+      if (err.response?.status === 401) {
+        localStorage.removeItem("adminToken");
+        localStorage.removeItem("adminUser");
+        navigate("/admin/login");
+      } else {
+        setError(
+          err.response?.data?.message ||
+            "Failed to update option. Please try again."
+        );
+      }
+    } finally {
+      setActionLoading({ ...actionLoading, update: false });
+    }
+  };
+
+  return (
+    <div className="neutral-text bg-white min-h-screen p-4 md:p-8">
+      <AlertModal
+        isOpen={!!error}
+        onClose={() => setError(null)}
+        type="error"
+        title="Error"
+        message={error || ""}
+      />
+      <AlertModal
+        isOpen={!!success}
+        onClose={() => setSuccess(null)}
+        type="success"
+        title="Success"
+        message={success || ""}
+        autoClose={3000}
+      />
+      <AlertModal
+        isOpen={deleteConfirm.isOpen}
+        onClose={() => setDeleteConfirm({ isOpen: false, id: null, name: "" })}
+        type="warning"
+        title="Confirm Delete"
+        message={`Are you sure you want to delete "${deleteConfirm.name}"? This action cannot be undone.`}
+      >
+        <div className="mt-6 flex justify-end gap-3">
+          <button
+            onClick={() =>
+              setDeleteConfirm({ isOpen: false, id: null, name: "" })
+            }
+            className="btn btn-outline-warning btn-sm"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={del}
+            disabled={actionLoading.delete}
+            className="btn btn-warning btn-sm"
+          >
+            {actionLoading.delete ? "Deleting..." : "Delete"}
+          </button>
+        </div>
+      </AlertModal>
+
+      {/* Add New Option Modal */}
+      {(showForm || isClosingForm) && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center p-4 overflow-y-auto"
+          style={{ zIndex: 1000 }}
+        >
+          <div
+            className={`absolute inset-0 overlay ${
+              isClosingForm ? "animate-backdrop-out" : "animate-backdrop-in"
+            }`}
+        style={{ backgroundColor: 'rgba(0, 0, 0, 0.3)' }}
+            onClick={closeForm}
+          />
+          <div 
+            className={`relative rounded-2xl max-w-4xl w-full shadow-2xl overflow-hidden border border-white/20 my-8 ${
+              isClosingForm ? "animate-modal-out" : "animate-modal-in"
+            }`}
+        style={{ backgroundColor: 'rgba(255, 255, 255, 0.95)' }}
+          >
+            <div 
+              className="p-6 primary-bg-light"
+            >
+              <div className="flex items-center justify-between">
+                <h3 className="text-xl font-bold primary-text">
+                  Create New Option
+                </h3>
+                <button
+                  onClick={closeForm}
+                  className="btn btn-ghost btn-icon-sm primary-text hover:bg-white/40"
+                  aria-label="Close"
+                >
+                  <HiX className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            <div 
+              className="p-6 max-h-[80vh] overflow-y-auto"
+              style={{ backgroundColor: 'rgba(249, 250, 251, 0.8)' }}
+            >
+              {Object.keys(fieldErrors).length > 0 && (
+                <div className="mb-4 p-3 bg-danger-bg-light border border-danger-border-light rounded-lg">
+                  <p className="danger-text text-sm">
+                    Please fix the errors below before submitting.
+                  </p>
+                </div>
+              )}
+
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-semibold neutral-text block mb-2">
+                      Label <span className="danger-text">*</span>
+                    </label>
+                    <input
+                      value={formData.label}
+                      onChange={(e) => handleFormChange("label", e.target.value)}
+                      placeholder="Enter option label"
+                      disabled={actionLoading.create}
+                      className={`input ${fieldErrors.label ? "input-error" : ""}`}
+                    />
+                    {fieldErrors.label && (
+                      <p className="danger-text text-xs mt-1.5">
+                        {fieldErrors.label}
+                      </p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="text-sm font-semibold neutral-text block mb-2">
+                      Value (Number) <span className="danger-text">*</span>
+                    </label>
+                    <input
+                      type="number"
+                      value={formData.value}
+                      onChange={(e) => handleFormChange("value", e.target.value)}
+                      placeholder="Enter option value"
+                      disabled={actionLoading.create}
+                      className={`input ${fieldErrors.value ? "input-error" : ""}`}
+                    />
+                    {fieldErrors.value && (
+                      <p className="danger-text text-xs mt-1.5">
+                        {fieldErrors.value}
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-3 pt-4">
+                  <button
+                    onClick={closeForm}
+                    disabled={actionLoading.create}
+                    className="btn btn-ghost"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={add}
+                    disabled={actionLoading.create}
+                    className="btn secondary-bg black-text hover:secondary-bg-dark shadow-md"
+                  >
+                    {actionLoading.create ? (
+                      <>
+                        <span className="spinner spinner-sm mr-2"></span>
+                        Adding...
+                      </>
+                    ) : (
+                      <>
+                        <HiPlus className="w-4 h-4 mr-2" /> Add Option
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <style>{`
+            @keyframes modal-out {
+              from {
+                opacity: 1;
+                transform: scale(1) translateY(0);
+              }
+              to {
+                opacity: 0;
+                transform: scale(0.95) translateY(-10px);
+              }
+            }
+            @keyframes backdrop-out {
+              from {
+                opacity: 1;
+              }
+              to {
+                opacity: 0;
+              }
+            }
+            .animate-modal-out {
+              animation: modal-out 220ms ease-in forwards;
+            }
+            .animate-backdrop-out {
+              animation: backdrop-out 220ms ease-in forwards;
+            }
+          `}</style>
+        </div>
+      )}
+
+      {/* View Modal */}
+      {(viewModal.isOpen || isClosingView) && viewModal.option && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 overflow-y-auto"
+          style={{ zIndex: 1000 }}
+        >
+          <div
+            className={`absolute inset-0 overlay ${
+              isClosingView ? "animate-backdrop-out" : "animate-backdrop-in"
+            }`}
+        style={{ backgroundColor: 'rgba(0, 0, 0, 0.3)' }}
+            onClick={closeViewModal}
+          />
+          <div 
+            className={`relative rounded-2xl max-w-4xl w-full shadow-2xl overflow-hidden border border-white/20 my-8 ${
+              isClosingView ? "animate-modal-out" : "animate-modal-in"
+            }`}
+        style={{ backgroundColor: 'rgba(255, 255, 255, 0.95)' }}
+          >
+            <div 
+              className="p-6 primary-bg-light"
+            >
+              <div className="flex items-center justify-between">
+                <h3 className="text-xl font-bold primary-text">
+                  View Option Details
+                </h3>
+                <button
+                  onClick={closeViewModal}
+                  className="btn btn-ghost btn-icon-sm primary-text hover:bg-white/40"
+                  aria-label="Close"
+                >
+                  <HiX className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            <div 
+              className="p-6 max-h-[80vh] overflow-y-auto"
+              style={{ backgroundColor: 'rgba(249, 250, 251, 0.8)' }}
+            >
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-semibold neutral-text block mb-2">
+                      Label
+                    </label>
+                    <div className="text-base neutral-text font-medium p-3 bg-white rounded-lg border border-neutral-200">
+                      {viewModal.option.label || "N/A"}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-sm font-semibold neutral-text block mb-2">
+                      Value
+                    </label>
+                    <div className="text-base neutral-text font-medium p-3 bg-white rounded-lg border border-neutral-200">
+                      {viewModal.option.value !== null &&
+                      viewModal.option.value !== undefined
+                        ? viewModal.option.value
+                        : "N/A"}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-3 pt-4">
+                  <button
+                    onClick={closeViewModal}
+                    className="btn btn-ghost"
+                  >
+                    Close
+                  </button>
+                  <button
+                    onClick={() => {
+                      closeViewModal();
+                      setTimeout(() => {
+                        setEditingId(viewModal.option.id);
+                        setEditingData({
+                          label: viewModal.option.label || "",
+                          value:
+                            viewModal.option.value !== null &&
+                            viewModal.option.value !== undefined
+                              ? String(viewModal.option.value)
+                              : "",
+                        });
+                      }, 220);
+                    }}
+                    className="btn secondary-bg black-text hover:secondary-bg-dark shadow-md"
+                  >
+                    <HiPencil className="w-4 h-4 mr-2" /> Edit
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <style>{`
+            @keyframes modal-out {
+              from {
+                opacity: 1;
+                transform: scale(1) translateY(0);
+              }
+              to {
+                opacity: 0;
+                transform: scale(0.95) translateY(-10px);
+              }
+            }
+            @keyframes backdrop-out {
+              from {
+                opacity: 1;
+              }
+              to {
+                opacity: 0;
+              }
+            }
+            .animate-modal-out {
+              animation: modal-out 220ms ease-in forwards;
+            }
+            .animate-backdrop-out {
+              animation: backdrop-out 220ms ease-in forwards;
+            }
+          `}</style>
+        </div>
+      )}
+
+      {/* Edit Modal */}
+      {(editingId || isClosingEdit) && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 overflow-y-auto"
+          style={{ zIndex: 1000 }}
+        >
+          <div
+            className={`absolute inset-0 overlay ${
+              isClosingEdit ? "animate-backdrop-out" : "animate-backdrop-in"
+            }`}
+        style={{ backgroundColor: 'rgba(0, 0, 0, 0.3)' }}
+            onClick={closeEditModal}
+          />
+          <div 
+            className={`relative rounded-2xl max-w-4xl w-full shadow-2xl overflow-hidden border border-white/20 my-8 ${
+              isClosingEdit ? "animate-modal-out" : "animate-modal-in"
+            }`}
+        style={{ backgroundColor: 'rgba(255, 255, 255, 0.95)' }}
+          >
+            <div 
+              className="p-6 primary-bg-light"
+            >
+              <div className="flex items-center justify-between">
+                <h3 className="text-xl font-bold primary-text">Edit Option</h3>
+                <button
+                  onClick={closeEditModal}
+                  className="btn btn-ghost btn-icon-sm primary-text hover:bg-white/40"
+                  aria-label="Close"
+                >
+                  <HiX className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            <div 
+              className="p-6 max-h-[80vh] overflow-y-auto"
+              style={{ backgroundColor: 'rgba(249, 250, 251, 0.8)' }}
+            >
+              {Object.keys(fieldErrors).length > 0 && (
+                <div className="mb-4 p-3 bg-danger-bg-light border border-danger-border-light rounded-lg">
+                  <p className="danger-text text-sm">
+                    Please fix the errors below before submitting.
+                  </p>
+                </div>
+              )}
+
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-semibold neutral-text block mb-2">
+                      Label <span className="danger-text">*</span>
+                    </label>
+                    <input
+                      value={editingData.label}
+                      onChange={(e) => handleEditChange("label", e.target.value)}
+                      placeholder="Enter option label"
+                      className={`input ${fieldErrors.label ? "input-error" : ""}`}
+                    />
+                    {fieldErrors.label && (
+                      <p className="danger-text text-xs mt-1.5">
+                        {fieldErrors.label}
+                      </p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="text-sm font-semibold neutral-text block mb-2">
+                      Value (Number) <span className="danger-text">*</span>
+                    </label>
+                    <input
+                      type="number"
+                      value={editingData.value}
+                      onChange={(e) => handleEditChange("value", e.target.value)}
+                      placeholder="Enter option value"
+                      className={`input ${fieldErrors.value ? "input-error" : ""}`}
+                    />
+                    {fieldErrors.value && (
+                      <p className="danger-text text-xs mt-1.5">
+                        {fieldErrors.value}
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-3 pt-4">
+                  <button
+                    onClick={closeEditModal}
+                    disabled={actionLoading.update}
+                    className="btn btn-ghost"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => save(editingId)}
+                    disabled={actionLoading.update}
+                    className="btn btn-accent shadow-md"
+                  >
+                    {actionLoading.update ? (
+                      <>
+                        <span className="spinner spinner-sm mr-2"></span>
+                        Saving...
+                      </>
+                    ) : (
+                      <>
+                        <HiCheck className="w-4 h-4 mr-2" /> Save Changes
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <style>{`
+            @keyframes modal-out {
+              from {
+                opacity: 1;
+                transform: scale(1) translateY(0);
+              }
+              to {
+                opacity: 0;
+                transform: scale(0.95) translateY(-10px);
+              }
+            }
+            @keyframes backdrop-out {
+              from {
+                opacity: 1;
+              }
+              to {
+                opacity: 0;
+              }
+            }
+            .animate-modal-out {
+              animation: modal-out 220ms ease-in forwards;
+            }
+            .animate-backdrop-out {
+              animation: backdrop-out 220ms ease-in forwards;
+            }
+          `}</style>
+        </div>
+      )}
+
+      {/* Header and Add Button in one row */}
+      <div className="flex items-center justify-between mb-6">
+          <h1 className="text-2xl font-bold neutral-text">Manage Options</h1>
+          <button
+            onClick={() => {
+              resetForm();
+              setShowForm(true);
+            }}
+            className="btn secondary-bg black-text hover:secondary-bg-dark shadow-md"
+          >
+            <HiPlus className="w-4 h-4 black-text mr-2" /> Add New Option
+          </button>
+        </div>
+
+        {/* Search and Bulk Actions */}
+        <div className="mb-4 flex flex-col md:flex-row gap-3 items-start md:items-center justify-between">
+          <div className="flex-1 w-full md:max-w-md">
+            <div className="group flex w-full rounded-md overflow-hidden border border-neutral-300 transition-all focus-within:ring-2 focus-within:ring-secondary focus-within:border-secondary">
+              {/* Left Icon Box */}
+              <div className="flex items-center justify-center bg-primary-bg-light px-3 transition-all group-focus-within:bg-secondary-bg-light">
+                <HiSearch className="h-5 w-5 primary-text group-focus-within:secondary-text transition-colors" />
+              </div>
+
+              {/* Input Field */}
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setCurrentPage(1);
+                }}
+                placeholder="Search by label or value..."
+                className="flex-1 py-2 px-3 bg-white text-sm focus:outline-none focus:bg-secondary-bg-light transition-colors"
+              />
+              
+              {/* Clear Button */}
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery("")}
+                  className="flex items-center justify-center px-3 hover:bg-secondary-bg-light transition-colors"
+                  title="Clear search"
+                >
+                  <HiX className="w-4 h-4 neutral-text-muted" />
+                </button>
+              )}
+            </div>
+          </div>
+          {selectedItems.length > 0 && (
+            <div className="flex items-center gap-2">
+              <span className="text-sm neutral-text-muted">
+                {selectedItems.length} selected
+              </span>
+              <button
+                onClick={deleteSelected}
+                disabled={actionLoading.delete === "bulk"}
+                className="btn btn-danger btn-sm"
+              >
+                {actionLoading.delete === "bulk" ? (
+                  <>
+                    <span className="spinner spinner-sm mr-2"></span>
+                    Deleting...
+                  </>
+                ) : (
+                  <>
+                    <HiTrash className="w-4 h-4 mr-2" /> Delete Selected
+                  </>
+                )}
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Options List Section - Simple */}
+        {loading ? (
+          <div className="flex flex-col items-center justify-center py-12">
+            <span className="spinner spinner-lg mb-3"></span>
+            <p className="text-sm neutral-text-muted">Loading options...</p>
+          </div>
+        ) : filtered.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-12">
+            <div className="p-3 primary-bg-light rounded-lg mb-3">
+              <HiCollection className="w-6 h-6 primary-text" />
+            </div>
+            <h3 className="text-base font-semibold neutral-text mb-1">
+              No options yet
+            </h3>
+            <p className="text-sm neutral-text-muted text-center">
+              {searchQuery
+                ? "No options match your search."
+                : "Create your first option above to get started."}
+            </p>
+          </div>
+        ) : (
+          <>
+            {/* Table - Simple and Clean */}
+            <div className="overflow-x-auto rounded-lg border border-neutral-border-light">
+              <table className="table">
+                <thead>
+                  <tr className="bg-medium border-b border-neutral-border-light">
+                    <th
+                      className="font-semibold text-sm py-3 px-4 text-left neutral-text-muted"
+                      style={{ width: "40px" }}
+                    >
+                      <div className="flex items-center justify-center">
+                        <input
+                          type="checkbox"
+                          checked={allCurrentPageSelected}
+                          onChange={(e) => handleSelectAll(e.target.checked)}
+                          className="checkbox-custom"
+                          title="Select all on this page"
+                        />
+                      </div>
+                    </th>
+                    <th className="font-semibold text-sm py-3 px-4 text-left neutral-text-muted">
+                      S.No
+                    </th>
+                    <th className="font-semibold text-sm py-3 px-4 text-left neutral-text-muted">
+                      Label
+                    </th>
+                    <th className="font-semibold text-sm py-3 px-4 text-left neutral-text-muted">
+                      Value
+                    </th>
+                    <th
+                      className="font-semibold text-sm py-3 px-4 neutral-text-muted"
+                      style={{ textAlign: "right" }}
+                    >
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered
+                    .slice(
+                      (currentPage - 1) * itemsPerPage,
+                      currentPage * itemsPerPage
+                    )
+                    .map((item, index) => {
+                      const isEven = index % 2 === 0;
+                      const isSelected = selectedItems.includes(item.id);
+                      return (
+                        <tr
+                          key={item.id}
+                          className={`border-b border-neutral-border-light ${isEven ? "bg-white" : "bg-gray-50"} ${isSelected ? "bg-blue-100" : ""} hover:bg-gray-100 transition-colors`}
+                        >
+                          <td className="py-3 px-4">
+                            <div className="flex items-center justify-center">
+                              <input
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={(e) =>
+                                  handleItemSelect(item.id, e.target.checked)
+                                }
+                                className="checkbox-custom"
+                                title="Select item"
+                              />
+                            </div>
+                          </td>
+                          <td className="py-3 px-4 neutral-text-muted">
+                            {(currentPage - 1) * itemsPerPage + index + 1}
+                          </td>
+                          <td className="py-3 px-4 neutral-text">
+                            <span className="text-sm font-medium">
+                              {item.label || "N/A"}
+                            </span>
+                          </td>
+                          <td className="py-3 px-4 neutral-text">
+                            <span className="text-sm">
+                              {item.value !== null && item.value !== undefined
+                                ? item.value
+                                : "N/A"}
+                            </span>
+                          </td>
+                          <td className="py-3 px-4">
+                            <div className="flex items-center justify-end gap-2">
+                              <button
+                                onClick={() => {
+                                  setViewModal({
+                                    isOpen: true,
+                                    option: item,
+                                  });
+                                }}
+                                className="btn-view"
+                                title="View"
+                              >
+                                <HiEye />
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setEditingId(item.id);
+                                  setEditingData({
+                                    label: item.label || "",
+                                    value:
+                                      item.value !== null &&
+                                      item.value !== undefined
+                                        ? String(item.value)
+                                        : "",
+                                  });
+                                }}
+                                className="btn-edit"
+                                title="Edit"
+                              >
+                                <HiPencil />
+                              </button>
+                              <button
+                                onClick={() =>
+                                  handleDeleteClick(item.id, item.label)
+                                }
+                                disabled={actionLoading.delete === item.id}
+                                className="btn-delete"
+                                title="Delete"
+                              >
+                                {actionLoading.delete === item.id ? (
+                                  <span className="spinner spinner-sm"></span>
+                                ) : (
+                                  <HiTrash />
+                                )}
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Pagination - Simple */}
+            {filtered.length > itemsPerPage && (
+              <div className="flex items-center justify-between mt-4 pt-4 border-t border-neutral-border-light">
+                <div className="text-xs neutral-text-muted">
+                  Showing{" "}
+                  <span className="font-medium neutral-text">
+                    {(currentPage - 1) * itemsPerPage + 1}
+                  </span>{" "}
+                  to{" "}
+                  <span className="font-medium neutral-text">
+                    {Math.min(currentPage * itemsPerPage, filtered.length)}
+                  </span>{" "}
+                  of{" "}
+                  <span className="font-medium neutral-text">
+                    {filtered.length}
+                  </span>{" "}
+                  options
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() =>
+                      setCurrentPage((prev) => Math.max(1, prev - 1))
+                    }
+                    disabled={currentPage === 1}
+                    className="btn btn-ghost btn-sm"
+                  >
+                    <HiChevronLeft />
+                    Previous
+                  </button>
+                  <div className="flex items-center gap-1">
+                    {Array.from(
+                      { length: Math.ceil(filtered.length / itemsPerPage) },
+                      (_, i) => i + 1
+                    )
+                      .filter((page) => {
+                        const totalPages = Math.ceil(
+                          filtered.length / itemsPerPage
+                        );
+                        return (
+                          page === 1 ||
+                          page === totalPages ||
+                          (page >= currentPage - 1 && page <= currentPage + 1)
+                        );
+                      })
+                      .map((page, index, array) => {
+                        const showEllipsisBefore =
+                          index > 0 && array[index - 1] < page - 1;
+                        return (
+                          <React.Fragment key={page}>
+                            {showEllipsisBefore && (
+                              <span className="px-2 neutral-text-muted-dark">
+                                ...
+                              </span>
+                            )}
+                            <button
+                              onClick={() => setCurrentPage(page)}
+                              className={`btn btn-sm ${
+                                currentPage === page
+                                  ? "btn-primary"
+                                  : "btn-ghost"
+                              }`}
+                            >
+                              {page}
+                            </button>
+                          </React.Fragment>
+                        );
+                      })}
+                  </div>
+                  <button
+                    onClick={() =>
+                      setCurrentPage((prev) =>
+                        Math.min(
+                          Math.ceil(filtered.length / itemsPerPage),
+                          prev + 1
+                        )
+                      )
+                    }
+                    disabled={
+                      currentPage >= Math.ceil(filtered.length / itemsPerPage)
+                    }
+                    className="btn btn-ghost btn-sm"
+                  >
+                    Next
+                    <HiChevronRight />
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
+        )}
+    </div>
+  );
+}
