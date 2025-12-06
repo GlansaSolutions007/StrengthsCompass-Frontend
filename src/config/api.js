@@ -39,11 +39,22 @@ apiClient.interceptors.request.use(
       }
 
       // For POST/PUT/PATCH, also add to body if it's an object
+      // if ((config.method === "post" || config.method === "put" || config.method === "patch") && config.data) {
+      //   if (typeof config.data === "object" && !Array.isArray(config.data) && config.data !== null) {
+      //     config.data.age_group_id = variantId;
+      //   }
+      // }
+
       if ((config.method === "post" || config.method === "put" || config.method === "patch") && config.data) {
-        if (typeof config.data === "object" && !Array.isArray(config.data) && config.data !== null) {
-          config.data.age_group_id = variantId;
+        // Handle FormData
+        if (config.data instanceof FormData) {
+          config.data.append("age_group_id", variantId);
         }
-      }
+        // Handle plain objects
+        else if (typeof config.data === "object" && !Array.isArray(config.data) && config.data !== null) {
+          config.data.age_group_id = variantId;
+        }
+      }
     }
 
     return config;
