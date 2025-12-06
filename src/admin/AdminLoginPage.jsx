@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { HiUser, HiLockClosed, HiExclamationCircle, HiEye, HiEyeOff } from "react-icons/hi";
+import { HiUser, HiLockClosed, HiExclamationCircle, HiEye, HiEyeOff, HiChevronDown } from "react-icons/hi";
 import apiClient from "../config/api";
 import AlertModal from "../components/AlertModal";
 import logoImage from "../../Images/Logo.png";
@@ -27,8 +27,59 @@ export default function AdminLoginPage() {
     }
   }, [navigate]);
 
+  // Fetch age groups on component mount
+  useEffect(() => {
+    const fetchAgeGroups = async () => {
+      try {
+        setLoadingAgeGroups(true);
+        const response = await apiClient.get("/current-age-group");
+        
+        if (response.data?.status && response.data.data) {
+          // Handle both array and single object response
+          const groups = Array.isArray(response.data.data) 
+            ? response.data.data 
+            : [response.data.data];
+          
+          setAgeGroups(
+            groups.map((ag) => ({
+              id: ag.id,
+              name: ag.name || "",
+              from: ag.from || "",
+              to: ag.to || "",
+            }))
+          );
+        }
+      } catch (err) {
+        console.error("Error fetching age groups:", err);
+        // If endpoint doesn't exist, try alternative endpoint
+        try {
+          const altResponse = await apiClient.get("/age-groups");
+          if (altResponse.data?.status && altResponse.data.data) {
+            setAgeGroups(
+              altResponse.data.data.map((ag) => ({
+                id: ag.id,
+                name: ag.name || "",
+                from: ag.from || "",
+                to: ag.to || "",
+              }))
+            );
+          }
+        } catch (altErr) {
+          console.error("Error fetching age groups from alternative endpoint:", altErr);
+        }
+      } finally {
+        setLoadingAgeGroups(false);
+      }
+    };
+
+    fetchAgeGroups();
+  }, []);
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [ageGroupId, setAgeGroupId] = useState("");
+  const [ageGroups, setAgeGroups] = useState([]);
+  const [loadingAgeGroups, setLoadingAgeGroups] = useState(true);
   const [errors, setErrors] = useState({});
   const [touched, setTouched] = useState({});
   const [loginError, setLoginError] = useState("");
@@ -48,12 +99,19 @@ export default function AdminLoginPage() {
     return "";
   };
 
+  const validateAgeGroup = (ageGroupId) => {
+    if (!ageGroupId || ageGroupId === "") return "Age group is required";
+    return "";
+  };
+
   const handleBlur = (field) => {
     setTouched({ ...touched, [field]: true });
     if (field === "email") {
       setErrors({ ...errors, email: validateEmail(email) });
     } else if (field === "password") {
       setErrors({ ...errors, password: validatePassword(password) });
+    } else if (field === "ageGroup") {
+      setErrors({ ...errors, ageGroup: validateAgeGroup(ageGroupId) });
     }
   };
 
@@ -70,6 +128,12 @@ export default function AdminLoginPage() {
       if (touched.password) {
         setErrors({ ...errors, password: validatePassword(value) });
       }
+    } else if (field === "ageGroup") {
+      setAgeGroupId(value);
+      setLoginError("");
+      if (touched.ageGroup) {
+        setErrors({ ...errors, ageGroup: validateAgeGroup(value) });
+      }
     }
   };
 
@@ -80,33 +144,57 @@ export default function AdminLoginPage() {
     
     const emailError = validateEmail(email);
     const passwordError = validatePassword(password);
+    const ageGroupError = validateAgeGroup(ageGroupId);
 
-    if (emailError || passwordError) {
-      setErrors({ email: emailError, password: passwordError });
-      setTouched({ email: true, password: true });
+    if (emailError || passwordError || ageGroupError) {
+      setErrors({ 
+        email: emailError, 
+        password: passwordError,
+        ageGroup: ageGroupError
+      });
+      setTouched({ email: true, password: true, ageGroup: true });
       setIsLoading(false);
       return;
     }
 
     try {
-      const response = await apiClient.post("/login", {
+      // First, perform login
+      const loginResponse = await apiClient.post("/login", {
         email: email,
         password: password,
       });
 
-      console.log("Login response:", response.data);
+      console.log("Login response:", loginResponse.data);
 
-      if (response.data && (response.data.status === true || response.status === 200)) {
-        if (response.data.data?.token) {
-          localStorage.setItem("adminToken", response.data.data.token);
+      if (loginResponse.data && (loginResponse.data.status === true || loginResponse.status === 200)) {
+        if (loginResponse.data.data?.token) {
+          localStorage.setItem("adminToken", loginResponse.data.data.token);
         }
-        if (response.data.data?.user) {
-          localStorage.setItem("adminUser", JSON.stringify(response.data.data.user));
+        if (loginResponse.data.data?.user) {
+          localStorage.setItem("adminUser", JSON.stringify(loginResponse.data.data.user));
+        }
+        
+        // After successful login, set the age group
+        try {
+          const variantResponse = await apiClient.post("/set-age-group", {
+            age_group_id: parseInt(ageGroupId),
+          });
+
+          if (variantResponse.data?.status || variantResponse.status === 200) {
+            // Store selected age group in localStorage
+            localStorage.setItem("adminSelectedVariantId", ageGroupId);
+            console.log("Age group set successfully:", variantResponse.data);
+          }
+        } catch (variantErr) {
+          console.error("Error setting age group:", variantErr);
+          // Continue with navigation even if age group setting fails
+          // Store locally as fallback
+          localStorage.setItem("adminSelectedVariantId", ageGroupId);
         }
         
         navigate("/admin/dashboard");
       } else {
-        setLoginError(response.data?.message || "Login failed. Please check your credentials.");
+        setLoginError(loginResponse.data?.message || "Login failed. Please check your credentials.");
       }
     } catch (err) {
       console.error("Login error:", err);
@@ -239,7 +327,61 @@ export default function AdminLoginPage() {
             )}
           </div>
 
-         
+          <div className="space-y-2">
+            <label className="block text-sm font-medium neutral-text-muted">
+              Age Group <span className="danger-text">*</span>
+            </label>
+            <div
+              className={`group flex w-full rounded-md overflow-hidden border transition-all focus-within:ring-2 focus-within:ring-secondary focus-within:border-secondary ${
+                errors.ageGroup && touched.ageGroup
+                  ? "border-red-500"
+                  : "border-neutral-300"
+              }`}
+            >
+              {/* Left Icon Box */}
+              <div
+                className="flex items-center justify-center bg-primary-bg-light px-3 transition-all group-focus-within:bg-secondary-bg-light"
+              >
+                <HiUser className="h-5 w-5 primary-text group-focus-within:secondary-text transition-colors" />
+              </div>
+
+              {/* Select Field */}
+              <div className="relative flex-1">
+                <select
+                  required
+                  value={ageGroupId}
+                  onChange={(e) => handleChange("ageGroup", e.target.value)}
+                  onBlur={() => handleBlur("ageGroup")}
+                  disabled={loadingAgeGroups || isLoading}
+                  className="w-full py-2 px-3 bg-white text-sm focus:outline-none focus:bg-secondary-bg-light transition-colors appearance-none pr-8"
+                >
+                  {loadingAgeGroups ? (
+                    <option value="">Loading age groups...</option>
+                  ) : ageGroups.length === 0 ? (
+                    <option value="">No age groups available</option>
+                  ) : (
+                    <>
+                      <option value="" disabled>
+                        Select age group
+                      </option>
+                      {ageGroups.map((ag) => (
+                        <option key={ag.id} value={ag.id}>
+                          {ag.name} ({ag.from} - {ag.to})
+                        </option>
+                      ))}
+                    </>
+                  )}
+                </select>
+                <HiChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 neutral-text-muted" />
+              </div>
+            </div>
+            {errors.ageGroup && touched.ageGroup && (
+              <p className="danger-text text-xs mt-1 flex items-center gap-1">
+                <HiExclamationCircle className="w-3 h-3" />
+                {errors.ageGroup}
+              </p>
+            )}
+          </div>
 
           <button
             type="submit"

@@ -809,6 +809,66 @@ export default function AdminMasterQuestions() {
                 </div>
               )}
 
+<div className="border-t border-neutral-border-light pt-4">
+                    <h4 className="text-sm font-semibold neutral-text mb-4">Bulk Upload All Questions</h4>
+                    
+                    <div className="mb-4">
+                      <label className="text-sm font-semibold neutral-text block mb-2">
+                        Upload File <span className="danger-text">*</span>
+                      </label>
+                      <div className="flex gap-3 items-start">
+                        <div className="flex-1">
+                          <input
+                            id="bulk-upload-file"
+                            type="file"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              setBulkUploadFile(file || null);
+                              if (file) {
+                                if (fieldErrors.file) {
+                                  setFieldErrors({ ...fieldErrors, file: "" });
+                                }
+                              }
+                            }}
+                            accept=".xlsx,.xls,.csv"
+                            disabled={actionLoading.bulkUpload || !clusterId || !constructId}
+                            className={`input ${fieldErrors.file ? "input-error" : ""}`}
+                          />
+                          {fieldErrors.file && (
+                            <p className="danger-text text-xs mt-1.5">
+                              {fieldErrors.file}
+                            </p>
+                          )}
+                          <p className="text-xs neutral-text-muted mt-1.5">
+                            Supported formats: Excel (.xlsx, .xls) or CSV (.csv)
+                          </p>
+                        </div>
+                        <button
+                          onClick={handleBulkUpload}
+                          disabled={actionLoading.bulkUpload || !bulkUploadFile || !clusterId || !constructId}
+                          className="btn btn-secondary flex-shrink-0"
+                          style={{ height: '42px', minWidth: '120px' }}
+                        >
+                          {actionLoading.bulkUpload ? (
+                            <>
+                              <span className="spinner spinner-sm"></span>
+                              Uploading...
+                            </>
+                          ) : (
+                            <>
+                              <HiCloudUpload className="w-4 h-4" /> Upload
+                            </>
+                          )}
+                        </button>
+                      </div>
+                      {(!clusterId || !constructId) && !fieldErrors.clusterId && !fieldErrors.constructId && (
+                        <p className="text-xs danger-text mt-2">
+                          Please select both cluster and construct before uploading.
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
               <div className="space-y-6">
                 {/* Cluster and Construct Selection */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

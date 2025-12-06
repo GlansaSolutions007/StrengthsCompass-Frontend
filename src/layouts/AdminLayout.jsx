@@ -5,14 +5,22 @@ import {
   HiOutlineClipboardList,
   HiOutlineChartPie,
   HiOutlineUserCircle,
+  HiChevronDown,
 } from "react-icons/hi";
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import logo from "../../Images/Logo.png";
+import apiClient from "../config/api";
+import AlertModal from "../components/AlertModal";
 // validations-only mode: no auth
 
 export default function AdminLayout() {
   const location = useLocation();
   const navigate = useNavigate();
+  const [ageGroups, setAgeGroups] = useState([]);
+  const [selectedVariant, setSelectedVariant] = useState(null);
+  const [loadingVariant, setLoadingVariant] = useState(false);
+  const [variantError, setVariantError] = useState(null);
+  const [variantSuccess, setVariantSuccess] = useState(null);
 
   // Check authentication and separate admin/user routes
   useEffect(() => {
@@ -31,6 +39,78 @@ export default function AdminLayout() {
       navigate("/admin/login", { replace: true });
     }
   }, [navigate]);
+
+  // Fetch age groups and load saved variant
+  useEffect(() => {
+    const fetchAgeGroups = async () => {
+      try {
+        const token = localStorage.getItem("adminToken");
+        if (!token) return;
+
+        const response = await apiClient.get("/age-groups");
+        if (response.data?.status && response.data.data) {
+          const groups = response.data.data.map((ag) => ({
+            id: ag.id,
+            name: ag.name || "",
+            from: ag.from || "",
+            to: ag.to || "",
+          }));
+          setAgeGroups(groups);
+
+          // Load saved variant from localStorage
+          const savedVariantId = localStorage.getItem("adminSelectedVariantId");
+          if (savedVariantId) {
+            const savedVariant = groups.find((g) => g.id === parseInt(savedVariantId));
+            if (savedVariant) {
+              setSelectedVariant(savedVariant);
+            }
+          }
+        }
+      } catch (err) {
+        console.error("Error fetching age groups:", err);
+      }
+    };
+
+    fetchAgeGroups();
+  }, []);
+
+  // Handle variant change
+  const handleVariantChange = async (ageGroupId) => {
+    const selectedGroup = ageGroups.find((g) => g.id === parseInt(ageGroupId));
+    if (!selectedGroup) return;
+
+    setLoadingVariant(true);
+    setVariantError(null);
+    setVariantSuccess(null);
+
+    try {
+      // Call backend API to set age group
+      const response = await apiClient.post("/set-age-group", {
+        age_group_id: selectedGroup.id,
+      });
+
+      if (response.data?.status || response.status === 200) {
+        setSelectedVariant(selectedGroup);
+        localStorage.setItem("adminSelectedVariantId", selectedGroup.id.toString());
+        setVariantSuccess("Variant changed successfully!");
+        setTimeout(() => setVariantSuccess(null), 3000);
+        
+        // Reload the page or refresh data based on the new age group
+        // This ensures all data is filtered by the new age group
+        window.location.reload();
+      } else {
+        setVariantError(response.data?.message || "Failed to change variant");
+      }
+    } catch (err) {
+      console.error("Error setting age group:", err);
+      setVariantError(
+        err.response?.data?.message ||
+          "Failed to change variant. Please try again."
+      );
+    } finally {
+      setLoadingVariant(false);
+    }
+  };
 
   const items = [
     {
@@ -85,6 +165,21 @@ export default function AdminLayout() {
 
   return (
     <div className="min-h-screen w-screen bg neutral-text flex">
+      <AlertModal
+        isOpen={!!variantError}
+        onClose={() => setVariantError(null)}
+        type="error"
+        title="Error"
+        message={variantError || ""}
+      />
+      <AlertModal
+        isOpen={!!variantSuccess}
+        onClose={() => setVariantSuccess(null)}
+        type="success"
+        title="Success"
+        message={variantSuccess || ""}
+        autoClose={3000}
+      />
       {/* Sidebar */}
       <aside className="w-64 bg-gray-800 flex flex-col sticky top-0 h-screen overflow-y-auto">
         {/* Header */}
@@ -220,6 +315,21 @@ export default function AdminLayout() {
               </span>
               <span className={`text-sm font-medium ${isRouteActive("/admin/dashboard/master/tests") ? "text-black" : "text-white"}`}>Tests</span>
             </NavLink>
+            <NavLink
+              to="/admin/dashboard/master/age"
+              className={({ isActive }) =>
+                `flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 group ${
+                  isActive
+                    ? "bg-[#eab308] text-black shadow-md"
+                    : "text-gray-300 hover:bg-gray-800 hover:text-white"
+                }`
+              }
+            >
+              <span className={isRouteActive("/admin/dashboard/master/age") ? "text-black" : "text-gray-400 group-hover:text-white"}>
+                <HiOutlineClipboardList className="w-5 h-5" />
+              </span>
+              <span className={`text-sm font-medium ${isRouteActive("/admin/dashboard/master/age") ? "text-black" : "text-white"}`}>Age</span>
+            </NavLink>
           </div>
 
           <NavLink
@@ -260,6 +370,41 @@ export default function AdminLayout() {
                 <p className="text-sm neutral-text-muted mt-1">
                   Manage your {titleFromPath(location.pathname).toLowerCase()} settings
                 </p>
+              </div>
+              {/* Variant (Age Group) Selector */}
+              <div className="flex items-center gap-3">
+                <label className="text-sm font-semibold neutral-text whitespace-nowrap">
+                  Variant (Age Group):
+                </label>
+                <div className="relative">
+                  <select
+                    value={selectedVariant?.id || ""}
+                    onChange={(e) => handleVariantChange(e.target.value)}
+                    disabled={loadingVariant || ageGroups.length === 0}
+                    className="input pr-10 min-w-[200px] bg-white border border-neutral-300 focus:ring-2 focus:ring-secondary focus:border-secondary"
+                  >
+                    {ageGroups.length === 0 ? (
+                      <option value="">Loading...</option>
+                    ) : (
+                      <>
+                        {!selectedVariant && (
+                          <option value="" disabled>
+                            Select Age Group
+                          </option>
+                        )}
+                        {ageGroups.map((ag) => (
+                          <option key={ag.id} value={ag.id}>
+                            {ag.name} ({ag.from} - {ag.to})
+                          </option>
+                        ))}
+                      </>
+                    )}
+                  </select>
+                  <HiChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 neutral-text-muted" />
+                </div>
+                {loadingVariant && (
+                  <span className="spinner spinner-sm"></span>
+                )}
               </div>
             </div>
           </div>

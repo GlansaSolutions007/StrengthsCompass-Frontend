@@ -15,6 +15,7 @@ import AdminMasterConstruct from "./admin/master/AdminMasterConstruct";
 import AdminMasterQuestions from "./admin/master/AdminMasterQuestions";
 import AdminMasterOptions from "./admin/master/AdminMasterOptions";
 import AdminMasterTests from "./admin/master/AdminMasterTests";
+import AdminMasterAge from "./admin/master/AdminMasterAge";
 import AdminUserList from "./admin/AdminUserList";
 import UserDetails from "./admin/UserDetails";
 import UserResults from "./admin/UserResults";
@@ -48,6 +49,7 @@ export default function App() {
         <Route path="master/questions" element={<AdminMasterQuestions />} />
         <Route path="master/options" element={<AdminMasterOptions />} />
         <Route path="master/tests" element={<AdminMasterTests />} />
+        <Route path="master/age" element={<AdminMasterAge />} />
         <Route path="profile" element={<AdminProfile />} />
       </Route>
 
