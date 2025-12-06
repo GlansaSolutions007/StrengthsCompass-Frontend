@@ -17,13 +17,35 @@ const apiClient = axios.create({
   },
 });
 
-// Request interceptor to add auth token
+// Request interceptor to add auth token and age group ID
 apiClient.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem("adminToken");
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+
+    // Add age group ID from localStorage
+    const variantId = localStorage.getItem("adminSelectedVariantId");
+
+    if (variantId) {
+      // Add as header (works for all request types)
+      config.headers["X-Age-Group-Id"] = variantId;
+
+      // Also add as query parameter for GET/DELETE requests
+      if (config.method === "get" || config.method === "delete") {
+        config.params = config.params || {};
+        config.params.age_group_id = variantId;
+      }
+
+      // For POST/PUT/PATCH, also add to body if it's an object
+      if ((config.method === "post" || config.method === "put" || config.method === "patch") && config.data) {
+        if (typeof config.data === "object" && !Array.isArray(config.data) && config.data !== null) {
+          config.data.age_group_id = variantId;
+        }
+      }
+    }
+
     return config;
   },
   (error) => {
