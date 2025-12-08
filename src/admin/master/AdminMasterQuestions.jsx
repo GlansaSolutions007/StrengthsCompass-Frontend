@@ -50,11 +50,16 @@ export default function AdminMasterQuestions() {
     update: false,
     delete: false,
     bulkUpload: false,
+    bulkAssign: false,
   });
   const [bulkUploadFile, setBulkUploadFile] = useState(null);
+  const [generalBulkUploadFile, setGeneralBulkUploadFile] = useState(null);
+  const [clusterConstructBulkUploadFile, setClusterConstructBulkUploadFile] = useState(null);
+  const [activeTab, setActiveTab] = useState("single"); // "single", "bulk-general", "bulk-cluster-construct"
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
   const [searchQuery, setSearchQuery] = useState("");
+  const [showUnassignedOnly, setShowUnassignedOnly] = useState(false);
   const [selectedItems, setSelectedItems] = useState([]);
   const [viewModal, setViewModal] = useState({
     isOpen: false,
@@ -64,6 +69,10 @@ export default function AdminMasterQuestions() {
   const [isClosingEdit, setIsClosingEdit] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [isClosingForm, setIsClosingForm] = useState(false);
+  const [showBulkAssignModal, setShowBulkAssignModal] = useState(false);
+  const [isClosingBulkAssign, setIsClosingBulkAssign] = useState(false);
+  const [bulkAssignClusterId, setBulkAssignClusterId] = useState("");
+  const [bulkAssignConstructId, setBulkAssignConstructId] = useState("");
 
   const fetchClusters = async () => {
     try {
@@ -204,6 +213,18 @@ export default function AdminMasterQuestions() {
     });
   }, [constructs, clusterId]);
 
+  const constructsForBulkAssign = useMemo(() => {
+    if (!bulkAssignClusterId) return constructs;
+    return constructs.filter((c) => {
+      const cClusterId = c.clusterId || c.cluster_id;
+      return (
+        cClusterId === bulkAssignClusterId ||
+        cClusterId === parseInt(bulkAssignClusterId) ||
+        cClusterId === bulkAssignClusterId.toString()
+      );
+    });
+  }, [constructs, bulkAssignClusterId]);
+
   const constructFiltered = useMemo(() => {
     if (!constructId) return items;
     return items.filter((q) => {
@@ -218,6 +239,15 @@ export default function AdminMasterQuestions() {
 
   const filtered = useMemo(() => {
     let result = constructFiltered;
+    
+    // Filter for unassigned questions if the filter is active
+    if (showUnassignedOnly) {
+      result = result.filter((item) => {
+        const qConstructId = item.construct_id || item.constructId;
+        return !qConstructId || qConstructId === null || qConstructId === undefined;
+      });
+    }
+    
     if (searchQuery.trim()) {
       const searchLower = searchQuery.toLowerCase();
       result = result.filter((item) => {
@@ -234,7 +264,7 @@ export default function AdminMasterQuestions() {
       });
     }
     return result;
-  }, [constructFiltered, searchQuery, constructs]);
+  }, [constructFiltered, searchQuery, constructs, showUnassignedOnly]);
 
   useEffect(() => {
     if (
@@ -315,6 +345,73 @@ export default function AdminMasterQuestions() {
     } finally {
       setActionLoading({ ...actionLoading, delete: false });
     }
+  };
+
+  // Bulk assign questions to cluster and construct
+  const handleBulkAssign = async () => {
+    if (selectedItems.length === 0) return;
+
+    const errors = {};
+    if (!bulkAssignClusterId) {
+      errors.bulkAssignClusterId = "Please select a cluster";
+    }
+    if (!bulkAssignConstructId) {
+      errors.bulkAssignConstructId = "Please select a construct";
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      return;
+    }
+
+    setFieldErrors({});
+    setActionLoading({ ...actionLoading, bulkAssign: true });
+    
+    try {
+      const updatePromises = selectedItems.map((id) =>
+        apiClient.put(`/questions/${id}`, {
+          construct_id: bulkAssignConstructId,
+          cluster_id: bulkAssignClusterId,
+        })
+      );
+      
+      await Promise.all(updatePromises);
+
+      // Refresh questions list
+      await fetchQuestions();
+      
+      setSelectedItems([]);
+      setBulkAssignClusterId("");
+      setBulkAssignConstructId("");
+      setShowBulkAssignModal(false);
+      setError(null);
+      setSuccess(`${selectedItems.length} question(s) assigned successfully!`);
+    } catch (err) {
+      console.error("Error assigning questions:", err);
+      if (err.response?.status === 401) {
+        localStorage.removeItem("adminToken");
+        localStorage.removeItem("adminUser");
+        navigate("/admin/login");
+      } else {
+        setError(
+          err.response?.data?.message ||
+            "Failed to assign some questions. Please try again."
+        );
+      }
+    } finally {
+      setActionLoading({ ...actionLoading, bulkAssign: false });
+    }
+  };
+
+  const closeBulkAssignModal = () => {
+    setIsClosingBulkAssign(true);
+    setTimeout(() => {
+      setIsClosingBulkAssign(false);
+      setShowBulkAssignModal(false);
+      setBulkAssignClusterId("");
+      setBulkAssignConstructId("");
+      setFieldErrors({});
+    }, 220);
   };
 
   const add = async () => {
@@ -444,14 +541,23 @@ export default function AdminMasterQuestions() {
     setClusterId("");
     setConstructId("");
     setBulkUploadFile(null);
+    setGeneralBulkUploadFile(null);
+    setClusterConstructBulkUploadFile(null);
+    setActiveTab("single");
     setFieldErrors({});
     setEditingId(null);
     setEditingData({ question_text: "", category: "", order_no: "" });
-    // Reset file input
-    const fileInput = document.getElementById("bulk-upload-file");
-    if (fileInput) {
-      fileInput.value = "";
-    }
+    // Reset file inputs
+    const fileInputs = [
+      document.getElementById("bulk-upload-file"),
+      document.getElementById("general-bulk-upload-file"),
+      document.getElementById("cluster-construct-bulk-upload-file")
+    ];
+    fileInputs.forEach(input => {
+      if (input) {
+        input.value = "";
+      }
+    });
   };
 
   const closeForm = () => {
@@ -540,17 +646,12 @@ export default function AdminMasterQuestions() {
     }
   };
 
-  const handleBulkUpload = async () => {
+  // General bulk upload (no cluster/construct required)
+  const handleGeneralBulkUpload = async () => {
     const errors = {};
     
-    if (!clusterId) {
-      errors.clusterId = "Please select a cluster before uploading";
-    }
-    if (!constructId) {
-      errors.constructId = "Please select a construct before uploading";
-    }
-    if (!bulkUploadFile) {
-      errors.file = "Please select a file to upload";
+    if (!generalBulkUploadFile) {
+      errors.generalFile = "Please select a file to upload";
     }
 
     if (Object.keys(errors).length > 0) {
@@ -564,8 +665,7 @@ export default function AdminMasterQuestions() {
 
     try {
       const formData = new FormData();
-      formData.append("file", bulkUploadFile);
-      formData.append("construct_id", constructId);
+      formData.append("file", generalBulkUploadFile);
 
       const response = await apiClient.post("/questions/bulk-upload", formData, {
         headers: {
@@ -577,9 +677,79 @@ export default function AdminMasterQuestions() {
         setSuccess(
           response.data?.message || "Questions uploaded successfully!"
         );
-        setBulkUploadFile(null);
+        setGeneralBulkUploadFile(null);
         // Reset file input
-        const fileInput = document.getElementById("bulk-upload-file");
+        const fileInput = document.getElementById("general-bulk-upload-file");
+        if (fileInput) {
+          fileInput.value = "";
+        }
+        // Refresh questions list
+        fetchQuestions();
+        setShowForm(false);
+      } else {
+        setError(response.data?.message || "Failed to upload questions");
+      }
+    } catch (err) {
+      console.error("Error uploading questions:", err);
+      if (err.response?.status === 401) {
+        localStorage.removeItem("adminToken");
+        localStorage.removeItem("adminUser");
+        navigate("/admin/login");
+      } else {
+        setError(
+          err.response?.data?.message ||
+            "Failed to upload questions. Please try again."
+        );
+      }
+    } finally {
+      setActionLoading({ ...actionLoading, bulkUpload: false });
+    }
+  };
+
+  // Cluster and Construct specific bulk upload
+  const handleClusterConstructBulkUpload = async () => {
+    const errors = {};
+    
+    if (!clusterId) {
+      errors.clusterId = "Please select a cluster before uploading";
+    }
+    if (!constructId) {
+      errors.constructId = "Please select a construct before uploading";
+    }
+    if (!clusterConstructBulkUploadFile) {
+      errors.clusterConstructFile = "Please select a file to upload";
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      return;
+    }
+
+    setError(null);
+    setFieldErrors({});
+    setActionLoading({ ...actionLoading, bulkUpload: true });
+
+    try {
+      const formData = new FormData();
+      formData.append("file", clusterConstructBulkUploadFile);
+      formData.append("construct_id", constructId);
+      if (clusterId) {
+        formData.append("cluster_id", clusterId);
+      }
+
+      const response = await apiClient.post("/questions/bulk-upload", formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
+
+      if (response.data?.status) {
+        setSuccess(
+          response.data?.message || "Questions uploaded successfully!"
+        );
+        setClusterConstructBulkUploadFile(null);
+        // Reset file input
+        const fileInput = document.getElementById("cluster-construct-bulk-upload-file");
         if (fileInput) {
           fileInput.value = "";
         }
@@ -809,8 +979,247 @@ export default function AdminMasterQuestions() {
                 </div>
               )}
 
-<div className="border-t border-neutral-border-light pt-4">
-                    <h4 className="text-sm font-semibold neutral-text mb-4">Bulk Upload All Questions</h4>
+              {!editingId && (
+                <>
+                  {/* Tab Navigation */}
+                  <div className="flex border-b border-neutral-border-light mb-6">
+                    <button
+                      onClick={() => setActiveTab("single")}
+                      className={`px-6 py-3 font-semibold text-sm transition-colors ${
+                        activeTab === "single"
+                          ? "primary-text border-b-2 border-primary"
+                          : "neutral-text-muted hover:neutral-text"
+                      }`}
+                    >
+                      <HiPlus className="w-4 h-4 inline mr-2" />
+                      Single Question
+                    </button>
+                    <button
+                      onClick={() => setActiveTab("bulk-general")}
+                      className={`px-6 py-3 font-semibold text-sm transition-colors ${
+                        activeTab === "bulk-general"
+                          ? "primary-text border-b-2 border-primary"
+                          : "neutral-text-muted hover:neutral-text"
+                      }`}
+                    >
+                      <HiCloudUpload className="w-4 h-4 inline mr-2" />
+                      Bulk Upload
+                    </button>
+                    <button
+                      onClick={() => setActiveTab("bulk-cluster-construct")}
+                      className={`px-6 py-3 font-semibold text-sm transition-colors ${
+                        activeTab === "bulk-cluster-construct"
+                          ? "primary-text border-b-2 border-primary"
+                          : "neutral-text-muted hover:neutral-text"
+                      }`}
+                    >
+                      <HiCollection className="w-4 h-4 inline mr-2" />
+                      Cluster/Construct Upload
+                    </button>
+                  </div>
+
+                  {/* Tab Content */}
+                  {activeTab === "single" && (
+                    <div className="space-y-6">
+                      {/* Cluster and Construct Selection */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="text-sm font-semibold neutral-text block mb-2">
+                            Cluster <span className="danger-text">*</span>
+                          </label>
+                          <div className="relative">
+                            <select
+                              value={clusterId}
+                              onChange={(e) => {
+                                setClusterId(e.target.value);
+                                if (fieldErrors.clusterId) {
+                                  setFieldErrors({ ...fieldErrors, clusterId: "" });
+                                }
+                              }}
+                              disabled={
+                                clustersLoading ||
+                                actionLoading.create ||
+                                actionLoading.update ||
+                                actionLoading.bulkUpload
+                              }
+                              className={`input w-full pr-10 ${fieldErrors.clusterId ? "input-error" : ""}`}
+                            >
+                              {clustersLoading ? (
+                                <option value="" disabled>
+                                  Loading clusters...
+                                </option>
+                              ) : clusters.length === 0 ? (
+                                <option value="" disabled>
+                                  No clusters available
+                                </option>
+                              ) : (
+                                <>
+                                  {!clusterId && (
+                                    <option value="" disabled hidden>
+                                      Select cluster
+                                    </option>
+                                  )}
+                                  {clusters.map((c) => (
+                                    <option key={c.id} value={c.id}>
+                                      {c.name}
+                                    </option>
+                                  ))}
+                                </>
+                              )}
+                            </select>
+                            <HiChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 neutral-text-muted" />
+                          </div>
+                          {fieldErrors.clusterId && (
+                            <p className="danger-text text-xs mt-1.5">
+                              {fieldErrors.clusterId}
+                            </p>
+                          )}
+                        </div>
+
+                        <div>
+                          <label className="text-sm font-semibold neutral-text block mb-2">
+                            Construct <span className="danger-text">*</span>
+                          </label>
+                          <div className="relative">
+                            <select
+                              value={constructId}
+                              onChange={(e) => {
+                                setConstructId(e.target.value);
+                                if (fieldErrors.constructId) {
+                                  setFieldErrors({ ...fieldErrors, constructId: "" });
+                                }
+                              }}
+                              disabled={
+                                !clusterId ||
+                                constructsLoading ||
+                                actionLoading.create ||
+                                actionLoading.update ||
+                                actionLoading.bulkUpload
+                              }
+                              className={`input w-full pr-10 ${fieldErrors.constructId ? "input-error" : ""}`}
+                            >
+                              {!clusterId && !constructsLoading ? (
+                                <option value="" disabled>
+                                  Select cluster first
+                                </option>
+                              ) : clusterId && constructsForCluster.length === 0 ? (
+                                <option value="" disabled>
+                                  No constructs for this cluster
+                                </option>
+                              ) : (
+                                <>
+                                  {!constructId && (
+                                    <option value="" disabled hidden>
+                                      Select construct
+                                    </option>
+                                  )}
+                                  {constructsForCluster.map((c) => (
+                                    <option key={c.id} value={c.id}>
+                                      {c.name}
+                                    </option>
+                                  ))}
+                                </>
+                              )}
+                            </select>
+                            <HiChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 neutral-text-muted" />
+                          </div>
+                          {fieldErrors.constructId && (
+                            <p className="danger-text text-xs mt-1.5">
+                              {fieldErrors.constructId}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Question Form */}
+                      <div className="bg-white p-4 rounded-lg border border-neutral-border-light">
+                        <h4 className="text-sm font-semibold neutral-text mb-4">Question Details</h4>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <div className="md:col-span-3">
+                            <label className="text-sm font-semibold neutral-text block mb-2">
+                              Question Text <span className="danger-text">*</span>
+                            </label>
+                            <input
+                              value={questionText}
+                              onChange={(e) => {
+                                setQuestionText(e.target.value);
+                                if (fieldErrors.questionText) {
+                                  setFieldErrors({ ...fieldErrors, questionText: "" });
+                                }
+                              }}
+                              placeholder="Enter question text"
+                              disabled={!constructId || actionLoading.create || actionLoading.update}
+                              className={`input w-full ${fieldErrors.questionText ? "input-error" : ""}`}
+                            />
+                            {fieldErrors.questionText && (
+                              <p className="danger-text text-xs mt-1.5">
+                                {fieldErrors.questionText}
+                              </p>
+                            )}
+                          </div>
+                          <div>
+                            <label className="text-sm font-semibold neutral-text block mb-2">
+                              Category
+                            </label>
+                            <input
+                              value={category}
+                              onChange={(e) => setCategory(e.target.value)}
+                              placeholder="e.g., Multiple Choice"
+                              disabled={!constructId || actionLoading.create || actionLoading.update}
+                              className="input w-full"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-sm font-semibold neutral-text block mb-2">
+                              Order No
+                            </label>
+                            <input
+                              type="number"
+                              value={orderNo}
+                              onChange={(e) => setOrderNo(e.target.value)}
+                              placeholder="e.g., 1"
+                              disabled={!constructId || actionLoading.create || actionLoading.update}
+                              className="input w-full"
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex justify-end gap-3 pt-4 border-t border-neutral-border-light">
+                        <button
+                          onClick={closeForm}
+                          disabled={actionLoading.create || actionLoading.update || actionLoading.bulkUpload}
+                          className="btn btn-ghost"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={add}
+                          disabled={actionLoading.create || !constructId}
+                          className="btn secondary-bg black-text hover:secondary-bg-dark shadow-md"
+                        >
+                          {actionLoading.create ? (
+                            <>
+                              <span className="spinner spinner-sm mr-2"></span>
+                              Adding...
+                            </>
+                          ) : (
+                            <>
+                              <HiPlus className="w-4 h-4 mr-2" /> Add Question
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {activeTab === "bulk-general" && (
+                    <div className="space-y-6">
+                      <div className="bg-white p-6 rounded-lg border border-neutral-border-light">
+                        <h4 className="text-sm font-semibold neutral-text mb-2">General Bulk Upload</h4>
+                        <p className="text-xs neutral-text-muted mb-4">
+                          Upload questions for all clusters and constructs. The file should contain cluster and construct information.
+                        </p>
                     
                     <div className="mb-4">
                       <label className="text-sm font-semibold neutral-text block mb-2">
@@ -819,24 +1228,24 @@ export default function AdminMasterQuestions() {
                       <div className="flex gap-3 items-start">
                         <div className="flex-1">
                           <input
-                            id="bulk-upload-file"
+                                id="general-bulk-upload-file"
                             type="file"
                             onChange={(e) => {
                               const file = e.target.files?.[0];
-                              setBulkUploadFile(file || null);
+                                  setGeneralBulkUploadFile(file || null);
                               if (file) {
-                                if (fieldErrors.file) {
-                                  setFieldErrors({ ...fieldErrors, file: "" });
+                                    if (fieldErrors.generalFile) {
+                                      setFieldErrors({ ...fieldErrors, generalFile: "" });
                                 }
                               }
                             }}
                             accept=".xlsx,.xls,.csv"
-                            disabled={actionLoading.bulkUpload || !clusterId || !constructId}
-                            className={`input ${fieldErrors.file ? "input-error" : ""}`}
+                                disabled={actionLoading.bulkUpload}
+                                className={`input ${fieldErrors.generalFile ? "input-error" : ""}`}
                           />
-                          {fieldErrors.file && (
+                              {fieldErrors.generalFile && (
                             <p className="danger-text text-xs mt-1.5">
-                              {fieldErrors.file}
+                                  {fieldErrors.generalFile}
                             </p>
                           )}
                           <p className="text-xs neutral-text-muted mt-1.5">
@@ -844,8 +1253,8 @@ export default function AdminMasterQuestions() {
                           </p>
                         </div>
                         <button
-                          onClick={handleBulkUpload}
-                          disabled={actionLoading.bulkUpload || !bulkUploadFile || !clusterId || !constructId}
+                              onClick={handleGeneralBulkUpload}
+                              disabled={actionLoading.bulkUpload || !generalBulkUploadFile}
                           className="btn btn-secondary flex-shrink-0"
                           style={{ height: '42px', minWidth: '120px' }}
                         >
@@ -861,14 +1270,22 @@ export default function AdminMasterQuestions() {
                           )}
                         </button>
                       </div>
-                      {(!clusterId || !constructId) && !fieldErrors.clusterId && !fieldErrors.constructId && (
-                        <p className="text-xs danger-text mt-2">
-                          Please select both cluster and construct before uploading.
-                        </p>
-                      )}
                     </div>
                   </div>
 
+                      <div className="flex justify-end gap-3 pt-4 border-t border-neutral-border-light">
+                        <button
+                          onClick={closeForm}
+                          disabled={actionLoading.bulkUpload}
+                          className="btn btn-ghost"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {activeTab === "bulk-cluster-construct" && (
               <div className="space-y-6">
                 {/* Cluster and Construct Selection */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -887,8 +1304,6 @@ export default function AdminMasterQuestions() {
                         }}
                         disabled={
                           clustersLoading ||
-                          actionLoading.create ||
-                          actionLoading.update ||
                           actionLoading.bulkUpload
                         }
                         className={`input w-full pr-10 ${fieldErrors.clusterId ? "input-error" : ""}`}
@@ -941,8 +1356,6 @@ export default function AdminMasterQuestions() {
                         disabled={
                           !clusterId ||
                           constructsLoading ||
-                          actionLoading.create ||
-                          actionLoading.update ||
                           actionLoading.bulkUpload
                         }
                         className={`input w-full pr-10 ${fieldErrors.constructId ? "input-error" : ""}`}
@@ -980,10 +1393,12 @@ export default function AdminMasterQuestions() {
                   </div>
                 </div>
 
-                {/* Divider */}
-                {!editingId && (
-                  <div className="border-t border-neutral-border-light pt-4">
-                    <h4 className="text-sm font-semibold neutral-text mb-4">Bulk Upload Questions</h4>
+                      {/* Bulk Upload Section */}
+                      <div className="bg-white p-6 rounded-lg border border-neutral-border-light">
+                        <h4 className="text-sm font-semibold neutral-text mb-2">Cluster & Construct Bulk Upload</h4>
+                        <p className="text-xs neutral-text-muted mb-4">
+                          Upload questions specifically for the selected cluster and construct.
+                        </p>
                     
                     <div className="mb-4">
                       <label className="text-sm font-semibold neutral-text block mb-2">
@@ -992,24 +1407,24 @@ export default function AdminMasterQuestions() {
                       <div className="flex gap-3 items-start">
                         <div className="flex-1">
                           <input
-                            id="bulk-upload-file"
+                                id="cluster-construct-bulk-upload-file"
                             type="file"
                             onChange={(e) => {
                               const file = e.target.files?.[0];
-                              setBulkUploadFile(file || null);
+                                  setClusterConstructBulkUploadFile(file || null);
                               if (file) {
-                                if (fieldErrors.file) {
-                                  setFieldErrors({ ...fieldErrors, file: "" });
+                                    if (fieldErrors.clusterConstructFile) {
+                                      setFieldErrors({ ...fieldErrors, clusterConstructFile: "" });
                                 }
                               }
                             }}
                             accept=".xlsx,.xls,.csv"
                             disabled={actionLoading.bulkUpload || !clusterId || !constructId}
-                            className={`input ${fieldErrors.file ? "input-error" : ""}`}
+                                className={`input ${fieldErrors.clusterConstructFile ? "input-error" : ""}`}
                           />
-                          {fieldErrors.file && (
+                              {fieldErrors.clusterConstructFile && (
                             <p className="danger-text text-xs mt-1.5">
-                              {fieldErrors.file}
+                                  {fieldErrors.clusterConstructFile}
                             </p>
                           )}
                           <p className="text-xs neutral-text-muted mt-1.5">
@@ -1017,8 +1432,8 @@ export default function AdminMasterQuestions() {
                           </p>
                         </div>
                         <button
-                          onClick={handleBulkUpload}
-                          disabled={actionLoading.bulkUpload || !bulkUploadFile || !clusterId || !constructId}
+                              onClick={handleClusterConstructBulkUpload}
+                              disabled={actionLoading.bulkUpload || !clusterConstructBulkUploadFile || !clusterId || !constructId}
                           className="btn btn-secondary flex-shrink-0"
                           style={{ height: '42px', minWidth: '120px' }}
                         >
@@ -1039,36 +1454,44 @@ export default function AdminMasterQuestions() {
                           Please select both cluster and construct before uploading.
                         </p>
                       )}
+                        </div>
+                      </div>
+
+                      <div className="flex justify-end gap-3 pt-4 border-t border-neutral-border-light">
+                        <button
+                          onClick={closeForm}
+                          disabled={actionLoading.bulkUpload}
+                          className="btn btn-ghost"
+                        >
+                          Cancel
+                        </button>
                     </div>
                   </div>
-                )}
+                  )}
+                </>
+              )}
 
-                {/* Divider */}
-                <div className="border-t border-neutral-border-light pt-4">
-                  <h4 className="text-sm font-semibold neutral-text mb-4">Add Individual Question</h4>
-                  
+              {/* Edit Mode (when editingId exists) */}
+              {editingId && (
+                <div className="space-y-6">
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="md:col-span-3">
                       <label className="text-sm font-semibold neutral-text block mb-2">
                         Question Text <span className="danger-text">*</span>
                       </label>
                       <input
-                        value={editingId ? editingData.question_text : questionText}
+                        value={editingData.question_text}
                         onChange={(e) => {
-                          if (editingId) {
                             setEditingData({
                               ...editingData,
                               question_text: e.target.value,
                             });
-                          } else {
-                            setQuestionText(e.target.value);
-                          }
                           if (fieldErrors.questionText) {
                             setFieldErrors({ ...fieldErrors, questionText: "" });
                           }
                         }}
                         placeholder="Enter question text"
-                        disabled={!constructId || actionLoading.create || actionLoading.update}
+                        disabled={actionLoading.update}
                         className={`input w-full ${fieldErrors.questionText ? "input-error" : ""}`}
                       />
                       {fieldErrors.questionText && (
@@ -1082,19 +1505,15 @@ export default function AdminMasterQuestions() {
                         Category
                       </label>
                       <input
-                        value={editingId ? editingData.category : category}
+                        value={editingData.category}
                         onChange={(e) => {
-                          if (editingId) {
                             setEditingData({
                               ...editingData,
                               category: e.target.value,
                             });
-                          } else {
-                            setCategory(e.target.value);
-                          }
                         }}
                         placeholder="e.g., Multiple Choice"
-                        disabled={!constructId || actionLoading.create || actionLoading.update}
+                        disabled={actionLoading.update}
                         className="input w-full"
                       />
                     </div>
@@ -1104,34 +1523,28 @@ export default function AdminMasterQuestions() {
                       </label>
                       <input
                         type="number"
-                        value={editingId ? editingData.order_no : orderNo}
+                        value={editingData.order_no}
                         onChange={(e) => {
-                          if (editingId) {
                             setEditingData({
                               ...editingData,
                               order_no: e.target.value,
                             });
-                          } else {
-                            setOrderNo(e.target.value);
-                          }
                         }}
                         placeholder="e.g., 1"
-                        disabled={!constructId || actionLoading.create || actionLoading.update}
+                        disabled={actionLoading.update}
                         className="input w-full"
                       />
-                    </div>
                   </div>
                 </div>
 
                 <div className="flex justify-end gap-3 pt-4 border-t border-neutral-border-light">
                   <button
                     onClick={closeForm}
-                    disabled={actionLoading.create || actionLoading.update || actionLoading.bulkUpload}
+                      disabled={actionLoading.update}
                     className="btn btn-ghost"
                   >
                     Cancel
                   </button>
-                  {editingId ? (
                     <button
                       onClick={() => save(editingId)}
                       disabled={actionLoading.update}
@@ -1148,26 +1561,9 @@ export default function AdminMasterQuestions() {
                         </>
                       )}
                     </button>
-                  ) : (
-                    <button
-                      onClick={add}
-                      disabled={actionLoading.create || !constructId}
-                      className="btn secondary-bg black-text hover:secondary-bg-dark shadow-md"
-                    >
-                      {actionLoading.create ? (
-                        <>
-                          <span className="spinner spinner-sm mr-2"></span>
-                          Adding...
-                        </>
-                      ) : (
-                        <>
-                          <HiPlus className="w-4 h-4 mr-2" /> Add Question
-                        </>
-                      )}
-                    </button>
-                  )}
                 </div>
               </div>
+              )}
             </div>
           </div>
           <style>{`
@@ -1196,6 +1592,195 @@ export default function AdminMasterQuestions() {
               animation: backdrop-out 220ms ease-in forwards;
             }
           `}</style>
+        </div>
+      )}
+
+      {/* Bulk Assign Modal */}
+      {(showBulkAssignModal || isClosingBulkAssign) && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center p-4 overflow-y-auto"
+          style={{ zIndex: 1000 }}
+        >
+          <div
+            className={`absolute inset-0 overlay ${
+              isClosingBulkAssign ? "animate-backdrop-out" : "animate-backdrop-in"
+            }`}
+            style={{ backgroundColor: 'rgba(0, 0, 0, 0.3)' }}
+            onClick={closeBulkAssignModal}
+          />
+          <div 
+            className={`relative rounded-2xl max-w-2xl w-full shadow-2xl overflow-hidden border border-white/20 my-8 ${
+              isClosingBulkAssign ? "animate-modal-out" : "animate-modal-in"
+            }`}
+            style={{ backgroundColor: 'rgba(255, 255, 255, 0.95)' }}
+          >
+            <div 
+              className="p-6 primary-bg-light"
+            >
+              <div className="flex items-center justify-between">
+                <h3 className="text-xl font-bold primary-text">
+                  Assign Questions to Cluster/Construct
+                </h3>
+                <button
+                  onClick={closeBulkAssignModal}
+                  className="text-neutral-text-muted hover:neutral-text"
+                >
+                  <HiX className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            <div 
+              className="p-6 max-h-[80vh] overflow-y-auto"
+              style={{ backgroundColor: 'rgba(249, 250, 251, 0.8)' }}
+            >
+              {Object.keys(fieldErrors).length > 0 && (
+                <div className="mb-4 p-3 bg-danger-bg-light border border-danger-border-light rounded-lg">
+                  <p className="danger-text text-sm">
+                    Please fix the errors below before submitting.
+                  </p>
+                </div>
+              )}
+
+              <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <p className="text-sm neutral-text">
+                  <strong>{selectedItems.length}</strong> question(s) will be assigned to the selected cluster and construct.
+                </p>
+              </div>
+
+              <div className="space-y-6">
+                {/* Cluster and Construct Selection */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-semibold neutral-text block mb-2">
+                      Cluster <span className="danger-text">*</span>
+                    </label>
+                    <div className="relative">
+                      <select
+                        value={bulkAssignClusterId}
+                        onChange={(e) => {
+                          setBulkAssignClusterId(e.target.value);
+                          setBulkAssignConstructId(""); // Reset construct when cluster changes
+                          if (fieldErrors.bulkAssignClusterId) {
+                            setFieldErrors({ ...fieldErrors, bulkAssignClusterId: "" });
+                          }
+                        }}
+                        disabled={clustersLoading || actionLoading.bulkAssign}
+                        className={`input w-full pr-10 ${fieldErrors.bulkAssignClusterId ? "input-error" : ""}`}
+                      >
+                        {clustersLoading ? (
+                          <option value="" disabled>
+                            Loading clusters...
+                          </option>
+                        ) : clusters.length === 0 ? (
+                          <option value="" disabled>
+                            No clusters available
+                          </option>
+                        ) : (
+                          <>
+                            {!bulkAssignClusterId && (
+                              <option value="" disabled hidden>
+                                Select cluster
+                              </option>
+                            )}
+                            {clusters.map((c) => (
+                              <option key={c.id} value={c.id}>
+                                {c.name}
+                              </option>
+                            ))}
+                          </>
+                        )}
+                      </select>
+                      <HiChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 neutral-text-muted" />
+                    </div>
+                    {fieldErrors.bulkAssignClusterId && (
+                      <p className="danger-text text-xs mt-1.5">
+                        {fieldErrors.bulkAssignClusterId}
+                      </p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="text-sm font-semibold neutral-text block mb-2">
+                      Construct <span className="danger-text">*</span>
+                    </label>
+                    <div className="relative">
+                      <select
+                        value={bulkAssignConstructId}
+                        onChange={(e) => {
+                          setBulkAssignConstructId(e.target.value);
+                          if (fieldErrors.bulkAssignConstructId) {
+                            setFieldErrors({ ...fieldErrors, bulkAssignConstructId: "" });
+                          }
+                        }}
+                        disabled={
+                          !bulkAssignClusterId ||
+                          constructsLoading ||
+                          actionLoading.bulkAssign
+                        }
+                        className={`input w-full pr-10 ${fieldErrors.bulkAssignConstructId ? "input-error" : ""}`}
+                      >
+                        {!bulkAssignClusterId && !constructsLoading ? (
+                          <option value="" disabled>
+                            Select cluster first
+                          </option>
+                        ) : bulkAssignClusterId && constructsForBulkAssign.length === 0 ? (
+                          <option value="" disabled>
+                            No constructs for this cluster
+                          </option>
+                        ) : (
+                          <>
+                            {!bulkAssignConstructId && (
+                              <option value="" disabled hidden>
+                                Select construct
+                              </option>
+                            )}
+                            {constructsForBulkAssign.map((c) => (
+                              <option key={c.id} value={c.id}>
+                                {c.name}
+                              </option>
+                            ))}
+                          </>
+                        )}
+                      </select>
+                      <HiChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 neutral-text-muted" />
+                    </div>
+                    {fieldErrors.bulkAssignConstructId && (
+                      <p className="danger-text text-xs mt-1.5">
+                        {fieldErrors.bulkAssignConstructId}
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-3 pt-4 border-t border-neutral-border-light">
+                  <button
+                    onClick={closeBulkAssignModal}
+                    disabled={actionLoading.bulkAssign}
+                    className="btn btn-ghost"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleBulkAssign}
+                    disabled={actionLoading.bulkAssign || !bulkAssignClusterId || !bulkAssignConstructId}
+                    className="btn btn-secondary shadow-md"
+                  >
+                    {actionLoading.bulkAssign ? (
+                      <>
+                        <span className="spinner spinner-sm mr-2"></span>
+                        Assigning...
+                      </>
+                    ) : (
+                      <>
+                        <HiCheck className="w-4 h-4 mr-2" /> Assign {selectedItems.length} Question(s)
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
@@ -1331,8 +1916,8 @@ export default function AdminMasterQuestions() {
 
         {/* Search and Bulk Actions */}
         <div className="mb-4 flex flex-col md:flex-row gap-3 items-start md:items-center justify-between">
-          <div className="flex-1 w-full md:max-w-md">
-            <div className="group flex w-full rounded-md overflow-hidden border border-neutral-300 transition-all focus-within:ring-2 focus-within:ring-secondary focus-within:border-secondary">
+          <div className="flex-1 w-full md:max-w-md flex gap-3 items-center">
+            <div className="group flex flex-1 rounded-md overflow-hidden border border-neutral-300 transition-all focus-within:ring-2 focus-within:ring-secondary focus-within:border-secondary">
               {/* Left Icon Box */}
               <div className="flex items-center justify-center bg-primary-bg-light px-3 transition-all group-focus-within:bg-secondary-bg-light">
                 <HiSearch className="h-5 w-5 primary-text group-focus-within:secondary-text transition-colors" />
@@ -1361,12 +1946,39 @@ export default function AdminMasterQuestions() {
                 </button>
               )}
             </div>
+            
+            {/* Unassigned Filter */}
+            <div className="flex items-center gap-2 px-3 py-2 bg-white border border-neutral-300 rounded-md">
+              <input
+                type="checkbox"
+                id="show-unassigned"
+                checked={showUnassignedOnly}
+                onChange={(e) => {
+                  setShowUnassignedOnly(e.target.checked);
+                  setCurrentPage(1);
+                }}
+                className="checkbox-custom"
+              />
+              <label
+                htmlFor="show-unassigned"
+                className="text-sm neutral-text cursor-pointer select-none"
+              >
+                Show Unassigned
+              </label>
+            </div>
           </div>
           {selectedItems.length > 0 && (
             <div className="flex items-center gap-2">
               <span className="text-sm neutral-text-muted">
                 {selectedItems.length} selected
               </span>
+              <button
+                onClick={() => setShowBulkAssignModal(true)}
+                disabled={actionLoading.bulkAssign}
+                className="btn btn-secondary btn-sm"
+              >
+                <HiCollection className="w-4 h-4 mr-2" /> Assign to Cluster/Construct
+              </button>
               <button
                 onClick={deleteSelected}
                 disabled={actionLoading.delete === "bulk"}

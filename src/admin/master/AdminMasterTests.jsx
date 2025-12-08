@@ -30,7 +30,16 @@ export default function AdminMasterTests() {
   const [description, setDescription] = useState("");
   const [status, setStatus] = useState("active");
   const [selectedClusterIds, setSelectedClusterIds] = useState([]);
-  const [selectedClusterDropdown, setSelectedClusterDropdown] = useState(""); 
+  const [selectedClusterDropdown, setSelectedClusterDropdown] = useState("");
+  const [constructs, setConstructs] = useState([]);
+  const [constructsLoading, setConstructsLoading] = useState(true);
+  const [questions, setQuestions] = useState([]);
+  const [questionsLoading, setQuestionsLoading] = useState(false);
+  // Common counts for all constructs: { P: count, R: count, SDB: count }
+  const [questionCounts, setQuestionCounts] = useState({ P: 0, R: 0, SDB: 0 });
+  // Structure: { constructId: { P: [questionIds], R: [questionIds], SDB: [questionIds] } }
+  const [selectedQuestions, setSelectedQuestions] = useState({});
+  const [questionSelectionError, setQuestionSelectionError] = useState(""); 
 
   const [editingId, setEditingId] = useState(null);
   const [editingData, setEditingData] = useState({});
@@ -170,11 +179,109 @@ export default function AdminMasterTests() {
     }
   };
 
+  const fetchConstructs = async () => {
+    try {
+      setConstructsLoading(true);
+      const response = await apiClient.get("/constructs");
+      if (response.data?.status && response.data.data) {
+        setConstructs(
+          response.data.data.map((c) => ({
+            id: c.id,
+            name: c.name || "",
+            clusterId: c.cluster_id || c.clusterId,
+          }))
+        );
+      }
+    } catch (err) {
+      console.error("Error fetching constructs:", err);
+    } finally {
+      setConstructsLoading(false);
+    }
+  };
+
+  const fetchQuestions = async () => {
+    if (selectedClusterIds.length === 0 || constructs.length === 0) {
+      setQuestions([]);
+      return;
+    }
+
+    try {
+      setQuestionsLoading(true);
+      // Age group ID will be automatically added by API interceptor from localStorage
+      const response = await apiClient.get("/questions");
+
+      if (response.data?.status && response.data.data) {
+        // Filter questions by selected clusters
+        const filteredQuestions = response.data.data.filter((q) => {
+          const construct = constructs.find((c) => c.id === q.construct_id);
+          if (!construct) return false;
+          return selectedClusterIds.includes(construct.clusterId);
+        });
+
+        setQuestions(
+          filteredQuestions.map((q) => ({
+            id: q.id,
+            question_text: q.question_text || q.questionText || "",
+            category: q.category || "",
+            construct_id: q.construct_id || q.constructId,
+            order_no: q.order_no || q.orderNo || 0,
+          }))
+        );
+      }
+    } catch (err) {
+      console.error("Error fetching questions:", err);
+      setQuestions([]);
+    } finally {
+      setQuestionsLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchStatusOptions();
     fetchClusters();
     fetchTests();
+    fetchConstructs();
   }, [navigate]);
+
+  useEffect(() => {
+    if (selectedClusterIds.length > 0 && constructs.length > 0) {
+      fetchQuestions();
+    } else {
+      setQuestions([]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedClusterIds.join(",")]);
+
+  // Clean up selected questions when clusters change
+  useEffect(() => {
+    if (selectedClusterIds.length > 0 && constructs.length > 0) {
+      const validConstructIds = constructsForSelectedClusters.map((c) => c.id.toString());
+      
+      setSelectedQuestions((prev) => {
+        const cleaned = {};
+        validConstructIds.forEach((constructId) => {
+          if (prev[constructId]) {
+            cleaned[constructId] = prev[constructId];
+          }
+        });
+        return cleaned;
+      });
+    } else {
+      setSelectedQuestions({});
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedClusterIds.join(",")]);
+
+  // Auto-select questions when counts change or questions are loaded
+  useEffect(() => {
+    if (questions.length > 0 && constructsForSelectedClusters.length > 0) {
+      const hasCounts = Object.values(questionCounts).some(count => count > 0);
+      if (hasCounts) {
+        autoSelectQuestions();
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [questions.length, questionCounts.P, questionCounts.R, questionCounts.SDB, selectedClusterIds.join(",")]);
 
   const handleAddCluster = (clusterId) => {
     if (!clusterId) return;
@@ -190,9 +297,23 @@ export default function AdminMasterTests() {
 
   const handleRemoveCluster = (clusterId) => {
     const clusterIdNum = parseInt(clusterId);
-    setSelectedClusterIds(
-      selectedClusterIds.filter((id) => id !== clusterIdNum)
-    );
+    const newClusterIds = selectedClusterIds.filter((id) => id !== clusterIdNum);
+    setSelectedClusterIds(newClusterIds);
+    
+    // Clean up selected questions for constructs that are no longer in selected clusters
+    const validConstructIds = constructs
+      .filter((c) => newClusterIds.includes(c.clusterId))
+      .map((c) => c.id.toString());
+    
+    setSelectedQuestions((prev) => {
+      const cleaned = {};
+      validConstructIds.forEach((constructId) => {
+        if (prev[constructId]) {
+          cleaned[constructId] = prev[constructId];
+        }
+      });
+      return cleaned;
+    });
   };
 
   const add = async () => {
@@ -204,21 +325,91 @@ export default function AdminMasterTests() {
       errors.cluster_ids = "At least one cluster is required";
     }
 
+    // Validate that question counts are set
+    if (selectedClusterIds.length > 0 && constructsForSelectedClusters.length > 0) {
+      const hasQuestionCounts = Object.values(questionCounts).some(count => count > 0);
+      if (!hasQuestionCounts) {
+        setQuestionSelectionError("Please specify at least one question count (P, R, or SDB) per construct.");
+        setFieldErrors(errors);
+        setTimeout(() => {
+          const errorElement = document.getElementById('question-selection-error');
+          if (errorElement) {
+            errorElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+        }, 100);
+        return;
+      }
+    }
+
+    // Validate question selection
+    const questionValidationError = validateQuestionSelection();
+    if (questionValidationError) {
+      setQuestionSelectionError(questionValidationError);
+      setFieldErrors(errors);
+      // Scroll to error after a short delay to allow state update
+      setTimeout(() => {
+        const errorElement = document.getElementById('question-selection-error') || 
+                            document.getElementById('form-errors') ||
+                            document.querySelector('[class*="danger-text"]');
+        if (errorElement) {
+          errorElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 100);
+      return;
+    }
+
     if (Object.keys(errors).length > 0) {
       setFieldErrors(errors);
+      // Scroll to first error after a short delay
+      setTimeout(() => {
+        const firstErrorField = Object.keys(errors)[0];
+        const errorElement = document.getElementById(`error-${firstErrorField}`) ||
+                            document.querySelector(`[class*="input-error"]`) ||
+                            document.getElementById('form-errors');
+        if (errorElement) {
+          errorElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 100);
       return;
     }
 
     setFieldErrors({});
+    setQuestionSelectionError("");
     setActionLoading({ ...actionLoading, create: true });
 
     try {
+      // Collect only selected question IDs from constructs in selected clusters
+      const validConstructIds = constructsForSelectedClusters.map((c) => c.id.toString());
+      const allSelectedQuestionIds = [];
+      
+      for (const constructId of validConstructIds) {
+        const selected = selectedQuestions[constructId];
+        if (selected) {
+          for (const category of ["P", "R", "SDB"]) {
+            if (selected[category] && Array.isArray(selected[category])) {
+              allSelectedQuestionIds.push(...selected[category]);
+            }
+          }
+        }
+      }
+
+      // Build clusters array with P, R, SDB counts for each cluster
+      const clustersArray = selectedClusterIds.map((clusterId) => ({
+        cluster_id: parseInt(clusterId),
+        p_count: questionCounts.P || null,
+        r_count: questionCounts.R || null,
+        sdb_count: questionCounts.SDB || null,
+      }));
+
       // Build payload with all required fields
+      // Age group ID will be automatically added by API interceptor from localStorage
       const payload = {
         title: title.trim(),
         description: description.trim() || "",
         is_active: status === "active" || status === "1" || status === 1,
         cluster_ids: selectedClusterIds.map((id) => parseInt(id)),
+        question_ids: allSelectedQuestionIds,
+        clusters: clustersArray,
       };
 
       const response = await apiClient.post("/tests", payload);
@@ -317,8 +508,121 @@ export default function AdminMasterTests() {
     setStatus("active");
     setSelectedClusterIds([]);
     setSelectedClusterDropdown("");
+    setQuestionCounts({ P: 0, R: 0, SDB: 0 });
+    setSelectedQuestions({});
+    setQuestionSelectionError("");
     setFieldErrors({});
     setEditingId(null);
+  };
+
+  // Get constructs for selected clusters
+  const constructsForSelectedClusters = constructs.filter((c) =>
+    selectedClusterIds.includes(c.clusterId)
+  );
+
+  // Handle question count change (common for all constructs)
+  const handleQuestionCountChange = (category, value) => {
+    const count = parseInt(value) || 0;
+    setQuestionCounts((prev) => ({
+      ...prev,
+      [category]: count,
+    }));
+    
+    // Auto-select questions for all constructs
+    autoSelectQuestions(category, count);
+    setQuestionSelectionError("");
+  };
+
+  // Auto-select questions for all constructs based on counts
+  const autoSelectQuestions = (changedCategory = null, newCount = null) => {
+    if (constructsForSelectedClusters.length === 0 || questions.length === 0) {
+      return;
+    }
+
+    const newSelectedQuestions = {};
+    
+    constructsForSelectedClusters.forEach((construct) => {
+      const constructId = construct.id.toString();
+      newSelectedQuestions[constructId] = { P: [], R: [], SDB: [] };
+      
+      ["P", "R", "SDB"].forEach((category) => {
+        const limit = changedCategory === category 
+          ? newCount 
+          : questionCounts[category] || 0;
+        
+        if (limit > 0) {
+          const categoryQuestions = getQuestionsForConstructAndCategory(
+            construct.id,
+            category
+          );
+          // Auto-select first N questions
+          const selected = categoryQuestions.slice(0, limit).map((q) => q.id);
+          newSelectedQuestions[constructId][category] = selected;
+        }
+      });
+    });
+    
+    setSelectedQuestions(newSelectedQuestions);
+  };
+
+  // Handle question selection
+  const handleQuestionToggle = (questionId, constructId, category) => {
+    const currentSelected = selectedQuestions[constructId]?.[category] || [];
+    const limit = questionCounts[category] || 0; // Fixed: use common counts, not per-construct
+    const isSelected = currentSelected.includes(questionId);
+
+    if (isSelected) {
+      // Deselect
+      setSelectedQuestions((prev) => ({
+        ...prev,
+        [constructId]: {
+          ...prev[constructId] || {},
+          [category]: currentSelected.filter((id) => id !== questionId),
+        },
+      }));
+      setQuestionSelectionError("");
+    } else {
+      // Try to select
+      if (currentSelected.length >= limit) {
+        setQuestionSelectionError(
+          `You can only select ${limit} ${category} question(s) for this construct. Please unselect another ${category} question first.`
+        );
+        return;
+      }
+      setSelectedQuestions((prev) => ({
+        ...prev,
+        [constructId]: {
+          ...prev[constructId] || {},
+          [category]: [...currentSelected, questionId],
+        },
+      }));
+      setQuestionSelectionError("");
+    }
+  };
+
+  // Get questions for a construct and category
+  const getQuestionsForConstructAndCategory = (constructId, category) => {
+    return questions.filter(
+      (q) => q.construct_id === constructId && q.category?.toUpperCase() === category.toUpperCase()
+    );
+  };
+
+  // Check if all required questions are selected
+  const validateQuestionSelection = () => {
+    for (const construct of constructsForSelectedClusters) {
+      const constructId = construct.id.toString();
+      const selected = selectedQuestions[constructId] || {};
+      
+      for (const category of ["P", "R", "SDB"]) {
+        const required = questionCounts[category] || 0;
+        const selectedCount = selected[category]?.length || 0;
+        
+        if (required > 0 && selectedCount !== required) {
+          return `Please ensure ${required} ${category} question(s) are selected for construct "${construct.name}".`;
+        }
+      }
+    }
+    return null;
   };
 
   const closeForm = () => {
@@ -341,25 +645,93 @@ export default function AdminMasterTests() {
     if (!title.trim()) {
       errors.title = "Title is required";
     }
-    if (selectedClusterIds.length === 0) {
-      errors.cluster_ids = "At least one cluster is required";
+    // Clusters are not editable, so skip validation
+
+    // Validate that question counts are set
+    if (selectedClusterIds.length > 0 && constructsForSelectedClusters.length > 0) {
+      const hasQuestionCounts = Object.values(questionCounts).some(count => count > 0);
+      if (!hasQuestionCounts) {
+        setQuestionSelectionError("Please specify at least one question count (P, R, or SDB) per construct.");
+        setFieldErrors(errors);
+        setTimeout(() => {
+          const errorElement = document.getElementById('question-selection-error');
+          if (errorElement) {
+            errorElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+        }, 100);
+        return;
+      }
+    }
+
+    // Validate question selection
+    const questionValidationError = validateQuestionSelection();
+    if (questionValidationError) {
+      setQuestionSelectionError(questionValidationError);
+      setFieldErrors(errors);
+      // Scroll to error after a short delay to allow state update
+      setTimeout(() => {
+        const errorElement = document.getElementById('question-selection-error') || 
+                            document.getElementById('form-errors') ||
+                            document.querySelector('[class*="danger-text"]');
+        if (errorElement) {
+          errorElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 100);
+      return;
     }
 
     if (Object.keys(errors).length > 0) {
       setFieldErrors(errors);
+      // Scroll to first error after a short delay
+      setTimeout(() => {
+        const firstErrorField = Object.keys(errors)[0];
+        const errorElement = document.getElementById(`error-${firstErrorField}`) ||
+                            document.querySelector(`[class*="input-error"]`) ||
+                            document.getElementById('form-errors');
+        if (errorElement) {
+          errorElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 100);
       return;
     }
 
     setFieldErrors({});
+    setQuestionSelectionError("");
     setActionLoading({ ...actionLoading, update: true });
 
     try {
+      // Collect only selected question IDs from constructs in selected clusters
+      const validConstructIds = constructsForSelectedClusters.map((c) => c.id.toString());
+      const allSelectedQuestionIds = [];
+      
+      for (const constructId of validConstructIds) {
+        const selected = selectedQuestions[constructId];
+        if (selected) {
+          for (const category of ["P", "R", "SDB"]) {
+            if (selected[category] && Array.isArray(selected[category])) {
+              allSelectedQuestionIds.push(...selected[category]);
+            }
+          }
+        }
+      }
+
+      // Build clusters array with P, R, SDB counts for each cluster
+      const clustersArray = selectedClusterIds.map((clusterId) => ({
+        cluster_id: parseInt(clusterId),
+        p_count: questionCounts.P || null,
+        r_count: questionCounts.R || null,
+        sdb_count: questionCounts.SDB || null,
+      }));
+
       // Build payload with all required fields
+      // Age group ID will be automatically added by API interceptor from localStorage
       const payload = {
         title: title.trim(),
         description: description.trim() || "",
         is_active: status === "active" || status === "1" || status === 1,
         cluster_ids: selectedClusterIds.map((id) => parseInt(id)),
+        question_ids: allSelectedQuestionIds,
+        clusters: clustersArray,
       };
 
       const response = await apiClient.put(`/tests/${editingId}`, payload);
@@ -757,19 +1129,20 @@ export default function AdminMasterTests() {
               </div>
             </div>
 
-            <div 
-              className="p-6 max-h-[80vh] overflow-y-auto"
-              style={{ backgroundColor: 'rgba(249, 250, 251, 0.8)' }}
-            >
-              {Object.keys(fieldErrors).length > 0 && (
-                <div className="mb-4 p-3 bg-danger-bg-light border border-danger-border-light rounded-lg">
-                  <p className="danger-text text-sm">
-                    Please fix the errors below before submitting.
-                  </p>
-                </div>
-              )}
+            <div className="flex flex-col" style={{ maxHeight: '80vh' }}>
+              <div 
+                className="flex-1 p-6 overflow-y-auto"
+                style={{ backgroundColor: 'rgba(249, 250, 251, 0.8)' }}
+              >
+                {Object.keys(fieldErrors).length > 0 && (
+                  <div id="form-errors" className="mb-4 p-3 bg-danger-bg-light border border-danger-border-light rounded-lg">
+                    <p className="danger-text text-sm">
+                      Please fix the errors below before submitting.
+                    </p>
+                  </div>
+                )}
 
-              <div className="space-y-4">
+                <div className="space-y-4">
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                   <div>
                     <label className="text-sm font-semibold neutral-text block mb-2">
@@ -788,7 +1161,7 @@ export default function AdminMasterTests() {
                       className={`input w-full ${fieldErrors.title ? "input-error" : ""}`}
                     />
                     {fieldErrors.title && (
-                      <p className="danger-text text-xs mt-1.5">
+                      <p id="error-title" className="danger-text text-xs mt-1.5">
                         {fieldErrors.title}
                       </p>
                     )}
@@ -872,6 +1245,7 @@ export default function AdminMasterTests() {
                   />
                 </div>
 
+                {!editingId && (
                 <div>
                   <label className="text-sm font-semibold neutral-text block mb-2">
                     Clusters <span className="danger-text">*</span>
@@ -944,56 +1318,211 @@ export default function AdminMasterTests() {
                     </div>
                   )}
                   {fieldErrors.cluster_ids && (
-                    <p className="danger-text text-xs mt-2">
+                    <p id="error-cluster_ids" className="danger-text text-xs mt-2">
                       {fieldErrors.cluster_ids}
                     </p>
                   )}
                 </div>
+                )}
 
-                <div className="flex justify-end gap-3 pt-4">
-                  <button
-                    onClick={closeForm}
-                    disabled={actionLoading.create || actionLoading.update}
-                    className="btn btn-ghost"
-                  >
-                    Cancel
-                  </button>
-                  {editingId ? (
-                    <button
-                      onClick={save}
-                      disabled={actionLoading.update}
-                      className="btn btn-accent shadow-md"
-                    >
-                      {actionLoading.update ? (
-                        <>
+                {/* Question Selection Section */}
+                {selectedClusterIds.length > 0 && (
+                  <div className="space-y-4 border-t border-neutral-200 pt-4">
+                    <div className="flex items-center justify-between">
+                      <label className="text-sm font-semibold neutral-text">
+                        Question Selection (Common for all constructs)
+                      </label>
+                      {questionsLoading && (
+                        <span className="text-xs neutral-text-muted">
                           <span className="spinner spinner-sm mr-2"></span>
-                          Saving...
-                        </>
-                      ) : (
-                        <>
-                          <HiCheck className="w-4 h-4 mr-2" /> Save Changes
-                        </>
+                          Loading questions...
+                        </span>
                       )}
-                    </button>
-                  ) : (
-                    <button
-                      onClick={add}
-                      disabled={actionLoading.create}
-                      className="btn secondary-bg black-text hover:secondary-bg-dark shadow-md"
-                    >
-                      {actionLoading.create ? (
-                        <>
-                          <span className="spinner spinner-sm mr-2"></span>
-                          Adding...
-                        </>
-                      ) : (
-                        <>
-                          <HiPlus className="w-4 h-4 mr-2" /> Add Test
-                        </>
-                      )}
-                    </button>
-                  )}
+                    </div>
+
+                    {questionSelectionError && (
+                      <div id="question-selection-error" className="p-3 bg-danger-bg-light border border-danger-border-light rounded-lg">
+                        <p className="danger-text text-sm">{questionSelectionError}</p>
+                      </div>
+                    )}
+
+                    {/* Show message if no constructs available */}
+                    {constructsForSelectedClusters.length === 0 && !constructsLoading && (
+                      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                        <p className="text-sm text-yellow-800">
+                          No constructs found for the selected clusters. Please ensure constructs are available for these clusters.
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Common Question Count Inputs */}
+                    <div className="bg-white border border-neutral-200 rounded-lg p-4">
+                      <h4 className="font-semibold neutral-text mb-4">
+                        Questions per Construct <span className="danger-text">*</span>
+                      </h4>
+                      <div className="grid grid-cols-3 gap-3">
+                        {["P", "R", "SDB"].map((category) => (
+                          <div key={category}>
+                            <label className="text-xs font-medium neutral-text-muted block mb-1">
+                              {category} Questions
+                            </label>
+                            <input
+                              type="number"
+                              min="0"
+                              value={questionCounts[category] || ""}
+                              onChange={(e) =>
+                                handleQuestionCountChange(
+                                  category,
+                                  e.target.value
+                                )
+                              }
+                              placeholder="0"
+                              disabled={actionLoading.create || actionLoading.update || constructsForSelectedClusters.length === 0}
+                              className="input w-full text-sm"
+                            />
+                            <p className="text-xs neutral-text-muted mt-1">
+                              Per construct
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Construct-wise Question Display */}
+                    {constructsForSelectedClusters.length > 0 && Object.values(questionCounts).some((count) => count > 0) && (
+                      <div className="space-y-4">
+                        {constructsForSelectedClusters.map((construct) => {
+                          const constructId = construct.id.toString();
+                          const selected = selectedQuestions[constructId] || { P: [], R: [], SDB: [] };
+
+                          return (
+                            <div
+                              key={construct.id}
+                              className="bg-white border border-neutral-200 rounded-lg p-4 space-y-4"
+                            >
+                              <h4 className="font-semibold neutral-text">
+                                {construct.name}
+                              </h4>
+
+                              {/* Question Selection */}
+                              <div className="space-y-3">
+                                {["P", "R", "SDB"].map((category) => {
+                                  const limit = questionCounts[category] || 0;
+                                  if (limit === 0) return null;
+
+                                const categoryQuestions = getQuestionsForConstructAndCategory(
+                                  construct.id,
+                                  category
+                                );
+                                const selectedForCategory = selected[category] || [];
+
+                                return (
+                                  <div key={category} className="border border-neutral-200 rounded-lg p-3">
+                                    <div className="flex items-center justify-between mb-2">
+                                      <span className="text-sm font-medium neutral-text">
+                                        {category} Questions ({selectedForCategory.length}/{limit} selected)
+                                      </span>
+                                    </div>
+                                    {categoryQuestions.length === 0 ? (
+                                      <p className="text-xs neutral-text-muted">
+                                        No {category} questions available for this construct.
+                                      </p>
+                                    ) : (
+                                      <div className="space-y-2 max-h-48 overflow-y-auto">
+                                        {categoryQuestions.map((question) => {
+                                          const isSelected = selectedForCategory.includes(question.id);
+                                          const isDisabled = !isSelected && selectedForCategory.length >= limit;
+
+                                          return (
+                                            <label
+                                              key={question.id}
+                                              className={`flex items-start gap-2 p-2 rounded border cursor-pointer transition-colors ${
+                                                isSelected
+                                                  ? "bg-blue-50 border-blue-300"
+                                                  : isDisabled
+                                                  ? "bg-gray-50 border-gray-200 cursor-not-allowed opacity-60"
+                                                  : "bg-white border-neutral-200 hover:border-blue-200"
+                                              }`}
+                                            >
+                                              <input
+                                                type="checkbox"
+                                                checked={isSelected}
+                                                onChange={() =>
+                                                  handleQuestionToggle(
+                                                    question.id,
+                                                    constructId,
+                                                    category
+                                                  )
+                                                }
+                                                disabled={isDisabled || actionLoading.create || actionLoading.update}
+                                                className="mt-1"
+                                              />
+                                              <span className="text-xs neutral-text flex-1">
+                                                {question.question_text}
+                                              </span>
+                                            </label>
+                                          );
+                                        })}
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
                 </div>
+              </div>
+
+              {/* Fixed Button Bar at Bottom */}
+              <div className="sticky bottom-0 bg-white border-t border-neutral-200 p-4 flex justify-end gap-3 shadow-lg z-10">
+                <button
+                  onClick={closeForm}
+                  disabled={actionLoading.create || actionLoading.update}
+                  className="btn btn-ghost"
+                >
+                  Cancel
+                </button>
+                {editingId ? (
+                  <button
+                    onClick={save}
+                    disabled={actionLoading.update}
+                    className="btn btn-accent shadow-md"
+                  >
+                    {actionLoading.update ? (
+                      <>
+                        <span className="spinner spinner-sm mr-2"></span>
+                        Saving...
+                      </>
+                    ) : (
+                      <>
+                        <HiCheck className="w-4 h-4 mr-2" /> Save Changes
+                      </>
+                    )}
+                  </button>
+                ) : (
+                  <button
+                    onClick={add}
+                    disabled={actionLoading.create}
+                    className="btn secondary-bg black-text hover:secondary-bg-dark shadow-md"
+                  >
+                    {actionLoading.create ? (
+                      <>
+                        <span className="spinner spinner-sm mr-2"></span>
+                        Adding...
+                      </>
+                    ) : (
+                      <>
+                        <HiPlus className="w-4 h-4 mr-2" /> Add Test
+                      </>
+                    )}
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -1201,7 +1730,7 @@ export default function AdminMasterTests() {
                         <td className="py-3 px-4">
                           <div className="flex items-center justify-end gap-2">
                             <button
-                              onClick={() => openViewModal(item.id)}
+                              onClick={() => navigate(`/admin/dashboard/master/tests/${item.id}`)}
                               className="btn-view"
                               title="View"
                             >

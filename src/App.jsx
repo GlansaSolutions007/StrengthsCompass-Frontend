@@ -21,6 +21,7 @@ import UserDetails from "./admin/UserDetails";
 import UserResults from "./admin/UserResults";
 import UserAnswers from "./admin/UserAnswers";
 import AdminTestResults from "./admin/AdminTestResults";
+import TestDetails from "./admin/TestDetails";
 import AdminLayout from "./layouts/AdminLayout";
 
 export default function App() {
@@ -49,6 +50,7 @@ export default function App() {
         <Route path="master/questions" element={<AdminMasterQuestions />} />
         <Route path="master/options" element={<AdminMasterOptions />} />
         <Route path="master/tests" element={<AdminMasterTests />} />
+        <Route path="master/tests/:testId" element={<TestDetails />} />
         <Route path="master/age" element={<AdminMasterAge />} />
         <Route path="profile" element={<AdminProfile />} />
       </Route>
