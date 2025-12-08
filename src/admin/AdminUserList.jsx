@@ -295,23 +295,31 @@ export default function AdminUserList() {
 
 
   const handleEditClick = (user) => {
+    // Helper function to clean values (remove "N/A" and convert to empty string)
+    const cleanValue = (value) => {
+      if (!value || value === "N/A" || value === "null" || value === "undefined") {
+        return "";
+      }
+      return String(value);
+    };
+
     setEditModal({
       isOpen: true,
       user: user,
       formData: {
-        name: user.name || "",
-        email: user.email || "",
+        name: cleanValue(user.name),
+        email: cleanValue(user.email),
         password: "",
-        role: user.role || "",
-        gender: user.gender || "",
-        age: user.age || "",
-        contact: user.contact || user.phone || "",
-        whatsappNumber: user.whatsappNumber || "",
-        city: user.city || "",
-        state: user.state || "",
-        country: user.country || "",
-        profession: user.profession || "",
-        educationalQualification: user.educationalQualification || "",
+        role: cleanValue(user.role),
+        gender: cleanValue(user.gender),
+        age: cleanValue(user.age),
+        contact: cleanValue(user.contact || user.phone),
+        whatsappNumber: cleanValue(user.whatsappNumber),
+        city: cleanValue(user.city),
+        state: cleanValue(user.state),
+        country: cleanValue(user.country),
+        profession: cleanValue(user.profession),
+        educationalQualification: cleanValue(user.educationalQualification),
       },
       errors: {},
       loading: false,
@@ -348,6 +356,14 @@ export default function AdminUserList() {
       errors.contact = "Contact is required";
     }
 
+    // Validate age if provided
+    if (formData.age && formData.age.trim()) {
+      const ageNum = parseInt(formData.age);
+      if (isNaN(ageNum) || ageNum < 1 || ageNum > 150) {
+        errors.age = "Age must be a valid number between 1 and 150";
+      }
+    }
+
     if (Object.keys(errors).length > 0) {
       setEditModal((prev) => ({ ...prev, errors }));
       return;
@@ -356,20 +372,37 @@ export default function AdminUserList() {
     setEditModal((prev) => ({ ...prev, loading: true, errors: {} }));
 
     try {
+      // Build update data object, only including fields with actual values
       const updateData = {
         name: formData.name.trim(),
         email: formData.email.trim(),
-        role: formData.role.trim() || undefined,
-        gender: formData.gender.trim() || undefined,
-        age: formData.age ? parseInt(formData.age) : undefined,
         contact: formData.contact.trim(),
       };
 
-      if (formData.password.trim()) {
+      // Add password only if provided
+      if (formData.password && formData.password.trim()) {
         updateData.password = formData.password.trim();
       }
 
-      // Optional extended profile fields
+      // Add role only if provided and not empty
+      if (formData.role && formData.role.trim()) {
+        updateData.role = formData.role.trim();
+      }
+
+      // Add gender only if provided and not empty
+      if (formData.gender && formData.gender.trim()) {
+        updateData.gender = formData.gender.trim();
+      }
+
+      // Add age only if provided and valid
+      if (formData.age && formData.age.trim()) {
+        const ageNum = parseInt(formData.age);
+        if (!isNaN(ageNum) && ageNum >= 1 && ageNum <= 150) {
+          updateData.age = ageNum;
+        }
+      }
+
+      // Optional extended profile fields - only add if they have values
       if (formData.whatsappNumber && formData.whatsappNumber.trim()) {
         updateData.whatsapp_number = formData.whatsappNumber.trim();
       }
@@ -420,6 +453,8 @@ export default function AdminUserList() {
       }
     } catch (err) {
       console.error("Error updating user:", err);
+      console.error("Error response:", err.response?.data);
+      
       if (err.response?.status === 401) {
         localStorage.removeItem("adminToken");
         localStorage.removeItem("adminUser");
@@ -427,6 +462,30 @@ export default function AdminUserList() {
         setTimeout(() => {
           navigate("/admin/login");
         }, 2000);
+      } else if (err.response?.status === 422) {
+        // Handle validation errors from server
+        const validationErrors = err.response?.data?.errors || {};
+        const serverMessage = err.response?.data?.message || "Validation failed";
+        
+        // Map server validation errors to form fields
+        const mappedErrors = {};
+        Object.keys(validationErrors).forEach((key) => {
+          // Map backend field names to frontend field names
+          const fieldMap = {
+            'whatsapp_number': 'whatsappNumber',
+            'educational_qualification': 'educationalQualification',
+          };
+          const frontendKey = fieldMap[key] || key;
+          mappedErrors[frontendKey] = Array.isArray(validationErrors[key]) 
+            ? validationErrors[key][0] 
+            : validationErrors[key];
+        });
+        
+        if (Object.keys(mappedErrors).length > 0) {
+          setEditModal((prev) => ({ ...prev, errors: mappedErrors }));
+        } else {
+          setError(serverMessage);
+        }
       } else {
         setError(
           err.response?.data?.message || "Failed to update user. Please try again."

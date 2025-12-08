@@ -20,6 +20,8 @@ export default function TestList() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selectedCategory, setSelectedCategory] = useState("all");
+  const [userAge, setUserAge] = useState(null);
+  const [ageGroupId, setAgeGroupId] = useState(null);
 
   // Check if admin is logged in and redirect
   useEffect(() => {
@@ -31,22 +33,165 @@ export default function TestList() {
     }
   }, [navigate]);
 
+  // Helper function to determine age group ID based on user age
+  const getAgeGroupId = (age) => {
+    const ageNum = parseInt(age);
+    if (isNaN(ageNum)) return null;
+    
+    // Fixed age group ranges:
+    // age_group_id 1: 13-17
+    // age_group_id 2: 18-25
+    // age_group_id 3: 26-39
+    // age_group_id 4: 40-100
+    if (ageNum >= 13 && ageNum <= 17) return 1;
+    if (ageNum >= 18 && ageNum <= 25) return 2;
+    if (ageNum >= 26 && ageNum <= 39) return 3;
+    if (ageNum >= 40 && ageNum <= 100) return 4;
+    
+    return null;
+  };
+
+  // Get user age and determine matching age group
+  useEffect(() => {
+    const getUserAge = async () => {
+      try {
+        // Try to get user data from localStorage first
+        const userDataStr = localStorage.getItem("user");
+        let userAgeValue = null;
+
+        if (userDataStr) {
+          try {
+            const userData = JSON.parse(userDataStr);
+            userAgeValue = userData.age || null;
+          } catch (e) {
+            console.error("Error parsing user data:", e);
+          }
+        }
+
+        // If not in localStorage, fetch from API
+        if (!userAgeValue) {
+          const userId = localStorage.getItem("userId");
+          if (userId) {
+            const userToken = localStorage.getItem("token") || 
+                            localStorage.getItem("userToken") || 
+                            localStorage.getItem("authToken");
+            const headers = userToken ? { Authorization: `Bearer ${userToken}` } : undefined;
+            const response = await apiClient.get(`/users/${userId}`, { headers });
+            
+            const user = response.data?.data || response.data?.user || response.data;
+            userAgeValue = user?.age || null;
+          }
+        }
+
+        if (userAgeValue) {
+          const age = parseInt(userAgeValue);
+          setUserAge(age);
+          
+          // Determine age group ID based on fixed ranges
+          const determinedAgeGroupId = getAgeGroupId(age);
+          console.log(`User age: ${age}, Determined age group ID: ${determinedAgeGroupId}`);
+          if (determinedAgeGroupId) {
+            setAgeGroupId(determinedAgeGroupId);
+          } else {
+            // Age is outside valid ranges, set to null
+            console.warn(`User age ${age} is outside valid age group ranges (13-100)`);
+            setAgeGroupId(null);
+          }
+        } else {
+          // If no age found, set userAge to null to trigger fetch without filter
+          console.warn("User age not found, will fetch all tests");
+          setUserAge(null);
+        }
+      } catch (err) {
+        console.error("Error getting user age:", err);
+        setUserAge(null);
+      }
+    };
+
+    getUserAge();
+  }, []);
+
   const fetchTests = async () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await apiClient.get("/tests");
+      
+      // Build request config with age group filter
+      const config = {};
+      if (ageGroupId) {
+        config.params = { age_group_id: ageGroupId };
+        config.headers = { "X-Age-Group-Id": ageGroupId.toString() };
+      }
+      
+      const response = await apiClient.get("/tests", config);
 
       if (response.data?.status && response.data.data) {
-        // Filter only active tests
-        const activeTests = response.data.data
-          .filter((test) => test.is_active !== false)
+        // Filter tests based on age group ID
+        let filteredData = Array.isArray(response.data.data) ? response.data.data : [response.data.data];
+        
+        console.log(`Total tests fetched: ${filteredData.length}, Age Group ID filter: ${ageGroupId}, User Age: ${userAge}`);
+        
+        // If we have an age group ID, filter tests to only show matching ones
+        if (ageGroupId !== null) {
+          filteredData = filteredData.filter((test) => {
+            // Get age_group_id from test - handle various formats
+            const testAgeGroupId = test.age_group_id !== undefined && test.age_group_id !== null 
+              ? test.age_group_id 
+              : null;
+            
+            if (testAgeGroupId === null) {
+              console.log(`Test "${test.title}" (ID: ${test.id}) has no age_group_id, filtering out`);
+              return false;
+            }
+            
+            // Convert both to numbers for comparison
+            const testAgeGroupNum = parseInt(testAgeGroupId);
+            const requiredAgeGroupNum = parseInt(ageGroupId);
+            
+            // Strict matching - must be exact match
+            const matches = testAgeGroupNum === requiredAgeGroupNum;
+            
+            if (!matches) {
+              console.log(`Test "${test.title}" (ID: ${test.id}) filtered out - age_group_id: ${testAgeGroupId} (${testAgeGroupNum}), required: ${ageGroupId} (${requiredAgeGroupNum})`);
+            } else {
+              console.log(`Test "${test.title}" (ID: ${test.id}) matches - age_group_id: ${testAgeGroupId}`);
+            }
+            
+            return matches;
+          });
+          console.log(`Tests after age group filtering: ${filteredData.length}`);
+        } else {
+          console.warn("No age group ID determined, showing all tests");
+        }
+        
+        // Filter only active tests and ensure age_group_id matches (double check)
+        const activeTests = filteredData
+          .filter((test) => {
+            // First check if test is active
+            const isActive = test.is_active !== false && test.is_active !== 0;
+            
+            // If we have an age group ID, double-check the match
+            if (ageGroupId !== null) {
+              const testAgeGroupId = test.age_group_id !== undefined && test.age_group_id !== null 
+                ? parseInt(test.age_group_id) 
+                : null;
+              const matchesAgeGroup = testAgeGroupId === parseInt(ageGroupId);
+              
+              if (!matchesAgeGroup) {
+                console.log(`Test "${test.title}" filtered out in final check - age_group_id mismatch`);
+                return false;
+              }
+            }
+            
+            return isActive;
+          })
           .map((test) => ({
             id: test.id,
             title: test.title || "",
             description: test.description || "",
             is_active: test.is_active !== undefined ? test.is_active : true,
             clusters: test.clusters || [],
+            age_group_id: test.age_group_id || null,
             // Calculate question count from clusters if available
             questions: test.clusters?.reduce((total, cluster) => {
               // Assuming each cluster might have question count info
@@ -57,6 +202,8 @@ export default function TestList() {
             duration: "30 minutes",
             category: test.clusters?.[0]?.name || "General",
           }));
+        
+        console.log(`Final tests to display: ${activeTests.length}`);
         setTests(activeTests);
       } else {
         setError("Failed to load tests");
@@ -73,8 +220,16 @@ export default function TestList() {
   };
 
   useEffect(() => {
-    fetchTests();
-  }, []);
+    // Fetch tests when ageGroupId is set, or if we've determined user has no age
+    // This ensures we wait for age group determination before fetching
+    if (ageGroupId !== null) {
+      fetchTests();
+    } else if (userAge === null) {
+      // If user age couldn't be determined, fetch all tests
+      fetchTests();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ageGroupId, userAge]);
 
   const handleStartTest = async (testId) => {
     try {
@@ -128,7 +283,8 @@ export default function TestList() {
       />
       <Navbar />
 
-      <div className="w-full px-5 sm:px-8 lg:px-12 xl:px-16 py-10 space-y-12">        
+      <div className="w-full px-5 sm:px-8 lg:px-12 xl:px-16 py-10 space-y-12">
+        
 
         {/* Filters */}
         {/* <section className="bg-white rounded-3xl shadow-lg border border-amber-100 p-6 space-y-4">
@@ -183,17 +339,6 @@ export default function TestList() {
                   <p className="text-sm text-slate-500 line-clamp-3">{test.description}</p>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3 text-sm">
-                  <div className="bg-blue-50 rounded-2xl p-3 border border-blue-100">
-                    <p className="text-xs uppercase tracking-[0.3em] text-blue-600">Duration</p>
-                    <p className="text-base font-semibold text-slate-900 mt-1">{test.duration || "30 minutes"}</p>
-                  </div>
-                  <div className="bg-blue-50 rounded-2xl p-3 border border-blue-100">
-                    <p className="text-xs uppercase tracking-[0.3em] text-blue-600">Questions</p>
-                    <p className="text-base font-semibold text-slate-900 mt-1">{test.questions || "N/A"}</p>
-                  </div>
-                </div>
-
                 <button
                   onClick={() => handleStartTest(test.id)}
                   className="mt-auto w-full py-3 px-4 rounded-2xl yellow-bg-400 yellow-text-950 font-semibold font-semibold text-sm flex items-center justify-center gap-2 hover:bg-blue-700 transition-all duration-200 shadow-lg group/btn"
@@ -212,9 +357,11 @@ export default function TestList() {
             <div className="w-24 h-24 mx-auto mb-4 rounded-full bg-yellow-100 flex items-center justify-center text-yellow-500">
               <HiDocumentText className="w-10 h-10" />
             </div>
-            <h3 className="text-2xl font-semibold text-slate-900 mb-2">No tests in this category</h3>
+            <h3 className="text-2xl font-semibold text-slate-900 mb-2">No tests available</h3>
             <p className="text-slate-500 max-w-md mx-auto">
-              Adjust your filter or check back soon—new yellow-labeled assessments drop regularly.
+              {ageGroupId 
+                ? `No tests are available for your age group. Please check back later.`
+                : `No tests found. Please check back later.`}
             </p>
           </div>
         )}

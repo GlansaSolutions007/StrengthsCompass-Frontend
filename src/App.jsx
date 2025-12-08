@@ -7,7 +7,7 @@ import RegisterPage from "./pages/RegisterPage";
 import NotFound from "./pages/NotFound";
 import Profile from "./pages/Profile";
 import Test from "./pages/Test";
-// import TestList from "./pages/TestList";
+import TestList from "./pages/TestList";
 import AdminDashboard from "./admin/AdminDashboard";
 import AdminProfile from "./admin/AdminProfile";
 import AdminMasterCluster from "./admin/master/AdminMasterCluster";
@@ -31,7 +31,7 @@ export default function App() {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
       <Route path="/profile" element={<Profile />} />
-      {/* <Route path="/testlist" element={<TestList />} /> */}
+      <Route path="/testlist" element={<TestList />} />
       <Route path="/test" element={<Test />} />
       <Route path="/test/:testId" element={<Test />} />
       <Route path="/admin" element={<AdminLoginPage />} />

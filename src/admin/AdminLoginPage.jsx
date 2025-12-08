@@ -167,11 +167,22 @@ export default function AdminLoginPage() {
       console.log("Login response:", loginResponse.data);
 
       if (loginResponse.data && (loginResponse.data.status === true || loginResponse.status === 200)) {
+        // Check if user is an admin
+        const user = loginResponse.data.data?.user;
+        const userRole = user?.role || user?.user_type || user?.type;
+        
+        // Validate that the user is an admin
+        if (userRole && userRole.toLowerCase() !== "admin" && userRole.toLowerCase() !== "administrator") {
+          setLoginError("Invalid credentials. This account does not have admin access. Please use the user login page.");
+          setIsLoading(false);
+          return;
+        }
+        
         if (loginResponse.data.data?.token) {
           localStorage.setItem("adminToken", loginResponse.data.data.token);
         }
-        if (loginResponse.data.data?.user) {
-          localStorage.setItem("adminUser", JSON.stringify(loginResponse.data.data.user));
+        if (user) {
+          localStorage.setItem("adminUser", JSON.stringify(user));
         }
         
         // After successful login, set the age group
@@ -240,6 +251,61 @@ export default function AdminLoginPage() {
         </div>
 
         <form onSubmit={handleLogin} noValidate className="space-y-6">
+        <div className="space-y-2">
+            <label className="block text-sm font-medium neutral-text-muted">
+              Age Group
+            </label>
+            <div
+              className={`group flex w-full rounded-md overflow-hidden border transition-all focus-within:ring-2 focus-within:ring-secondary focus-within:border-secondary ${
+                errors.ageGroup && touched.ageGroup
+                  ? "border-red-500"
+                  : "border-neutral-300"
+              }`}
+            >
+              {/* Left Icon Box */}
+              <div
+                className="flex items-center justify-center bg-primary-bg-light px-3 transition-all group-focus-within:bg-secondary-bg-light"
+              >
+                <HiUser className="h-5 w-5 primary-text group-focus-within:secondary-text transition-colors" />
+              </div>
+
+              {/* Select Field */}
+              <div className="relative flex-1">
+                <select
+                  required
+                  value={ageGroupId}
+                  onChange={(e) => handleChange("ageGroup", e.target.value)}
+                  onBlur={() => handleBlur("ageGroup")}
+                  disabled={loadingAgeGroups || isLoading}
+                  className="w-full py-2 px-3 bg-white text-sm focus:outline-none focus:bg-secondary-bg-light transition-colors appearance-none pr-8"
+                >
+                  {loadingAgeGroups ? (
+                    <option value="">Loading age groups...</option>
+                  ) : ageGroups.length === 0 ? (
+                    <option value="">No age groups available</option>
+                  ) : (
+                    <>
+                      <option value="" disabled>
+                        Select age group
+                      </option>
+                      {ageGroups.map((ag) => (
+                        <option key={ag.id} value={ag.id}>
+                          {ag.name} ({ag.from} - {ag.to})
+                        </option>
+                      ))}
+                    </>
+                  )}
+                </select>
+                <HiChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 neutral-text-muted" />
+              </div>
+            </div>
+            {errors.ageGroup && touched.ageGroup && (
+              <p className="danger-text text-xs mt-1 flex items-center gap-1">
+                <HiExclamationCircle className="w-3 h-3" />
+                {errors.ageGroup}
+              </p>
+            )}
+          </div>
           <div className="space-y-2">
             <label className="block text-sm font-medium neutral-text-muted">
               Admin Email
@@ -327,61 +393,7 @@ export default function AdminLoginPage() {
             )}
           </div>
 
-          <div className="space-y-2">
-            <label className="block text-sm font-medium neutral-text-muted">
-              Age Group <span className="danger-text">*</span>
-            </label>
-            <div
-              className={`group flex w-full rounded-md overflow-hidden border transition-all focus-within:ring-2 focus-within:ring-secondary focus-within:border-secondary ${
-                errors.ageGroup && touched.ageGroup
-                  ? "border-red-500"
-                  : "border-neutral-300"
-              }`}
-            >
-              {/* Left Icon Box */}
-              <div
-                className="flex items-center justify-center bg-primary-bg-light px-3 transition-all group-focus-within:bg-secondary-bg-light"
-              >
-                <HiUser className="h-5 w-5 primary-text group-focus-within:secondary-text transition-colors" />
-              </div>
-
-              {/* Select Field */}
-              <div className="relative flex-1">
-                <select
-                  required
-                  value={ageGroupId}
-                  onChange={(e) => handleChange("ageGroup", e.target.value)}
-                  onBlur={() => handleBlur("ageGroup")}
-                  disabled={loadingAgeGroups || isLoading}
-                  className="w-full py-2 px-3 bg-white text-sm focus:outline-none focus:bg-secondary-bg-light transition-colors appearance-none pr-8"
-                >
-                  {loadingAgeGroups ? (
-                    <option value="">Loading age groups...</option>
-                  ) : ageGroups.length === 0 ? (
-                    <option value="">No age groups available</option>
-                  ) : (
-                    <>
-                      <option value="" disabled>
-                        Select age group
-                      </option>
-                      {ageGroups.map((ag) => (
-                        <option key={ag.id} value={ag.id}>
-                          {ag.name} ({ag.from} - {ag.to})
-                        </option>
-                      ))}
-                    </>
-                  )}
-                </select>
-                <HiChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 neutral-text-muted" />
-              </div>
-            </div>
-            {errors.ageGroup && touched.ageGroup && (
-              <p className="danger-text text-xs mt-1 flex items-center gap-1">
-                <HiExclamationCircle className="w-3 h-3" />
-                {errors.ageGroup}
-              </p>
-            )}
-          </div>
+         
 
           <button
             type="submit"

@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { HiUserCircle, HiClipboardList, HiChevronDown } from "react-icons/hi";
+import { HiUserCircle, HiClipboardList } from "react-icons/hi";
 import logoImage from "../../Images/Logo.png";
 
-export default function Navbar({ onSelectAgeGroup, selectedAgeGroup, ageGroups = [] }) {
+export default function Navbar() {
   const [userIsSignedIn, setUserIsSignedIn] = useState(false);
 
   // Check if user is authenticated
@@ -60,34 +60,19 @@ export default function Navbar({ onSelectAgeGroup, selectedAgeGroup, ageGroups =
    
         {/* Right Side - Navigation Links and Action Buttons */}
         <div className="flex items-center gap-4">
-          {/* Age Group Selector - Only show if onSelectAgeGroup is provided */}
-          {onSelectAgeGroup && (
-            <button
-              onClick={onSelectAgeGroup}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg text-gray-700 hover:text-blue-600 hover:bg-blue-50 transition-all duration-200 font-medium border border-gray-200 hover:border-blue-300"
-              title="Change Age Group"
-            >
-              <span className="text-sm">
-                {selectedAgeGroup && ageGroups.length > 0
-                  ? ageGroups.find(ag => ag.id === selectedAgeGroup)?.name || "Select Age"
-                  : "Select Age"}
-              </span>
-              <HiChevronDown className="w-4 h-4" />
-            </button>
+          {/* Navigation Links - Only show if user is signed in */}
+          {userIsSignedIn && (
+            <nav className="hidden md:flex items-center gap-1">
+              <Link 
+                to="/testlist" 
+                className="flex items-center gap-2 px-4 py-2 rounded-lg text-gray-700 hover:text-primary-text hover:bg-primary-bg-light transition-all duration-200 font-medium"
+                title="Tests"
+              >
+                <HiClipboardList className="w-5 h-5" />
+                <span>Tests</span>
+              </Link>
+            </nav>
           )}
-
-          {/* Navigation Links */}
-          {/* <nav className="hidden md:flex items-center gap-1">
-       
-            <Link 
-              to="/testlist" 
-              className="flex items-center gap-2 px-4 py-2 rounded-lg text-gray-700 hover:text-primary-text hover:bg-primary-bg-light transition-all duration-200 font-medium"
-              title="Tests"
-            >
-              <HiClipboardList className="w-5 h-5" />
-              <span>Tests</span>
-            </Link>
-          </nav> */}
 
           {/* Sign In/Out Button */}
           {/* <Link 

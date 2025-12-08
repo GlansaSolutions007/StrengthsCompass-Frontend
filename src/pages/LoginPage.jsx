@@ -30,7 +30,7 @@ export default function LoginPage() {
                   localStorage.getItem("userToken") || 
                   localStorage.getItem("authToken");
     
-    // If user has a token, redirect to profile or pending destination
+    // If user has a token, redirect to landing page or pending destination
     if (token) {
       const redirectTarget =
         location.state?.redirectTo || sessionStorage.getItem("redirectAfterAuth");
@@ -38,7 +38,7 @@ export default function LoginPage() {
         sessionStorage.removeItem("redirectAfterAuth");
         navigate(redirectTarget, { replace: true });
       } else {
-        navigate("/profile", { replace: true });
+        navigate("/", { replace: true });
       }
     }
   }, [navigate, location]);
@@ -116,24 +116,35 @@ export default function LoginPage() {
       });
 
       if (response.data?.status || response.status === 200) {
+        // Check if user is an admin
+        const user = response.data.data?.user;
+        const userRole = user?.role || user?.user_type || user?.type;
+        
+        // Validate that the user is NOT an admin
+        if (userRole && (userRole.toLowerCase() === "admin" || userRole.toLowerCase() === "administrator")) {
+          setLoginError("Invalid credentials. This account has admin access. Please use the admin login page.");
+          setIsLoading(false);
+          return;
+        }
+        
         // Store user data in localStorage
-        const userId = response.data.data?.user?.id || response.data.data?.user?.user_id;
-        if (response.data.data?.user) {
-          localStorage.setItem("user", JSON.stringify(response.data.data.user));
+        const userId = user?.id || user?.user_id;
+        if (user) {
+          localStorage.setItem("user", JSON.stringify(user));
           localStorage.setItem("userId", userId);
         }
         if (response.data.data?.token) {
           localStorage.setItem("token", response.data.data.token);
         }
         
-        // Navigate to redirect target or profile
+        // Navigate to redirect target or landing page
         const redirectTarget =
           location.state?.redirectTo || sessionStorage.getItem("redirectAfterAuth");
         if (redirectTarget) {
           sessionStorage.removeItem("redirectAfterAuth");
           navigate(redirectTarget, { replace: true });
         } else {
-          navigate("/profile");
+          navigate("/");
         }
       } else {
         setLoginError(response.data?.message || "Login failed. Please check your credentials.");
