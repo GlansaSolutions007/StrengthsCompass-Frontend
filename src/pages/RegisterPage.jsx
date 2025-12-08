@@ -432,12 +432,17 @@ export default function RegisterPage() {
           localStorage.setItem("user", JSON.stringify(response.data.data.user));
           if (userId) {
             localStorage.setItem("userId", userId);
+            localStorage.setItem("adminSelectedVariantId", response.data.data.user.age_group_id ? response.data.data.user.age_group_id : response.data.data.age_group_id);
+
           }
         } else if (response.data.data) {
           // If user data is directly in data
           localStorage.setItem("user", JSON.stringify(response.data.data));
           if (userId) {
             localStorage.setItem("userId", userId);
+            localStorage.setItem("adminSelectedVariantId", response.data.data.user.age_group_id ? response.data.data.user.age_group_id : response.data.data.age_group_id);
+
+
           }
         }
         

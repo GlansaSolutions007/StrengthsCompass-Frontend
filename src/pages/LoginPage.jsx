@@ -132,9 +132,11 @@ export default function LoginPage() {
         if (user) {
           localStorage.setItem("user", JSON.stringify(user));
           localStorage.setItem("userId", userId);
+          localStorage.setItem("adminSelectedVariantId", response.data.data.user.age_group_id ? response.data.data.user.age_group_id : response.data.data.age_group_id);
         }
         if (response.data.data?.token) {
           localStorage.setItem("token", response.data.data.token);
+          localStorage.setItem("adminSelectedVariantId", response.data.data.user.age_group_id ? response.data.data.user.age_group_id : response.data.data.age_group_id);
         }
         
         // Navigate to redirect target or landing page

@@ -315,7 +315,57 @@ export default function TestList() {
         </section> */}
 
         {/* Test Grid */}
-        <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+        {/* <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+          {filteredTests.map((test) => (
+            <article
+              key={test.id}
+              className="group relative bg-white rounded-[28px] shadow-lg border border-blue-100 hover:border-blue-300 hover:shadow-2xl transition-all duration-300 overflow-hidden"
+            >
+              <div className="absolute inset-x-0 top-0 h-2 bg-gradient-to-r from-blue-200 via-blue-400 to-blue-600" />
+              <div className="p-6 flex flex-col h-full gap-5">
+                <div className="flex items-center justify-between">
+                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-700">
+                    {test.category}
+                  </span>
+                  <div className="p-2 rounded-2xl bg-blue-50 text-blue-500">
+                    <HiDocumentText className="w-5 h-5" />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <h3 className="text-xl font-bold text-slate-900 group-hover:text-blue-600 transition-colors">
+                    {test.title}
+                  </h3>
+                  <p className="text-sm text-slate-500 line-clamp-3">{test.description}</p>
+                </div>
+
+                <button
+                  onClick={() => handleStartTest(test.id)}
+                  className="mt-auto w-full py-3 px-4 rounded-2xl yellow-bg-400 yellow-text-950 font-semibold font-semibold text-sm flex items-center justify-center gap-2 hover:bg-blue-700 transition-all duration-200 shadow-lg group/btn"
+                >
+                  <HiPlay className="w-4 h-4 group-hover/btn:translate-x-0.5 transition-transform" />
+                  Start test
+                  <HiArrowRight className="w-4 h-4 group-hover/btn:translate-x-1 transition-transform" />
+                </button>
+              </div>
+            </article>
+          ))}
+        </section> */}
+
+        {filteredTests.length === 0 ? (
+          <div className="text-center py-20 bg-white rounded-[32px] shadow-inner border border-dashed border-yellow-400">
+            <div className="w-24 h-24 mx-auto mb-4 rounded-full bg-yellow-100 flex items-center justify-center text-yellow-500">
+              <HiDocumentText className="w-10 h-10" />
+            </div>
+            <h3 className="text-2xl font-semibold text-slate-900 mb-2">No tests available</h3>
+            <p className="text-slate-500 max-w-md mx-auto">
+              {ageGroupId 
+                ? `No tests are available for your age group. Please check back later.`
+                : `No tests found. Please check back later.`}
+            </p>
+          </div>
+        ): (
+         <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
           {filteredTests.map((test) => (
             <article
               key={test.id}
@@ -351,19 +401,6 @@ export default function TestList() {
             </article>
           ))}
         </section>
-
-        {filteredTests.length === 0 && (
-          <div className="text-center py-20 bg-white rounded-[32px] shadow-inner border border-dashed border-yellow-400">
-            <div className="w-24 h-24 mx-auto mb-4 rounded-full bg-yellow-100 flex items-center justify-center text-yellow-500">
-              <HiDocumentText className="w-10 h-10" />
-            </div>
-            <h3 className="text-2xl font-semibold text-slate-900 mb-2">No tests available</h3>
-            <p className="text-slate-500 max-w-md mx-auto">
-              {ageGroupId 
-                ? `No tests are available for your age group. Please check back later.`
-                : `No tests found. Please check back later.`}
-            </p>
-          </div>
         )}
       </div>
     </div>
