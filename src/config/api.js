@@ -20,22 +20,38 @@ const apiClient = axios.create({
 // Request interceptor to add auth token and age group ID
 apiClient.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem("adminToken");
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+    // Check for admin token first, then user token
+    const adminToken = localStorage.getItem("adminToken");
+    const userToken = localStorage.getItem("token") || 
+                     localStorage.getItem("userToken") || 
+                     localStorage.getItem("authToken");
+    
+    if (adminToken) {
+      config.headers.Authorization = `Bearer ${adminToken}`;
+    } else if (userToken) {
+      config.headers.Authorization = `Bearer ${userToken}`;
     }
 
-    // Add age group ID from localStorage
-    const variantId = localStorage.getItem("adminSelectedVariantId");
+    // Add age group ID from localStorage (for admin) or from config (for users)
+    // Admin uses adminSelectedVariantId, users pass it in config
+    let variantId = localStorage.getItem("adminSelectedVariantId");
+    
+    // If not admin variant ID, check if it's passed in config (for user requests)
+    if (!variantId && config.params?.age_group_id) {
+      variantId = config.params.age_group_id;
+    }
+    if (!variantId && config.headers?.["X-Age-Group-Id"]) {
+      variantId = config.headers["X-Age-Group-Id"];
+    }
 
     if (variantId) {
       // Add as header (works for all request types)
-      config.headers["X-Age-Group-Id"] = variantId;
+      config.headers["X-Age-Group-Id"] = variantId.toString();
 
       // Also add as query parameter for GET/DELETE requests
       if (config.method === "get" || config.method === "delete") {
         config.params = config.params || {};
-        config.params.age_group_id = variantId;
+        config.params.age_group_id = variantId.toString();
       }
 
       // For POST/PUT/PATCH, also add to body if it's an object
@@ -48,12 +64,12 @@ apiClient.interceptors.request.use(
       if ((config.method === "post" || config.method === "put" || config.method === "patch") && config.data) {
         // Handle FormData
         if (config.data instanceof FormData) {
-          config.data.append("age_group_id", variantId);
+          config.data.append("age_group_id", variantId.toString());
         }
         // Handle plain objects
         else if (typeof config.data === "object" && !Array.isArray(config.data) && config.data !== null) {
-          config.data.age_group_id = variantId;
-        }
+          config.data.age_group_id = variantId.toString();
+        }
       }
     }
 

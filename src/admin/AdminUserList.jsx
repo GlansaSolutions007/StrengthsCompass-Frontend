@@ -37,13 +37,14 @@ export default function AdminUserList() {
     isOpen: false,
     user: null,
     formData: {
-      name: "",
+      firstName: "",
+      lastName: "",
       email: "",
       password: "",
       role: "",
       gender: "",
       age: "",
-      contact: "",
+      contactNumber: "",
       whatsappNumber: "",
       city: "",
       state: "",
@@ -112,8 +113,8 @@ export default function AdminUserList() {
           firstName: u.first_name || "",
           lastName: u.last_name || "",
           email: u.email || "N/A",
-          phone: u.whatsapp_number || u.phone || u.phone_number || u.contact || "N/A",
-          contact: u.contact || u.whatsapp_number || u.phone || u.phone_number || "N/A",
+          phone: u.whatsapp_number || u.phone || u.phone_number || u.contact_number || u.contact || "N/A",
+          contact: u.contact_number || u.contact || u.whatsapp_number || u.phone || u.phone_number || "N/A",
           whatsappNumber: u.whatsapp_number || "N/A",
           role: u.role || "N/A",
           gender: u.gender || "N/A",
@@ -136,9 +137,14 @@ export default function AdminUserList() {
         // Filter out admin users - only show regular users
         const filteredUsers = mappedUsers.filter((user) => {
           const userRole = user.role?.toLowerCase();
+          // Only filter out if role is explicitly "admin" or "administrator", not if it's "N/A" or empty
+          if (!userRole || userRole === "n/a") {
+            return true; // Include users with no role or "N/A"
+          }
           return userRole !== "admin" && userRole !== "administrator";
         });
         
+        console.log(`Fetched ${usersData.length} users, after filtering: ${filteredUsers.length}`);
         setUsers(filteredUsers);
         setError(null);
       } else {
@@ -262,13 +268,14 @@ export default function AdminUserList() {
         isOpen: false,
         user: null,
         formData: {
-          name: "",
+          firstName: "",
+          lastName: "",
           email: "",
           password: "",
           role: "",
           gender: "",
           age: "",
-          contact: "",
+          contactNumber: "",
           whatsappNumber: "",
           city: "",
           state: "",
@@ -307,13 +314,14 @@ export default function AdminUserList() {
       isOpen: true,
       user: user,
       formData: {
-        name: cleanValue(user.name),
+        firstName: cleanValue(user.firstName || ""),
+        lastName: cleanValue(user.lastName || ""),
         email: cleanValue(user.email),
         password: "",
         role: cleanValue(user.role),
         gender: cleanValue(user.gender),
         age: cleanValue(user.age),
-        contact: cleanValue(user.contact || user.phone),
+        contactNumber: cleanValue(user.contact || user.phone),
         whatsappNumber: cleanValue(user.whatsappNumber),
         city: cleanValue(user.city),
         state: cleanValue(user.state),
@@ -344,18 +352,6 @@ export default function AdminUserList() {
     const { formData } = editModal;
     const errors = {};
 
-    if (!formData.name.trim()) {
-      errors.name = "Name is required";
-    }
-    if (!formData.email.trim()) {
-      errors.email = "Email is required";
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-      errors.email = "Invalid email format";
-    }
-    if (!formData.contact.trim()) {
-      errors.contact = "Contact is required";
-    }
-
     // Validate age if provided
     if (formData.age && formData.age.trim()) {
       const ageNum = parseInt(formData.age);
@@ -372,71 +368,44 @@ export default function AdminUserList() {
     setEditModal((prev) => ({ ...prev, loading: true, errors: {} }));
 
     try {
-      // Build update data object, only including fields with actual values
+      // Build update data object with ALL required fields as specified
       const updateData = {
-        name: formData.name.trim(),
-        email: formData.email.trim(),
-        contact: formData.contact.trim(),
+        first_name: formData.firstName.trim() || "",
+        last_name: formData.lastName.trim() || "",
+        whatsapp_number: formData.whatsappNumber.trim() || "",
+        contact_number: formData.contactNumber.trim() || "",
+        city: formData.city.trim() || "",
+        state: formData.state.trim() || "",
+        country: formData.country.trim() || "",
+        profession: formData.profession.trim() || "",
+        gender: formData.gender.trim() || "",
+        age: formData.age && formData.age.trim() ? (() => {
+          const ageNum = parseInt(formData.age);
+          return (!isNaN(ageNum) && ageNum >= 1 && ageNum <= 150) ? ageNum : null;
+        })() : null,
+        educational_qualification: formData.educationalQualification.trim() || "",
       };
 
-      // Add password only if provided
-      if (formData.password && formData.password.trim()) {
-        updateData.password = formData.password.trim();
-      }
-
-      // Add role only if provided and not empty
-      if (formData.role && formData.role.trim()) {
-        updateData.role = formData.role.trim();
-      }
-
-      // Add gender only if provided and not empty
-      if (formData.gender && formData.gender.trim()) {
-        updateData.gender = formData.gender.trim();
-      }
-
-      // Add age only if provided and valid
-      if (formData.age && formData.age.trim()) {
-        const ageNum = parseInt(formData.age);
-        if (!isNaN(ageNum) && ageNum >= 1 && ageNum <= 150) {
-          updateData.age = ageNum;
-        }
-      }
-
-      // Optional extended profile fields - only add if they have values
-      if (formData.whatsappNumber && formData.whatsappNumber.trim()) {
-        updateData.whatsapp_number = formData.whatsappNumber.trim();
-      }
-      if (formData.city && formData.city.trim()) {
-        updateData.city = formData.city.trim();
-      }
-      if (formData.state && formData.state.trim()) {
-        updateData.state = formData.state.trim();
-      }
-      if (formData.country && formData.country.trim()) {
-        updateData.country = formData.country.trim();
-      }
-      if (formData.profession && formData.profession.trim()) {
-        updateData.profession = formData.profession.trim();
-      }
-      if (formData.educationalQualification && formData.educationalQualification.trim()) {
-        updateData.educational_qualification = formData.educationalQualification.trim();
-      }
+      console.log("Sending update data:", updateData);
 
       const response = await apiClient.put(`/users/${editModal.user.id}`, updateData);
 
-      if (response.data?.status || response.status === 200) {
-        await fetchUsers();
+      console.log("Update response:", response.data);
+
+      if (response.data?.status || response.status === 200 || response.status === 204) {
+        // Close modal first
         setEditModal({
           isOpen: false,
           user: null,
           formData: {
-            name: "",
+            firstName: "",
+            lastName: "",
             email: "",
             password: "",
             role: "",
             gender: "",
             age: "",
-            contact: "",
+            contactNumber: "",
             whatsappNumber: "",
             city: "",
             state: "",
@@ -448,12 +417,16 @@ export default function AdminUserList() {
           loading: false,
         });
         setError(null);
+        
+        // Then refresh the user list
+        await fetchUsers();
       } else {
         setError(response.data?.message || "Failed to update user");
       }
     } catch (err) {
       console.error("Error updating user:", err);
       console.error("Error response:", err.response?.data);
+      console.error("Update data that was sent:", updateData);
       
       if (err.response?.status === 401) {
         localStorage.removeItem("adminToken");
@@ -472,7 +445,10 @@ export default function AdminUserList() {
         Object.keys(validationErrors).forEach((key) => {
           // Map backend field names to frontend field names
           const fieldMap = {
+            'first_name': 'firstName',
+            'last_name': 'lastName',
             'whatsapp_number': 'whatsappNumber',
+            'contact_number': 'contactNumber',
             'educational_qualification': 'educationalQualification',
           };
           const frontendKey = fieldMap[key] || key;
@@ -482,17 +458,17 @@ export default function AdminUserList() {
         });
         
         if (Object.keys(mappedErrors).length > 0) {
-          setEditModal((prev) => ({ ...prev, errors: mappedErrors }));
+          setEditModal((prev) => ({ ...prev, errors: mappedErrors, loading: false }));
         } else {
+          setEditModal((prev) => ({ ...prev, loading: false }));
           setError(serverMessage);
         }
       } else {
+        setEditModal((prev) => ({ ...prev, loading: false }));
         setError(
-          err.response?.data?.message || "Failed to update user. Please try again."
+          err.response?.data?.message || err.message || "Failed to update user. Please try again."
         );
       }
-    } finally {
-      setEditModal((prev) => ({ ...prev, loading: false }));
     }
   };
 
@@ -605,40 +581,45 @@ export default function AdminUserList() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-semibold neutral-text mb-2">
-                      Name <span className="danger-text">*</span>
+                      First Name
                     </label>
                     <input
                       type="text"
-                      value={editModal.formData.name}
-                      onChange={(e) => handleEditChange("name", e.target.value)}
+                      value={editModal.formData.firstName}
+                      onChange={(e) => handleEditChange("firstName", e.target.value)}
                       disabled={editModal.loading}
-                      className={`input ${editModal.errors.name ? "input-error" : ""}`}
-                      placeholder="Enter name"
+                      className="input"
+                      placeholder="Enter first name"
                     />
-                    {editModal.errors.name && (
-                      <p className="danger-text text-xs mt-1.5">
-                        {editModal.errors.name}
-                      </p>
-                    )}
                   </div>
 
                   <div>
                     <label className="block text-sm font-semibold neutral-text mb-2">
-                      Email <span className="danger-text">*</span>
+                      Last Name
+                    </label>
+                    <input
+                      type="text"
+                      value={editModal.formData.lastName}
+                      onChange={(e) => handleEditChange("lastName", e.target.value)}
+                      disabled={editModal.loading}
+                      className="input"
+                      placeholder="Enter last name"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold neutral-text mb-2">
+                      Email
                     </label>
                     <input
                       type="email"
                       value={editModal.formData.email}
                       onChange={(e) => handleEditChange("email", e.target.value)}
                       disabled={editModal.loading}
-                      className={`input ${editModal.errors.email ? "input-error" : ""}`}
-                      placeholder="Enter email"
+                      className="input"
+                      placeholder="Enter email (read-only)"
+                      readOnly
                     />
-                    {editModal.errors.email && (
-                      <p className="danger-text text-xs mt-1.5">
-                        {editModal.errors.email}
-                      </p>
-                    )}
                   </div>
 
                   <div>
@@ -687,23 +668,18 @@ export default function AdminUserList() {
                     />
                   </div>
 
-                  <div >
+                  <div>
                     <label className="block text-sm font-semibold neutral-text mb-2">
-                      Contact <span className="danger-text">*</span>
+                      Contact Number
                     </label>
                     <input
                       type="text"
-                      value={editModal.formData.contact}
-                      onChange={(e) => handleEditChange("contact", e.target.value)}
+                      value={editModal.formData.contactNumber}
+                      onChange={(e) => handleEditChange("contactNumber", e.target.value)}
                       disabled={editModal.loading}
-                      className={`input ${editModal.errors.contact ? "input-error" : ""}`}
+                      className="input"
                       placeholder="Enter contact number"
                     />
-                    {editModal.errors.contact && (
-                      <p className="danger-text text-xs mt-1.5">
-                        {editModal.errors.contact}
-                      </p>
-                    )}
                   </div>
 
                   <div>

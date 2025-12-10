@@ -39,7 +39,10 @@ export default function AdminMasterTests() {
   const [questionCounts, setQuestionCounts] = useState({ P: 0, R: 0, SDB: 0 });
   // Structure: { constructId: { P: [questionIds], R: [questionIds], SDB: [questionIds] } }
   const [selectedQuestions, setSelectedQuestions] = useState({});
-  const [questionSelectionError, setQuestionSelectionError] = useState(""); 
+  const [questionSelectionError, setQuestionSelectionError] = useState("");
+  const [errorConstructInfo, setErrorConstructInfo] = useState(null); // { constructId, constructName, category }
+  const [skippedConstructs, setSkippedConstructs] = useState([]); // Array of construct IDs to skip
+  const [selectAllMode, setSelectAllMode] = useState(false); // Toggle for selecting all questions 
 
   const [editingId, setEditingId] = useState(null);
   const [editingData, setEditingData] = useState({});
@@ -275,13 +278,17 @@ export default function AdminMasterTests() {
   // Auto-select questions when counts change or questions are loaded
   useEffect(() => {
     if (questions.length > 0 && constructsForSelectedClusters.length > 0) {
-      const hasCounts = Object.values(questionCounts).some(count => count > 0);
-      if (hasCounts) {
+      if (selectAllMode) {
         autoSelectQuestions();
+      } else {
+        const hasCounts = Object.values(questionCounts).some(count => count > 0);
+        if (hasCounts) {
+          autoSelectQuestions();
+        }
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [questions.length, questionCounts.P, questionCounts.R, questionCounts.SDB, selectedClusterIds.join(",")]);
+  }, [questions.length, questionCounts.P, questionCounts.R, questionCounts.SDB, selectedClusterIds.join(","), selectAllMode]);
 
   const handleAddCluster = (clusterId) => {
     if (!clusterId) return;
@@ -325,37 +332,45 @@ export default function AdminMasterTests() {
       errors.cluster_ids = "At least one cluster is required";
     }
 
-    // Validate that question counts are set
-    if (selectedClusterIds.length > 0 && constructsForSelectedClusters.length > 0) {
-      const hasQuestionCounts = Object.values(questionCounts).some(count => count > 0);
-      if (!hasQuestionCounts) {
-        setQuestionSelectionError("Please specify at least one question count (P, R, or SDB) per construct.");
+    // Validate that question counts are set (only if not in select all mode)
+    if (!selectAllMode && selectedClusterIds.length > 0 && constructsForSelectedClusters.length > 0) {
+      const activeConstructs = constructsForSelectedClusters.filter(
+        (c) => !skippedConstructs.includes(c.id.toString())
+      );
+      
+      if (activeConstructs.length > 0) {
+        const hasQuestionCounts = Object.values(questionCounts).some(count => count > 0);
+        if (!hasQuestionCounts) {
+          setQuestionSelectionError("Please specify at least one question count (P, R, or SDB) per construct, or enable 'Select All Questions'.");
+          setFieldErrors(errors);
+          setTimeout(() => {
+            const errorElement = document.getElementById('question-selection-error');
+            if (errorElement) {
+              errorElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+          }, 100);
+          return;
+        }
+      }
+    }
+
+    // Validate question selection (only if not in select all mode)
+    if (!selectAllMode) {
+      const questionValidationError = validateQuestionSelection();
+      if (questionValidationError) {
+        setQuestionSelectionError(questionValidationError);
         setFieldErrors(errors);
+        // Scroll to error after a short delay to allow state update
         setTimeout(() => {
-          const errorElement = document.getElementById('question-selection-error');
+          const errorElement = document.getElementById('question-selection-error') || 
+                              document.getElementById('form-errors') ||
+                              document.querySelector('[class*="danger-text"]');
           if (errorElement) {
             errorElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
           }
         }, 100);
         return;
       }
-    }
-
-    // Validate question selection
-    const questionValidationError = validateQuestionSelection();
-    if (questionValidationError) {
-      setQuestionSelectionError(questionValidationError);
-      setFieldErrors(errors);
-      // Scroll to error after a short delay to allow state update
-      setTimeout(() => {
-        const errorElement = document.getElementById('question-selection-error') || 
-                            document.getElementById('form-errors') ||
-                            document.querySelector('[class*="danger-text"]');
-        if (errorElement) {
-          errorElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
-      }, 100);
-      return;
     }
 
     if (Object.keys(errors).length > 0) {
@@ -396,18 +411,18 @@ export default function AdminMasterTests() {
       // Build clusters array with P, R, SDB counts for each cluster
       const clustersArray = selectedClusterIds.map((clusterId) => ({
         cluster_id: parseInt(clusterId),
-        p_count: questionCounts.P || null,
-        r_count: questionCounts.R || null,
-        sdb_count: questionCounts.SDB || null,
+        p_count: selectAllMode ? null : (questionCounts.P || null),
+        r_count: selectAllMode ? null : (questionCounts.R || null),
+        sdb_count: selectAllMode ? null : (questionCounts.SDB || null),
       }));
 
       // Build payload with all required fields
       // Age group ID will be automatically added by API interceptor from localStorage
+      // Note: Only send 'clusters' array, not 'cluster_ids', to avoid duplicates in backend
       const payload = {
         title: title.trim(),
         description: description.trim() || "",
         is_active: status === "active" || status === "1" || status === 1,
-        cluster_ids: selectedClusterIds.map((id) => parseInt(id)),
         question_ids: allSelectedQuestionIds,
         clusters: clustersArray,
       };
@@ -511,6 +526,9 @@ export default function AdminMasterTests() {
     setQuestionCounts({ P: 0, R: 0, SDB: 0 });
     setSelectedQuestions({});
     setQuestionSelectionError("");
+    setErrorConstructInfo(null);
+    setSkippedConstructs([]);
+    setSelectAllMode(false);
     setFieldErrors({});
     setEditingId(null);
   };
@@ -543,26 +561,78 @@ export default function AdminMasterTests() {
     
     constructsForSelectedClusters.forEach((construct) => {
       const constructId = construct.id.toString();
+      // Skip if construct is in skipped list
+      if (skippedConstructs.includes(constructId)) {
+        // Keep existing selections if any
+        newSelectedQuestions[constructId] = selectedQuestions[constructId] || { P: [], R: [], SDB: [] };
+        return;
+      }
+      
       newSelectedQuestions[constructId] = { P: [], R: [], SDB: [] };
       
       ["P", "R", "SDB"].forEach((category) => {
-        const limit = changedCategory === category 
-          ? newCount 
-          : questionCounts[category] || 0;
-        
-        if (limit > 0) {
+        if (selectAllMode) {
+          // Select all questions for this category
           const categoryQuestions = getQuestionsForConstructAndCategory(
             construct.id,
             category
           );
-          // Auto-select first N questions
-          const selected = categoryQuestions.slice(0, limit).map((q) => q.id);
-          newSelectedQuestions[constructId][category] = selected;
+          newSelectedQuestions[constructId][category] = categoryQuestions.map((q) => q.id);
+        } else {
+          const limit = changedCategory === category 
+            ? newCount 
+            : questionCounts[category] || 0;
+          
+          if (limit > 0) {
+            const categoryQuestions = getQuestionsForConstructAndCategory(
+              construct.id,
+              category
+            );
+            // Auto-select first N questions
+            const selected = categoryQuestions.slice(0, limit).map((q) => q.id);
+            newSelectedQuestions[constructId][category] = selected;
+          }
         }
       });
     });
     
     setSelectedQuestions(newSelectedQuestions);
+  };
+
+  // Handle select all mode toggle
+  const handleSelectAllModeToggle = (enabled) => {
+    setSelectAllMode(enabled);
+    if (enabled) {
+      // Clear question counts and select all questions
+      setQuestionCounts({ P: 0, R: 0, SDB: 0 });
+      setQuestionSelectionError(""); // Clear any existing errors
+      setErrorConstructInfo(null);
+      autoSelectQuestions();
+    } else {
+      // Reset to count-based selection
+      setSelectedQuestions({});
+      setQuestionSelectionError(""); // Clear any existing errors
+      setErrorConstructInfo(null);
+    }
+  };
+
+  // Toggle skip for a construct
+  const handleToggleSkipConstruct = (constructId) => {
+    const constructIdStr = constructId.toString();
+    setSkippedConstructs((prev) => {
+      if (prev.includes(constructIdStr)) {
+        // Remove from skipped list
+        return prev.filter((id) => id !== constructIdStr);
+      } else {
+        // Add to skipped list
+        return [...prev, constructIdStr];
+      }
+    });
+    // Clear error if this construct was causing it
+    if (errorConstructInfo && errorConstructInfo.constructId === constructId) {
+      setQuestionSelectionError("");
+      setErrorConstructInfo(null);
+    }
   };
 
   // Handle question selection
@@ -611,6 +681,12 @@ export default function AdminMasterTests() {
   const validateQuestionSelection = () => {
     for (const construct of constructsForSelectedClusters) {
       const constructId = construct.id.toString();
+      
+      // Skip validation if this construct is in the skipped list
+      if (skippedConstructs.includes(constructId)) {
+        continue;
+      }
+      
       const selected = selectedQuestions[constructId] || {};
       
       for (const category of ["P", "R", "SDB"]) {
@@ -618,11 +694,31 @@ export default function AdminMasterTests() {
         const selectedCount = selected[category]?.length || 0;
         
         if (required > 0 && selectedCount !== required) {
+          // Return error with construct info for "Go to" link
+          setErrorConstructInfo({
+            constructId: construct.id,
+            constructName: construct.name,
+            category: category
+          });
           return `Please ensure ${required} ${category} question(s) are selected for construct "${construct.name}".`;
         }
       }
     }
+    setErrorConstructInfo(null);
     return null;
+  };
+
+  // Scroll to a specific construct section
+  const scrollToConstruct = (constructId) => {
+    const element = document.getElementById(`construct-${constructId}`);
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      // Highlight the section briefly
+      element.classList.add('ring-2', 'ring-blue-400');
+      setTimeout(() => {
+        element.classList.remove('ring-2', 'ring-blue-400');
+      }, 2000);
+    }
   };
 
   const closeForm = () => {
@@ -647,37 +743,45 @@ export default function AdminMasterTests() {
     }
     // Clusters are not editable, so skip validation
 
-    // Validate that question counts are set
-    if (selectedClusterIds.length > 0 && constructsForSelectedClusters.length > 0) {
-      const hasQuestionCounts = Object.values(questionCounts).some(count => count > 0);
-      if (!hasQuestionCounts) {
-        setQuestionSelectionError("Please specify at least one question count (P, R, or SDB) per construct.");
+    // Validate that question counts are set (only if not in select all mode)
+    if (!selectAllMode && selectedClusterIds.length > 0 && constructsForSelectedClusters.length > 0) {
+      const activeConstructs = constructsForSelectedClusters.filter(
+        (c) => !skippedConstructs.includes(c.id.toString())
+      );
+      
+      if (activeConstructs.length > 0) {
+        const hasQuestionCounts = Object.values(questionCounts).some(count => count > 0);
+        if (!hasQuestionCounts) {
+          setQuestionSelectionError("Please specify at least one question count (P, R, or SDB) per construct, or enable 'Select All Questions'.");
+          setFieldErrors(errors);
+          setTimeout(() => {
+            const errorElement = document.getElementById('question-selection-error');
+            if (errorElement) {
+              errorElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+          }, 100);
+          return;
+        }
+      }
+    }
+
+    // Validate question selection (only if not in select all mode)
+    if (!selectAllMode) {
+      const questionValidationError = validateQuestionSelection();
+      if (questionValidationError) {
+        setQuestionSelectionError(questionValidationError);
         setFieldErrors(errors);
+        // Scroll to error after a short delay to allow state update
         setTimeout(() => {
-          const errorElement = document.getElementById('question-selection-error');
+          const errorElement = document.getElementById('question-selection-error') || 
+                              document.getElementById('form-errors') ||
+                              document.querySelector('[class*="danger-text"]');
           if (errorElement) {
             errorElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
           }
         }, 100);
         return;
       }
-    }
-
-    // Validate question selection
-    const questionValidationError = validateQuestionSelection();
-    if (questionValidationError) {
-      setQuestionSelectionError(questionValidationError);
-      setFieldErrors(errors);
-      // Scroll to error after a short delay to allow state update
-      setTimeout(() => {
-        const errorElement = document.getElementById('question-selection-error') || 
-                            document.getElementById('form-errors') ||
-                            document.querySelector('[class*="danger-text"]');
-        if (errorElement) {
-          errorElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
-      }, 100);
-      return;
     }
 
     if (Object.keys(errors).length > 0) {
@@ -700,8 +804,10 @@ export default function AdminMasterTests() {
     setActionLoading({ ...actionLoading, update: true });
 
     try {
-      // Collect only selected question IDs from constructs in selected clusters
-      const validConstructIds = constructsForSelectedClusters.map((c) => c.id.toString());
+      // Collect only selected question IDs from constructs in selected clusters (excluding skipped)
+      const validConstructIds = constructsForSelectedClusters
+        .filter((c) => !skippedConstructs.includes(c.id.toString()))
+        .map((c) => c.id.toString());
       const allSelectedQuestionIds = [];
       
       for (const constructId of validConstructIds) {
@@ -718,18 +824,18 @@ export default function AdminMasterTests() {
       // Build clusters array with P, R, SDB counts for each cluster
       const clustersArray = selectedClusterIds.map((clusterId) => ({
         cluster_id: parseInt(clusterId),
-        p_count: questionCounts.P || null,
-        r_count: questionCounts.R || null,
-        sdb_count: questionCounts.SDB || null,
+        p_count: selectAllMode ? null : (questionCounts.P || null),
+        r_count: selectAllMode ? null : (questionCounts.R || null),
+        sdb_count: selectAllMode ? null : (questionCounts.SDB || null),
       }));
 
       // Build payload with all required fields
       // Age group ID will be automatically added by API interceptor from localStorage
+      // Note: Only send 'clusters' array, not 'cluster_ids', to avoid duplicates in backend
       const payload = {
         title: title.trim(),
         description: description.trim() || "",
         is_active: status === "active" || status === "1" || status === 1,
-        cluster_ids: selectedClusterIds.map((id) => parseInt(id)),
         question_ids: allSelectedQuestionIds,
         clusters: clustersArray,
       };
@@ -1342,7 +1448,17 @@ export default function AdminMasterTests() {
 
                     {questionSelectionError && (
                       <div id="question-selection-error" className="p-3 bg-danger-bg-light border border-danger-border-light rounded-lg">
-                        <p className="danger-text text-sm">{questionSelectionError}</p>
+                        <div className="flex items-center justify-between gap-3">
+                          <p className="danger-text text-sm flex-1">{questionSelectionError}</p>
+                          {errorConstructInfo && (
+                            <button
+                              onClick={() => scrollToConstruct(errorConstructInfo.constructId)}
+                              className="btn btn-sm btn-outline-danger whitespace-nowrap"
+                            >
+                              Go to {errorConstructInfo.constructName}
+                            </button>
+                          )}
+                        </div>
                       </div>
                     )}
 
@@ -1355,60 +1471,138 @@ export default function AdminMasterTests() {
                       </div>
                     )}
 
-                    {/* Common Question Count Inputs */}
+                    {/* Select All Questions Toggle */}
                     <div className="bg-white border border-neutral-200 rounded-lg p-4">
-                      <h4 className="font-semibold neutral-text mb-4">
-                        Questions per Construct <span className="danger-text">*</span>
-                      </h4>
-                      <div className="grid grid-cols-3 gap-3">
-                        {["P", "R", "SDB"].map((category) => (
-                          <div key={category}>
-                            <label className="text-xs font-medium neutral-text-muted block mb-1">
-                              {category} Questions
-                            </label>
-                            <input
-                              type="number"
-                              min="0"
-                              value={questionCounts[category] || ""}
-                              onChange={(e) =>
-                                handleQuestionCountChange(
-                                  category,
-                                  e.target.value
-                                )
-                              }
-                              placeholder="0"
-                              disabled={actionLoading.create || actionLoading.update || constructsForSelectedClusters.length === 0}
-                              className="input w-full text-sm"
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h4 className="font-semibold neutral-text mb-1">
+                            Select All Questions
+                          </h4>
+                          <p className="text-xs neutral-text-muted">
+                            Enable to select all available questions without specifying counts
+                          </p>
+                        </div>
+                        <label className="flex items-center cursor-pointer relative">
+                          <input
+                            type="checkbox"
+                            checked={selectAllMode}
+                            onChange={(e) => handleSelectAllModeToggle(e.target.checked)}
+                            disabled={actionLoading.create || actionLoading.update || constructsForSelectedClusters.length === 0}
+                            className="sr-only"
+                          />
+                          <div
+                            className={`relative w-14 h-7 rounded-full transition-colors duration-200 ease-in-out ${
+                              selectAllMode
+                                ? "accent-bg"
+                                : "bg-gray-300"
+                            }`}
+                          >
+                            <div
+                              className={`absolute top-0.5 left-0.5 w-6 h-6 white-bg rounded-full shadow-md transform transition-transform duration-200 ease-in-out ${
+                                selectAllMode
+                                  ? "translate-x-7"
+                                  : "translate-x-0"
+                              }`}
                             />
-                            <p className="text-xs neutral-text-muted mt-1">
-                              Per construct
-                            </p>
                           </div>
-                        ))}
+                        </label>
                       </div>
                     </div>
 
+                    {/* Common Question Count Inputs */}
+                    {!selectAllMode && (
+                      <div className="bg-white border border-neutral-200 rounded-lg p-4">
+                        <h4 className="font-semibold neutral-text mb-4">
+                          Questions per Construct <span className="danger-text">*</span>
+                        </h4>
+                        <div className="grid grid-cols-3 gap-3">
+                          {["P", "R", "SDB"].map((category) => (
+                            <div key={category}>
+                              <label className="text-xs font-medium neutral-text-muted block mb-1">
+                                {category} Questions
+                              </label>
+                              <input
+                                type="number"
+                                min="0"
+                                value={questionCounts[category] || ""}
+                                onChange={(e) =>
+                                  handleQuestionCountChange(
+                                    category,
+                                    e.target.value
+                                  )
+                                }
+                                placeholder="0"
+                                disabled={actionLoading.create || actionLoading.update || constructsForSelectedClusters.length === 0}
+                                className="input w-full text-sm"
+                              />
+                              <p className="text-xs neutral-text-muted mt-1">
+                                Per construct
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
                     {/* Construct-wise Question Display */}
-                    {constructsForSelectedClusters.length > 0 && Object.values(questionCounts).some((count) => count > 0) && (
+                    {constructsForSelectedClusters.length > 0 && (selectAllMode || Object.values(questionCounts).some((count) => count > 0)) && (
                       <div className="space-y-4">
                         {constructsForSelectedClusters.map((construct) => {
                           const constructId = construct.id.toString();
                           const selected = selectedQuestions[constructId] || { P: [], R: [], SDB: [] };
+                          const isSkipped = skippedConstructs.includes(constructId);
 
                           return (
                             <div
+                              id={`construct-${construct.id}`}
                               key={construct.id}
-                              className="bg-white border border-neutral-200 rounded-lg p-4 space-y-4"
+                              className={`bg-white border rounded-lg p-4 space-y-4 transition-all ${
+                                isSkipped 
+                                  ? "border-gray-300 opacity-60" 
+                                  : "border-neutral-200"
+                              }`}
                             >
-                              <h4 className="font-semibold neutral-text">
-                                {construct.name}
-                              </h4>
+                              <div className="flex items-center justify-between">
+                                <h4 className="font-semibold neutral-text">
+                                  {construct.name}
+                                  {isSkipped && (
+                                    <span className="ml-2 text-xs neutral-text-muted">(Skipped)</span>
+                                  )}
+                                </h4>
+                                <label className="flex items-center gap-2 cursor-pointer relative">
+                                  <span className="text-xs neutral-text-muted">Skip this construct</span>
+                                  <input
+                                    type="checkbox"
+                                    checked={isSkipped}
+                                    onChange={() => handleToggleSkipConstruct(construct.id)}
+                                    disabled={actionLoading.create || actionLoading.update}
+                                    className="sr-only"
+                                  />
+                                  <div
+                                    className={`relative w-12 h-6 rounded-full transition-colors duration-200 ease-in-out ${
+                                      isSkipped
+                                        ? "bg-gray-400"
+                                        : "bg-gray-300"
+                                    }`}
+                                  >
+                                    <div
+                                      className={`absolute top-0.5 left-0.5 w-5 h-5 white-bg rounded-full shadow-md transform transition-transform duration-200 ease-in-out ${
+                                        isSkipped
+                                          ? "translate-x-6"
+                                          : "translate-x-0"
+                                      }`}
+                                    />
+                                  </div>
+                                </label>
+                              </div>
 
                               {/* Question Selection */}
-                              <div className="space-y-3">
-                                {["P", "R", "SDB"].map((category) => {
-                                  const limit = questionCounts[category] || 0;
-                                  if (limit === 0) return null;
+                              {!isSkipped && (
+                                <div className="space-y-3">
+                                  {["P", "R", "SDB"].map((category) => {
+                                    const limit = selectAllMode ? null : (questionCounts[category] || 0);
+                                    // Show category if selectAllMode is enabled OR if limit > 0
+                                    if (!selectAllMode && (!limit || limit === 0)) return null;
 
                                 const categoryQuestions = getQuestionsForConstructAndCategory(
                                   construct.id,
@@ -1420,7 +1614,7 @@ export default function AdminMasterTests() {
                                   <div key={category} className="border border-neutral-200 rounded-lg p-3">
                                     <div className="flex items-center justify-between mb-2">
                                       <span className="text-sm font-medium neutral-text">
-                                        {category} Questions ({selectedForCategory.length}/{limit} selected)
+                                        {category} Questions {selectAllMode ? `(${selectedForCategory.length} selected)` : `(${selectedForCategory.length}/${limit} selected)`}
                                       </span>
                                     </div>
                                     {categoryQuestions.length === 0 ? (
@@ -1431,7 +1625,7 @@ export default function AdminMasterTests() {
                                       <div className="space-y-2 max-h-48 overflow-y-auto">
                                         {categoryQuestions.map((question) => {
                                           const isSelected = selectedForCategory.includes(question.id);
-                                          const isDisabled = !isSelected && selectedForCategory.length >= limit;
+                                          const isDisabled = !selectAllMode && !isSelected && selectedForCategory.length >= limit;
 
                                           return (
                                             <label
@@ -1468,7 +1662,8 @@ export default function AdminMasterTests() {
                                   </div>
                                 );
                               })}
-                              </div>
+                                </div>
+                              )}
                             </div>
                           );
                         })}

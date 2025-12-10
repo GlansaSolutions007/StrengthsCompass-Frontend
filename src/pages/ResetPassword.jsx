@@ -9,10 +9,11 @@ const ResetPassword = () => {
   const location = useLocation();
   const navigate = useNavigate();
 
-  // Extract token and temp password from URL query parameters
+  // Extract token, temp password, and admin flag from URL query parameters
   const searchParams = new URLSearchParams(location.search);
   const urlToken = searchParams.get("token") || "";
   const urlTempPwd = searchParams.get("temp") || "";
+  const isAdmin = searchParams.get("admin") === "true" || searchParams.get("type") === "admin";
 
   const [formData, setFormData] = useState({
     token: urlToken,
@@ -98,8 +99,21 @@ const ResetPassword = () => {
       setSuccessMessage("");
 
       // Use axios directly without auth headers - only send token from URL
+      // Check if this is an admin reset from URL parameters
+      const currentParams = new URLSearchParams(location.search);
+      const isAdminReset = currentParams.get("admin") === "true" || 
+                          currentParams.get("type") === "admin";
+      
+      // Determine API endpoint based on whether it's an admin reset
+      // API_BASE_URL already has trailing slash, so we just append the endpoint
+      const apiEndpoint = isAdminReset 
+        ? `${API_BASE_URL}admin/reset-password` 
+        : `${API_BASE_URL}reset-password`;
+      
+      console.log("Reset Password - isAdmin:", isAdminReset, "Endpoint:", apiEndpoint);
+      
       const response = await axios.post(
-        `${API_BASE_URL}reset-password`,
+        apiEndpoint,
         {
           token: formData.token,
           temporary_password: formData.temporary_password,
@@ -117,7 +131,11 @@ const ResetPassword = () => {
       if (response.data?.status) {
         setSuccessMessage(response.data?.message || "Password reset successful. You can now log in.");
         setTimeout(() => {
-          navigate("/login");
+          // Navigate to appropriate login page based on user type
+          const currentParams = new URLSearchParams(location.search);
+          const isAdminReset = currentParams.get("admin") === "true" || 
+                              currentParams.get("type") === "admin";
+          navigate(isAdminReset ? "/admin/login" : "/login");
         }, 2000);
       } else {
         setServerError(

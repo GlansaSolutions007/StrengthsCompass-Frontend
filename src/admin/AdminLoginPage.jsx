@@ -85,6 +85,12 @@ export default function AdminLoginPage() {
   const [loginError, setLoginError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [forgotLoading, setForgotLoading] = useState(false);
+  const [forgotMessage, setForgotMessage] = useState("");
+  const [forgotError, setForgotError] = useState("");
+  const [forgotModalOpen, setForgotModalOpen] = useState(false);
+  const [forgotModalClosing, setForgotModalClosing] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState("");
 
   const validateEmail = (email) => {
     if (!email) return "Email is required";
@@ -224,6 +230,82 @@ export default function AdminLoginPage() {
     }
   };
 
+  const openForgotModal = () => {
+    setForgotMessage("");
+    setForgotError("");
+    setForgotEmail(email || "");
+    setForgotModalOpen(true);
+  };
+
+  const closeForgotModal = () => {
+    if (forgotLoading) return;
+    const ANIMATION_MS = 220;
+    setForgotModalClosing(true);
+    setTimeout(() => {
+      setForgotModalClosing(false);
+      setForgotModalOpen(false);
+      setForgotMessage("");
+      setForgotError("");
+    }, ANIMATION_MS);
+  };
+
+  const handleForgotPassword = async (e) => {
+    e.preventDefault();
+    setForgotMessage("");
+    setForgotError("");
+
+    const emailToSend = forgotEmail.trim() || email.trim();
+    const emailError = validateEmail(emailToSend);
+    if (emailError) {
+      setForgotError("Please enter a valid email before requesting a reset link.");
+      return;
+    }
+
+    try {
+      setForgotLoading(true);
+      // Use same forgot-password endpoint as user, but backend should detect admin context
+      // and include admin=true in the reset link URL
+      const response = await apiClient.post("/forgot-password", {
+        email: emailToSend,
+      });
+
+      const successMessage =
+        response.data?.message ||
+        response.data?.data?.message ||
+        (response.data?.status
+          ? "Password reset instructions have been sent to your email."
+          : null);
+
+      const httpSuccess = response.status >= 200 && response.status < 300;
+
+      if (response.data?.status || httpSuccess || successMessage) {
+        setForgotMessage(
+          successMessage || "Password reset instructions have been sent to your email."
+        );
+        setForgotEmail(emailToSend);
+        setTimeout(() => {
+          closeForgotModal();
+        }, 1500);
+      } else {
+        setForgotError(
+          response.data?.message ||
+            response.data?.errors?.email?.[0] ||
+            "Unable to send reset link. Please try again."
+        );
+      }
+    } catch (err) {
+      console.error("Forgot password error:", err);
+      setForgotError(
+        err.response?.data?.message ||
+          err.response?.data?.error ||
+          err.response?.data?.errors?.email?.[0] ||
+          "Unable to send reset link. Please try again."
+      );
+    } finally {
+      setForgotLoading(false);
+    }
+  };
+
   return (
     <>
       <AlertModal
@@ -233,6 +315,60 @@ export default function AdminLoginPage() {
         title="Login Failed"
         message={loginError || ""}
       />
+      {(forgotModalOpen || forgotModalClosing) && (
+        <div className="fixed inset-0 z-20 flex items-center justify-center p-4">
+          <div
+            className={`absolute inset-0 bg-black/40 ${
+              forgotModalClosing ? "animate-backdrop-out" : "animate-backdrop-in"
+            }`}
+            onClick={closeForgotModal}
+          />
+          <div
+            className={`bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 relative z-10 ${
+              forgotModalClosing ? "animate-modal-out" : "animate-modal-in"
+            }`}
+          >
+            <h3 className="text-lg font-semibold text-gray-800 mb-4">Forgot Password</h3>
+            <form onSubmit={handleForgotPassword} className="space-y-4">
+              <div className="space-y-2">
+                <label className="block text-sm font-medium neutral-text-muted">
+                  Email
+                </label>
+                <input
+                  type="email"
+                  value={forgotEmail}
+                  onChange={(e) => setForgotEmail(e.target.value)}
+                  placeholder="Enter your email address"
+                  className="w-full border border-neutral-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-secondary focus:border-secondary"
+                />
+                {forgotError && (
+                  <p className="danger-text text-xs">{forgotError}</p>
+                )}
+                {forgotMessage && (
+                  <p className="success-text text-xs">{forgotMessage}</p>
+                )}
+              </div>
+              <div className="flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={closeForgotModal}
+                  disabled={forgotLoading}
+                  className="btn btn-ghost text-sm"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={forgotLoading}
+                  className="btn secondary-bg black-text hover:secondary-bg-dark text-sm"
+                >
+                  {forgotLoading ? "Sending..." : "Send Reset Link"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
       <div className="min-h-screen w-screen flex items-center justify-center blue-bg-100 p-4 relative overflow-hidden">
       <div className="w-full max-w-md bg-white backdrop-blur-xl shadow-2xl rounded-3xl p-8 md:p-10 relative z-10 border border-primary-border-light animate-slide-up">
         <div className="text-center mb-8">
@@ -393,7 +529,17 @@ export default function AdminLoginPage() {
             )}
           </div>
 
-         
+          <div className="flex flex-col gap-1 text-xs">
+            <div className="flex items-center justify-between">
+              <span />
+              <a
+                onClick={openForgotModal}
+                className="text-blue-600 hover:text-blue-800 font-medium transition-colors cursor-pointer"
+              >
+                Forgot Password?
+              </a>
+            </div>
+          </div>
 
           <button
             type="submit"
@@ -436,6 +582,42 @@ export default function AdminLoginPage() {
             transform: scale(1.05);
           }
         }
+        @keyframes modal-in {
+          from {
+            opacity: 0;
+            transform: translateY(10px) scale(0.985);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+          }
+        }
+        @keyframes modal-out {
+          from {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+          }
+          to {
+            opacity: 0;
+            transform: translateY(10px) scale(0.985);
+          }
+        }
+        @keyframes backdrop-in {
+          from {
+            opacity: 0;
+          }
+          to {
+            opacity: 1;
+          }
+        }
+        @keyframes backdrop-out {
+          from {
+            opacity: 1;
+          }
+          to {
+            opacity: 0;
+          }
+        }
         .animate-pulse-slow {
           animation: pulse-slow 8s ease-in-out infinite;
         }
@@ -444,6 +626,18 @@ export default function AdminLoginPage() {
         }
         .animate-pulse-gentle {
           animation: pulse-gentle 3s ease-in-out infinite;
+        }
+        .animate-modal-in {
+          animation: modal-in 220ms ease-out forwards;
+        }
+        .animate-modal-out {
+          animation: modal-out 220ms ease-in forwards;
+        }
+        .animate-backdrop-in {
+          animation: backdrop-in 220ms ease-out forwards;
+        }
+        .animate-backdrop-out {
+          animation: backdrop-out 220ms ease-in forwards;
         }
         .animation-delay-2000 {
           animation-delay: 2s;

@@ -23,6 +23,7 @@ import UserAnswers from "./admin/UserAnswers";
 import AdminTestResults from "./admin/AdminTestResults";
 import TestDetails from "./admin/TestDetails";
 import AdminLayout from "./layouts/AdminLayout";
+import ResetPassword from "./pages/ResetPassword";
 
 export default function App() {
   return (
@@ -30,6 +31,7 @@ export default function App() {
       <Route path="/" element={<Landing />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/profile" element={<Profile />} />
       <Route path="/testlist" element={<TestList />} />
       <Route path="/test" element={<Test />} />
