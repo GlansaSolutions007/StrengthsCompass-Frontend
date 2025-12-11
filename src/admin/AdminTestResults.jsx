@@ -374,8 +374,10 @@ export default function AdminTestResults() {
           <button
             onClick={handleExportExcel}
             disabled={exporting}
-            className="btn bg-green-600 hover:bg-green-700 text-white shadow-md flex items-center gap-2 w-full sm:w-auto text-sm sm:text-base disabled:opacity-50 disabled:cursor-not-allowed"
-          >
+            // className="btn bg-green-600 hover:bg-green-700 text-white shadow-md flex items-center gap-2 w-full sm:w-auto text-sm sm:text-base disabled:opacity-50 disabled:cursor-not-allowed"
+        
+            className="btn btn-secondary text-sm"
+>
             {exporting ? (
               <>
                 <span className="spinner spinner-sm"></span>
@@ -869,7 +871,7 @@ export default function AdminTestResults() {
                     type="button"
                     onClick={closeSummaryModal}
                     disabled={savingSummary}
-                    className="btn btn-sm bg-gray-100 hover:bg-gray-200 text-gray-700"
+                    className="btn btn-primary text-sm"
                   >
                     Cancel
                   </button>

@@ -802,7 +802,7 @@ export default function AdminMasterQuestions() {
         title="Confirm Delete"
         message={`Are you sure you want to delete "${deleteConfirm.questionText}"? This action cannot be undone.`}
       >
-        <div className="mt-6 flex justify-end gap-3">
+        <div className="mt-6 flex justify-center gap-3">
           <button
             onClick={() =>
               setDeleteConfirm({ isOpen: false, id: null, questionText: "" })
@@ -982,13 +982,13 @@ export default function AdminMasterQuestions() {
               {!editingId && (
                 <>
                   {/* Tab Navigation */}
-                  <div className="flex border-b border-neutral-border-light mb-6">
+                  <div className="flex gap-2 mb-6">
                     <button
                       onClick={() => setActiveTab("single")}
-                      className={`px-6 py-3 font-semibold text-sm transition-colors ${
+                      className={`flex-1 px-6 py-3 font-semibold text-sm transition-all text-center rounded-lg ${
                         activeTab === "single"
-                          ? "primary-text border-b-2 border-primary"
-                          : "neutral-text-muted hover:neutral-text"
+                          ? "secondary-bg text-black shadow-md"
+                          : "primary-bg text-white hover:primary-bg-dark border border-primary-border"
                       }`}
                     >
                       <HiPlus className="w-4 h-4 inline mr-2" />
@@ -996,10 +996,10 @@ export default function AdminMasterQuestions() {
                     </button>
                     <button
                       onClick={() => setActiveTab("bulk-general")}
-                      className={`px-6 py-3 font-semibold text-sm transition-colors ${
+                      className={`flex-1 px-6 py-3 font-semibold text-sm transition-all text-center rounded-lg ${
                         activeTab === "bulk-general"
-                          ? "primary-text border-b-2 border-primary"
-                          : "neutral-text-muted hover:neutral-text"
+                          ? "secondary-bg text-black shadow-md"
+                          : "primary-bg text-white hover:primary-bg-dark border border-primary-border"
                       }`}
                     >
                       <HiCloudUpload className="w-4 h-4 inline mr-2" />
@@ -1007,10 +1007,10 @@ export default function AdminMasterQuestions() {
                     </button>
                     <button
                       onClick={() => setActiveTab("bulk-cluster-construct")}
-                      className={`px-6 py-3 font-semibold text-sm transition-colors ${
+                      className={`flex-1 px-6 py-3 font-semibold text-sm transition-all text-center rounded-lg ${
                         activeTab === "bulk-cluster-construct"
-                          ? "primary-text border-b-2 border-primary"
-                          : "neutral-text-muted hover:neutral-text"
+                          ? "secondary-bg text-black shadow-md"
+                          : "primary-bg text-white hover:primary-bg-dark border border-primary-border"
                       }`}
                     >
                       <HiCollection className="w-4 h-4 inline mr-2" />

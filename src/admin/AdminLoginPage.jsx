@@ -353,7 +353,7 @@ export default function AdminLoginPage() {
                   type="button"
                   onClick={closeForgotModal}
                   disabled={forgotLoading}
-                  className="btn btn-ghost text-sm"
+                  className="btn btn-primary text-sm"
                 >
                   Cancel
                 </button>

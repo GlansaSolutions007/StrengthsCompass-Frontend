@@ -1196,23 +1196,6 @@ export default function UserResults() {
         message={error || ""}
       />
 
-      {/* PDF Generation Loading Overlay */}
-      {generatingPDF && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl p-8 flex flex-col items-center min-w-[300px]">
-            <div className="relative">
-              <span className="spinner spinner-lg mb-4"></span>
-            </div>
-            <h3 className="text-lg font-semibold text-gray-800 mb-2">Generating PDF</h3>
-            <p className="text-sm text-gray-600 text-center">
-              Please wait while we generate your PDF report...
-            </p>
-            <p className="text-xs text-gray-500 text-center mt-2">
-              This may take a few moments
-            </p>
-          </div>
-        </div>
-      )}
 
       {/* Header */}
       <div className="mb-6 flex items-center justify-between">
@@ -1237,9 +1220,7 @@ export default function UserResults() {
           <button
             onClick={generatePDF}
             disabled={generatingPDF}
-            className={`btn bg-green-600 hover:bg-green-700 text-white shadow-md flex items-center gap-2 ${
-              generatingPDF ? 'opacity-50 cursor-not-allowed' : ''
-            }`}
+            className="btn btn-secondary text-sm disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {generatingPDF ? (
               <>

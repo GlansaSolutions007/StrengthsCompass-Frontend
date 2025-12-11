@@ -837,7 +837,7 @@ export default function AdminUserList() {
         onSecondary={() =>
           setDeleteConfirm((prev) => ({ ...prev, isOpen: false }))
         }
-        hideCloseButton={deleteConfirm.loading}
+        hideCloseButton={true}
       >
         {deleteConfirm.loading && (
           <div className="flex justify-center mt-4">

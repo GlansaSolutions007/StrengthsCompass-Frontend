@@ -605,7 +605,7 @@ export default function UserDetails() {
                   <button
                     onClick={closeEditModal}
                     disabled={editModal.loading}
-                    className="btn btn-ghost"
+                    className="btn btn-primary text-sm"
                   >
                     Cancel
                   </button>

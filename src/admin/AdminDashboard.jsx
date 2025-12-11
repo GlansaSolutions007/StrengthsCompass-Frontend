@@ -241,8 +241,9 @@ export default function AdminDashboard() {
         <button
           onClick={handleExportExcel}
           disabled={downloading}
-          className="btn bg-green-600 hover:bg-green-700 text-white shadow-md flex items-center gap-2 px-4 py-2 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-        >
+          // className="btn bg-green-600 hover:bg-green-700 text-white shadow-md flex items-center gap-2 px-4 py-2 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+     className="btn btn-secondary text-sm"
+     >
           {downloading ? (
             <>
               <span className="spinner spinner-sm"></span>

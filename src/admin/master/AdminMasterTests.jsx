@@ -1020,7 +1020,7 @@ export default function AdminMasterTests() {
         title="Confirm Delete"
         message={`Are you sure you want to delete "${deleteConfirm.name}"? This action cannot be undone.`}
       >
-        <div className="mt-6 flex justify-end gap-3">
+        <div className="mt-6 flex justify-center gap-3">
           <button
             onClick={() =>
               setDeleteConfirm({ isOpen: false, id: null, name: "" })
