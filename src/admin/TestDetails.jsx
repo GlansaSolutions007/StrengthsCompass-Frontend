@@ -133,10 +133,11 @@ export default function TestDetails() {
         <div className="flex items-center gap-4">
           <button
             onClick={() => navigate("/admin/dashboard/master/tests")}
-            className="btn btn-ghost btn-icon"
+            className="btn btn-black hover:bg-black text-white flex items-center gap-2"
             title="Back to Tests"
           >
             <HiArrowLeft className="w-5 h-5" />
+            <span>Back</span>
           </button>
           <div>
             <h1 className="text-2xl md:text-3xl font-bold neutral-text">
@@ -147,15 +148,6 @@ export default function TestDetails() {
             </p>
           </div>
         </div>
-        {test && (
-          <button
-            onClick={() => navigate("/admin/dashboard/master/tests")}
-            className="btn btn-accent"
-          >
-            <HiPencil className="w-4 h-4 mr-2" />
-            Back to Tests
-          </button>
-        )}
       </div>
 
       {test && (

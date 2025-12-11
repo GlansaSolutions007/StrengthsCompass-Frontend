@@ -327,7 +327,9 @@ export default function RegisterPage() {
       case "age":
         if (!value) return "Age is required";
         const ageNum = parseInt(value);
-        if (isNaN(ageNum) || ageNum < 1 || ageNum > 120) return "Please enter a valid age";
+        if (isNaN(ageNum)) return "Please enter a valid age";
+        if (ageNum < 13) return "You are too young to take this test.";
+        if (ageNum > 120) return "You are too old to take this test.";
         return "";
       default:
         return "";
@@ -340,12 +342,26 @@ export default function RegisterPage() {
     setErrors({ ...errors, [field]: error });
   };
 
+  // Helper function to capitalize first letter
+  const capitalizeFirstLetter = (str) => {
+    if (!str) return str;
+    return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
+  };
+
   const handleChange = (e) => {
     const { name } = e.target;
     let value = e.target.value;
 
     if (name === "contact_number" || name === "whatsapp_number") {
       value = value.replace(/\D/g, "").slice(0, 10);
+    }
+
+    // Capitalize first letter for first_name and last_name
+    if (name === "first_name" || name === "last_name") {
+      // Capitalize only the first letter, keep rest as typed
+      if (value.length > 0) {
+        value = value.charAt(0).toUpperCase() + value.slice(1);
+      }
     }
 
     const updatedFormData = { ...formData, [name]: value };
@@ -402,8 +418,8 @@ export default function RegisterPage() {
     
     try {
       const payload = {
-        first_name: formData.first_name,
-        last_name: formData.last_name,
+        first_name: capitalizeFirstLetter(formData.first_name.trim()),
+        last_name: capitalizeFirstLetter(formData.last_name.trim()),
         email: formData.email,
         password: formData.password,
         password_confirmation: formData.password_confirmation,

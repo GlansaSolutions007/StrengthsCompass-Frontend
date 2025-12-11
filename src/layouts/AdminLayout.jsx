@@ -21,6 +21,7 @@ export default function AdminLayout() {
   const [loadingVariant, setLoadingVariant] = useState(false);
   const [variantError, setVariantError] = useState(null);
   const [variantSuccess, setVariantSuccess] = useState(null);
+  const [testName, setTestName] = useState(null);
 
   // Check authentication and separate admin/user routes
   useEffect(() => {
@@ -73,6 +74,33 @@ export default function AdminLayout() {
 
     fetchAgeGroups();
   }, []);
+
+  // Fetch test name if on test details page
+  useEffect(() => {
+    const fetchTestName = async () => {
+      // Check if we're on the test details page
+      const testDetailsMatch = location.pathname.match(/\/master\/tests\/(\d+)/);
+      if (testDetailsMatch) {
+        const testId = testDetailsMatch[1];
+        try {
+          const token = localStorage.getItem("adminToken");
+          if (!token) return;
+
+          const response = await apiClient.get(`/tests/${testId}`);
+          if (response.data?.status && response.data.data) {
+            setTestName(response.data.data.title || null);
+          }
+        } catch (err) {
+          console.error("Error fetching test name:", err);
+          setTestName(null);
+        }
+      } else {
+        setTestName(null);
+      }
+    };
+
+    fetchTestName();
+  }, [location.pathname]);
 
   // Handle variant change
   const handleVariantChange = async (ageGroupId) => {
@@ -352,7 +380,7 @@ export default function AdminLayout() {
         {/* Footer */}
         <div className="p-4 bg-gray-800">
           <div className="text-xs text-gray-400 text-center">
-            © 2024 Strengths Compass
+            © {new Date().getFullYear()} Strengths Compass
           </div>
         </div>
       </aside>
@@ -365,47 +393,51 @@ export default function AdminLayout() {
             <div className="flex items-center justify-between">
               <div>
                 <h1 className="text-2xl font-bold neutral-text">
-                  {titleFromPath(location.pathname)}
+                  {testName || titleFromPath(location.pathname)}
                 </h1>
                 <p className="text-sm neutral-text-muted mt-1">
-                  Manage your {titleFromPath(location.pathname).toLowerCase()} settings
+                  {testName 
+                    ? "View complete test information"
+                    : `Manage your ${titleFromPath(location.pathname).toLowerCase()} settings`}
                 </p>
               </div>
-              {/* Variant (Age Group) Selector */}
-              <div className="flex items-center gap-3">
-                <label className="text-sm font-semibold neutral-text whitespace-nowrap">
-                  Variant (Age Group):
-                </label>
-                <div className="relative">
-                  <select
-                    value={selectedVariant?.id || ""}
-                    onChange={(e) => handleVariantChange(e.target.value)}
-                    disabled={loadingVariant || ageGroups.length === 0}
-                    className="input pr-10 min-w-[200px] bg-white border border-neutral-300 focus:ring-2 focus:ring-secondary focus:border-secondary"
-                  >
-                    {ageGroups.length === 0 ? (
-                      <option value="">Loading...</option>
-                    ) : (
-                      <>
-                        {!selectedVariant && (
-                          <option value="" disabled>
-                            Select Age Group
-                          </option>
-                        )}
-                        {ageGroups.map((ag) => (
-                          <option key={ag.id} value={ag.id}>
-                            {ag.name} ({ag.from} - {ag.to})
-                          </option>
-                        ))}
-                      </>
-                    )}
-                  </select>
-                  <HiChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 neutral-text-muted" />
+              {/* Variant (Age Group) Selector - Hidden on TestDetails page */}
+              {!location.pathname.includes("/master/tests/") && (
+                <div className="flex items-center gap-3">
+                  <label className="text-sm font-semibold neutral-text whitespace-nowrap">
+                    Variant (Age Group):
+                  </label>
+                  <div className="relative">
+                    <select
+                      value={selectedVariant?.id || ""}
+                      onChange={(e) => handleVariantChange(e.target.value)}
+                      disabled={loadingVariant || ageGroups.length === 0}
+                      className="input pr-10 min-w-[200px] bg-white border border-neutral-300 focus:ring-2 focus:ring-secondary focus:border-secondary"
+                    >
+                      {ageGroups.length === 0 ? (
+                        <option value="">Loading...</option>
+                      ) : (
+                        <>
+                          {!selectedVariant && (
+                            <option value="" disabled>
+                              Select Age Group
+                            </option>
+                          )}
+                          {ageGroups.map((ag) => (
+                            <option key={ag.id} value={ag.id}>
+                              {ag.name} ({ag.from} - {ag.to})
+                            </option>
+                          ))}
+                        </>
+                      )}
+                    </select>
+                    <HiChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 neutral-text-muted" />
+                  </div>
+                  {loadingVariant && (
+                    <span className="spinner spinner-sm"></span>
+                  )}
                 </div>
-                {loadingVariant && (
-                  <span className="spinner spinner-sm"></span>
-                )}
-              </div>
+              )}
             </div>
           </div>
         </div>

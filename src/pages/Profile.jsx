@@ -237,11 +237,26 @@ export default function Profile() {
     };
   }, [navigate]);
 
+  // Helper function to capitalize first letter
+  const capitalizeFirstLetter = (str) => {
+    if (!str) return str;
+    return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
+  };
+
   const handleChange = (field, value) => {
     let newValue = value;
     if (field === "phone" || field === "whatsapp_number") {
       newValue = value.replace(/\D/g, "").slice(0, 10);
     }
+    
+    // Capitalize first letter for firstName and lastName
+    if (field === "firstName" || field === "lastName") {
+      // Capitalize only the first letter, keep rest as typed
+      if (newValue.length > 0) {
+        newValue = newValue.charAt(0).toUpperCase() + newValue.slice(1);
+      }
+    }
+    
     setFormData({ ...formData, [field]: newValue });
     if (errors[field]) {
       setErrors({ ...errors, [field]: "" });
@@ -270,6 +285,18 @@ export default function Profile() {
       newErrors.phone = "Contact number is required";
     } else if (phoneDigits.length !== 10) {
       newErrors.phone = "Contact number must be exactly 10 digits";
+    }
+    if (!formData.age) {
+      newErrors.age = "Age is required";
+    } else {
+      const ageNum = parseInt(formData.age);
+      if (isNaN(ageNum)) {
+        newErrors.age = "Please enter a valid age";
+      } else if (ageNum < 13) {
+        newErrors.age = "You are too young to take this test.";
+      } else if (ageNum > 120) {
+        newErrors.age = "You are too old to take this test.";
+      }
     }
     if (formData.whatsapp_number) {
       const whatsappDigits = formData.whatsapp_number.replace(/\D/g, "");
@@ -325,8 +352,8 @@ export default function Profile() {
     const whatsappDigits = sanitizeDigits(formData.whatsapp_number);
 
     const payload = {
-      first_name: formData.firstName.trim(),
-      last_name: formData.lastName.trim(),
+      first_name: capitalizeFirstLetter(formData.firstName.trim()),
+      last_name: capitalizeFirstLetter(formData.lastName.trim()),
       contact_number: contactDigits,
       city: formData.city.trim(),
       state: formData.state.trim(),
