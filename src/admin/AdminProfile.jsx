@@ -562,7 +562,7 @@ export default function AdminProfile() {
                       setFormData(originalFormData);
                     }
                   }}
-                  className="btn bg-gray-100 hover:bg-gray-200 text-gray-700 hover:text-gray-900 border border-gray-300 px-4 py-2 rounded-lg font-medium transition-all"
+                  className="btn btn-primary text-sm"
                 >
                   Cancel
                 </button>
@@ -766,7 +766,7 @@ export default function AdminProfile() {
                   type="button"
                   onClick={closePasswordModal}
                   disabled={passwordLoading}
-                  className="btn bg-gray-200 hover:bg-gray-300 text-gray-600 hover:text-gray-700 border border-gray-400 px-6 py-2.5 rounded-lg font-medium transition-all"
+                  className="btn btn-primary text-sm"
                 >
                   Cancel
                 </button>

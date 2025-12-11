@@ -457,8 +457,7 @@ export default function Test() {
             {testName}
           </h1>
           <p className="text-sm text-slate-600">
-            Please answer all questions honestly. Your responses help us understand your strengths and preferences.
-          </p>
+          Read each sentence and think about how true it is for you in your daily life. Answer based on how you really are, not how you wish to be. There are no right or wrong answers.          </p>
         </div>
 
         {/* Questions Table */}

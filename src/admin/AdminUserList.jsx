@@ -771,7 +771,7 @@ export default function AdminUserList() {
                   <button
                     onClick={closeEditModal}
                     disabled={editModal.loading}
-                    className="btn btn-ghost"
+                    className="btn btn-primary text-sm"
                   >
                     Cancel
                   </button>
@@ -1048,7 +1048,7 @@ export default function AdminUserList() {
                 <div className="flex justify-end gap-3 pt-4">
                   <button
                     onClick={closeViewModal}
-                    className="btn btn-ghost"
+                    className="btn btn-primary text-sm"
                   >
                     Close
                   </button>

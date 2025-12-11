@@ -6,7 +6,8 @@ import axios from "axios";
  * Base URL for API endpoints.
  */
 // export const API_BASE_URL = "https://api.glansadesigns.com/strengthscompass/api";
-export const API_BASE_URL = "https://api.glansa.in/strengthscompass/api/";
+// export const API_BASE_URL = "https://api.glansa.in/strengthscompass/api/";
+export const API_BASE_URL = "https://strengthscompass.axiscompass.in/v1/api";
 
 // Create axios instance with base URL
 const apiClient = axios.create({

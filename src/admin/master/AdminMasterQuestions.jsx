@@ -807,14 +807,14 @@ export default function AdminMasterQuestions() {
             onClick={() =>
               setDeleteConfirm({ isOpen: false, id: null, questionText: "" })
             }
-            className="btn btn-outline-warning btn-sm"
+            className="btn btn-primary text-sm"
           >
             Cancel
           </button>
           <button
             onClick={del}
             disabled={actionLoading.delete}
-            className="btn btn-warning btn-sm"
+            className="btn btn-danger"
           >
             {actionLoading.delete ? "Deleting..." : "Delete"}
           </button>
@@ -890,7 +890,7 @@ export default function AdminMasterQuestions() {
                 <div className="flex justify-end gap-3 pt-4">
                   <button
                     onClick={closeViewModal}
-                    className="btn btn-ghost"
+                    className="btn btn-primary text-sm"
                   >
                     Close
                   </button>
@@ -1189,7 +1189,7 @@ export default function AdminMasterQuestions() {
                         <button
                           onClick={closeForm}
                           disabled={actionLoading.create || actionLoading.update || actionLoading.bulkUpload}
-                          className="btn btn-ghost"
+                          className="btn btn-primary text-sm"
                         >
                           Cancel
                         </button>
@@ -1277,7 +1277,7 @@ export default function AdminMasterQuestions() {
                         <button
                           onClick={closeForm}
                           disabled={actionLoading.bulkUpload}
-                          className="btn btn-ghost"
+                          className="btn btn-primary text-sm"
                         >
                           Cancel
                         </button>
@@ -1461,7 +1461,7 @@ export default function AdminMasterQuestions() {
                         <button
                           onClick={closeForm}
                           disabled={actionLoading.bulkUpload}
-                          className="btn btn-ghost"
+                          className="btn btn-primary text-sm"
                         >
                           Cancel
                         </button>
@@ -1541,7 +1541,7 @@ export default function AdminMasterQuestions() {
                   <button
                     onClick={closeForm}
                       disabled={actionLoading.update}
-                    className="btn btn-ghost"
+                    className="btn btn-primary text-sm"
                   >
                     Cancel
                   </button>
@@ -1757,7 +1757,7 @@ export default function AdminMasterQuestions() {
                   <button
                     onClick={closeBulkAssignModal}
                     disabled={actionLoading.bulkAssign}
-                    className="btn btn-ghost"
+                    className="btn btn-primary text-sm"
                   >
                     Cancel
                   </button>

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import axios from "axios";
 import {
   HiPlay,
   HiDocumentText,
@@ -22,6 +23,7 @@ export default function TestList() {
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [userAge, setUserAge] = useState(null);
   const [ageGroupId, setAgeGroupId] = useState(null);
+  const [ageCheckComplete, setAgeCheckComplete] = useState(false);
 
   // Check if admin is logged in and redirect
   useEffect(() => {
@@ -33,82 +35,100 @@ export default function TestList() {
     }
   }, [navigate]);
 
-  // Helper function to determine age group ID based on user age
-  const getAgeGroupId = (age) => {
-    const ageNum = parseInt(age);
-    if (isNaN(ageNum)) return null;
-    
-    // Fixed age group ranges:
-    // age_group_id 1: 13-17
-    // age_group_id 2: 18-25
-    // age_group_id 3: 26-39
-    // age_group_id 4: 40-100
-    if (ageNum >= 13 && ageNum <= 17) return 1;
-    if (ageNum >= 18 && ageNum <= 25) return 2;
-    if (ageNum >= 26 && ageNum <= 39) return 3;
-    if (ageNum >= 40 && ageNum <= 100) return 4;
-    
-    return null;
-  };
 
-  // Get user age and determine matching age group
+  // Get user age_group_id from profile/API
   useEffect(() => {
-    const getUserAge = async () => {
+    const getUserAgeGroupId = async () => {
       try {
-        // Try to get user data from localStorage first
-        const userDataStr = localStorage.getItem("user");
+        let userAgeGroupId = null;
         let userAgeValue = null;
 
-        if (userDataStr) {
-          try {
-            const userData = JSON.parse(userDataStr);
-            userAgeValue = userData.age || null;
-          } catch (e) {
-            console.error("Error parsing user data:", e);
+        // ALWAYS fetch from API first (most reliable source)
+        const userId = localStorage.getItem("userId");
+        if (userId) {
+          const userToken = localStorage.getItem("token") || 
+                          localStorage.getItem("userToken") || 
+                          localStorage.getItem("authToken");
+          const headers = userToken ? { Authorization: `Bearer ${userToken}` } : undefined;
+          
+          console.log(`🔵 Fetching user profile from API for userId: ${userId}`);
+          const response = await apiClient.get(`/users/${userId}`, { headers });
+          
+          // Handle different response structures
+          const user = response.data?.user || response.data?.data?.user || response.data?.data || response.data;
+          
+          console.log(`🔵 Full user object from API:`, user);
+          
+          // Get age_group_id directly from API response (PRIORITY)
+          if (user?.age_group_id !== undefined && user?.age_group_id !== null) {
+            userAgeGroupId = parseInt(user.age_group_id);
+            console.log(`✅ Found age_group_id from API: ${userAgeGroupId}`);
+          } else {
+            console.warn(`⚠️ age_group_id not found in API response for user`);
+          }
+          
+          // Also get age for display
+          userAgeValue = user?.age || null;
+          
+          // Update localStorage with fresh data from API
+          if (user) {
+            localStorage.setItem("user", JSON.stringify(user));
+            if (user.age_group_id !== undefined && user.age_group_id !== null) {
+              localStorage.setItem("adminSelectedVariantId", user.age_group_id.toString());
+              console.log(`✅ Updated localStorage with age_group_id: ${user.age_group_id}`);
+            }
+          }
+        } else {
+          // Fallback: try localStorage if no userId
+          console.warn(`⚠️ No userId found, trying localStorage...`);
+          const storedVariantId = localStorage.getItem("adminSelectedVariantId");
+          if (storedVariantId) {
+            userAgeGroupId = parseInt(storedVariantId);
+            console.log(`Found age_group_id in localStorage (fallback): ${userAgeGroupId}`);
+          }
+
+          const userDataStr = localStorage.getItem("user");
+          if (userDataStr) {
+            try {
+              const userData = JSON.parse(userDataStr);
+              if (userData.age_group_id !== undefined && userData.age_group_id !== null) {
+                userAgeGroupId = parseInt(userData.age_group_id);
+                console.log(`Found age_group_id in user localStorage (fallback): ${userAgeGroupId}`);
+              }
+              userAgeValue = userData.age || null;
+            } catch (e) {
+              console.error("Error parsing user data:", e);
+            }
           }
         }
 
-        // If not in localStorage, fetch from API
-        if (!userAgeValue) {
-          const userId = localStorage.getItem("userId");
-          if (userId) {
-            const userToken = localStorage.getItem("token") || 
-                            localStorage.getItem("userToken") || 
-                            localStorage.getItem("authToken");
-            const headers = userToken ? { Authorization: `Bearer ${userToken}` } : undefined;
-            const response = await apiClient.get(`/users/${userId}`, { headers });
-            
-            const user = response.data?.data || response.data?.user || response.data;
-            userAgeValue = user?.age || null;
-          }
-        }
-
+        // Set user age for display
         if (userAgeValue) {
           const age = parseInt(userAgeValue);
           setUserAge(age);
-          
-          // Determine age group ID based on fixed ranges
-          const determinedAgeGroupId = getAgeGroupId(age);
-          console.log(`User age: ${age}, Determined age group ID: ${determinedAgeGroupId}`);
-          if (determinedAgeGroupId) {
-            setAgeGroupId(determinedAgeGroupId);
-          } else {
-            // Age is outside valid ranges, set to null
-            console.warn(`User age ${age} is outside valid age group ranges (13-100)`);
-            setAgeGroupId(null);
-          }
+        }
+
+        // Set age_group_id ONLY from API - no frontend calculation
+        if (userAgeGroupId !== null && !isNaN(userAgeGroupId)) {
+          setAgeGroupId(userAgeGroupId);
+          console.log(`User age_group_id from API: ${userAgeGroupId}, User age: ${userAgeValue || 'N/A'}`);
         } else {
-          // If no age found, set userAge to null to trigger fetch without filter
-          console.warn("User age not found, will fetch all tests");
-          setUserAge(null);
+          // If age_group_id is not available from API, set to null
+          // This will result in no tests being shown (strict matching required)
+          console.warn("User age_group_id not found in API response. Cannot filter tests.");
+          setAgeGroupId(null);
         }
       } catch (err) {
-        console.error("Error getting user age:", err);
+        console.error("Error getting user age_group_id:", err);
         setUserAge(null);
+        setAgeGroupId(null);
+      } finally {
+        // Mark age check as complete so we can fetch tests
+        setAgeCheckComplete(true);
       }
     };
 
-    getUserAge();
+    getUserAgeGroupId();
   }, []);
 
   const fetchTests = async () => {
@@ -116,74 +136,112 @@ export default function TestList() {
       setLoading(true);
       setError(null);
       
-      // Build request config with age group filter
-      const config = {};
-      if (ageGroupId) {
-        config.params = { age_group_id: ageGroupId };
-        config.headers = { "X-Age-Group-Id": ageGroupId.toString() };
+      // Get ALL tests from API (no filtering on backend)
+      // We will filter on frontend based on age_group_id matching
+      // IMPORTANT: Use direct axios call to bypass the interceptor that adds age_group_id
+      const API_BASE_URL = "https://strengthscompass.axiscompass.in/v1/api";
+      const userToken = localStorage.getItem("token") || 
+                       localStorage.getItem("userToken") || 
+                       localStorage.getItem("authToken");
+      
+      const headers = {
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+      };
+      
+      if (userToken) {
+        headers.Authorization = `Bearer ${userToken}`;
       }
       
-      const response = await apiClient.get("/tests", config);
+      // Direct axios call WITHOUT age_group_id to get ALL tests
+      // This bypasses the interceptor that automatically adds age_group_id
+      console.log(`🔵 Fetching ALL tests from API (no age_group_id filter)...`);
+      const response = await axios.get(`${API_BASE_URL}/tests`, { headers });
+      console.log(`🔵 API Response:`, response.data);
 
+      // Handle different response structures
+      let allTests = [];
       if (response.data?.status && response.data.data) {
-        // Filter tests based on age group ID
-        let filteredData = Array.isArray(response.data.data) ? response.data.data : [response.data.data];
+        allTests = Array.isArray(response.data.data) ? response.data.data : [response.data.data];
+      } else if (Array.isArray(response.data)) {
+        allTests = response.data;
+      } else if (response.data?.data && Array.isArray(response.data.data)) {
+        allTests = response.data.data;
+      }
+
+      if (allTests.length > 0) {
+        console.log(`=== TEST FILTERING START ===`);
+        console.log(`🔵 USER age_group_id: ${ageGroupId}`);
+        console.log(`User age: ${userAge || 'N/A'}`);
+        console.log(`\n📋 ALL TESTS FETCHED FROM API (Total: ${allTests.length}):`);
+        allTests.forEach((test, index) => {
+          console.log(`   ${index + 1}. "${test.title}" (ID: ${test.id}) - age_group_id: ${test.age_group_id !== undefined && test.age_group_id !== null ? test.age_group_id : 'NULL/UNDEFINED'}`);
+        });
+        console.log(`\n🔍 FILTERING TESTS BASED ON MATCHING age_group_id...\n`);
         
-        console.log(`Total tests fetched: ${filteredData.length}, Age Group ID filter: ${ageGroupId}, User Age: ${userAge}`);
-        
-        // If we have an age group ID, filter tests to only show matching ones
-        if (ageGroupId !== null) {
-          filteredData = filteredData.filter((test) => {
+        // Filter tests: Only show tests that match user's age group ID exactly
+        const activeTests = allTests
+          .filter((test) => {
             // Get age_group_id from test - handle various formats
             const testAgeGroupId = test.age_group_id !== undefined && test.age_group_id !== null 
               ? test.age_group_id 
               : null;
             
-            if (testAgeGroupId === null) {
-              console.log(`Test "${test.title}" (ID: ${test.id}) has no age_group_id, filtering out`);
+            // Print user and test age_group_id for comparison
+            console.log(`\n🔍 Checking Test: "${test.title}" (ID: ${test.id})`);
+            console.log(`   User age_group_id: ${ageGroupId}`);
+            console.log(`   Test age_group_id: ${testAgeGroupId !== null ? testAgeGroupId : 'NULL/UNDEFINED'}`);
+            
+            // First check if test is active
+            const isActive = test.is_active !== false && test.is_active !== 0;
+            if (!isActive) {
+              console.log(`   ❌ Filtered out - test is not active`);
               return false;
             }
             
-            // Convert both to numbers for comparison
+            // STRICT MATCHING: Only show tests if user has age_group_id from API
+            if (ageGroupId === null || ageGroupId === undefined) {
+              // If user doesn't have age_group_id from API, show no tests
+              console.log(`   ❌ Filtered out - user age_group_id not available from API`);
+              return false;
+            }
+            
+            // If test has no age_group_id, filter it out
+            if (testAgeGroupId === null || testAgeGroupId === undefined) {
+              console.log(`   ❌ Filtered out - test has no age_group_id`);
+              return false;
+            }
+            
+            // Convert both to numbers for strict comparison
             const testAgeGroupNum = parseInt(testAgeGroupId);
             const requiredAgeGroupNum = parseInt(ageGroupId);
+            
+            console.log(`   📊 Comparison: test.age_group_id (${testAgeGroupId}) [${typeof testAgeGroupId}] → ${testAgeGroupNum} [number]`);
+            console.log(`    Comparison: user.age_group_id (${ageGroupId}) [${typeof ageGroupId}] → ${requiredAgeGroupNum} [number]`);
+            
+            // Check for NaN after parsing
+            if (isNaN(testAgeGroupNum) || isNaN(requiredAgeGroupNum)) {
+              console.log(`   ❌ Filtered out - invalid age_group_id values (test: ${testAgeGroupId}→${testAgeGroupNum}, user: ${ageGroupId}→${requiredAgeGroupNum})`);
+              return false;
+            }
             
             // Strict matching - must be exact match
             const matches = testAgeGroupNum === requiredAgeGroupNum;
             
             if (!matches) {
-              console.log(`Test "${test.title}" (ID: ${test.id}) filtered out - age_group_id: ${testAgeGroupId} (${testAgeGroupNum}), required: ${ageGroupId} (${requiredAgeGroupNum})`);
+              console.log(`   ❌ Filtered out - age_group_id mismatch:`);
+              console.log(`      Test age_group_id: ${testAgeGroupNum} (${typeof testAgeGroupNum})`);
+              console.log(`      User age_group_id: ${requiredAgeGroupNum} (${typeof requiredAgeGroupNum})`);
+              console.log(`      Match: ${testAgeGroupNum} === ${requiredAgeGroupNum} = ${matches}`);
+              return false;
             } else {
-              console.log(`Test "${test.title}" (ID: ${test.id}) matches - age_group_id: ${testAgeGroupId}`);
+              console.log(`   ✅✅✅ MATCHED! ✅✅✅`);
+              console.log(`      Test age_group_id: ${testAgeGroupId} (${testAgeGroupNum})`);
+              console.log(`      User age_group_id: ${ageGroupId} (${requiredAgeGroupNum})`);
+              console.log(`      ✅ Both age_group_ids are MATCHING: ${testAgeGroupNum} === ${requiredAgeGroupNum}`);
             }
             
-            return matches;
-          });
-          console.log(`Tests after age group filtering: ${filteredData.length}`);
-        } else {
-          console.warn("No age group ID determined, showing all tests");
-        }
-        
-        // Filter only active tests and ensure age_group_id matches (double check)
-        const activeTests = filteredData
-          .filter((test) => {
-            // First check if test is active
-            const isActive = test.is_active !== false && test.is_active !== 0;
-            
-            // If we have an age group ID, double-check the match
-            if (ageGroupId !== null) {
-              const testAgeGroupId = test.age_group_id !== undefined && test.age_group_id !== null 
-                ? parseInt(test.age_group_id) 
-                : null;
-              const matchesAgeGroup = testAgeGroupId === parseInt(ageGroupId);
-              
-              if (!matchesAgeGroup) {
-                console.log(`Test "${test.title}" filtered out in final check - age_group_id mismatch`);
-                return false;
-              }
-            }
-            
-            return isActive;
+            return true; // Test is active AND age_group_id matches exactly
           })
           .map((test) => ({
             id: test.id,
@@ -203,7 +261,28 @@ export default function TestList() {
             category: test.clusters?.[0]?.name || "General",
           }));
         
-        console.log(`Final tests to display: ${activeTests.length}`);
+        console.log(`\n=== TEST FILTERING COMPLETE ===`);
+        console.log(`🔵 USER age_group_id: ${ageGroupId}`);
+        console.log(`📊 Total tests from API: ${allTests.length}`);
+        console.log(`✅ Matching tests found: ${activeTests.length}`);
+        
+        if (activeTests.length > 0) {
+          console.log(`\n✅✅✅ MATCHED TESTS - age_group_id: ${ageGroupId} ✅✅✅`);
+          console.log(`\n📋 Summary of Matched Tests:`);
+          activeTests.forEach((test, index) => {
+            console.log(`   ${index + 1}. "${test.title}" (ID: ${test.id})`);
+            console.log(`      ✅ Test age_group_id: ${test.age_group_id}`);
+            console.log(`      ✅ User age_group_id: ${ageGroupId}`);
+            console.log(`      ✅ MATCHED: ${test.age_group_id} === ${ageGroupId}`);
+          });
+          console.log(`\n✅ Showing ${activeTests.length} test(s) to the user with matching age_group_id: ${ageGroupId}`);
+        } else {
+          console.warn(`\n⚠️ No tests match user's age_group_id: ${ageGroupId}`);
+          console.warn(`   User age_group_id: ${ageGroupId}`);
+          const availableAgeGroupIds = [...new Set(allTests.map(t => t.age_group_id).filter(id => id !== null && id !== undefined))];
+          console.warn(`   Available test age_group_ids in API: ${availableAgeGroupIds.length > 0 ? availableAgeGroupIds.join(', ') : 'None'}`);
+          console.warn(`   User needs age_group_id: ${ageGroupId}, but tests have: ${availableAgeGroupIds.join(', ') || 'none'}`);
+        }
         setTests(activeTests);
       } else {
         setError("Failed to load tests");
@@ -220,16 +299,13 @@ export default function TestList() {
   };
 
   useEffect(() => {
-    // Fetch tests when ageGroupId is set, or if we've determined user has no age
-    // This ensures we wait for age group determination before fetching
-    if (ageGroupId !== null) {
-      fetchTests();
-    } else if (userAge === null) {
-      // If user age couldn't be determined, fetch all tests
+    // Only fetch tests after age check is complete
+    // This prevents multiple fetches and ensures we have the correct ageGroupId
+    if (ageCheckComplete) {
       fetchTests();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ageGroupId, userAge]);
+  }, [ageGroupId, ageCheckComplete]);
 
   const handleStartTest = async (testId) => {
     try {
@@ -283,7 +359,7 @@ export default function TestList() {
       />
       <Navbar />
 
-      <div className="w-full px-5 sm:px-8 lg:px-12 xl:px-16 py-10 space-y-12">
+      <div className="w-full px-5 sm:px-8 lg:px-12 xl:px-16 py-10 min-h-[calc(100vh-200px)] flex flex-col justify-center items-center">
         
 
         {/* Filters */}
@@ -365,41 +441,116 @@ export default function TestList() {
             </p>
           </div>
         ): (
-         <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-          {filteredTests.map((test) => (
-            <article
-              key={test.id}
-              className="group relative bg-white rounded-[28px] shadow-lg border border-blue-100 hover:border-blue-300 hover:shadow-2xl transition-all duration-300 overflow-hidden"
-            >
-              <div className="absolute inset-x-0 top-0 h-2 bg-gradient-to-r from-blue-200 via-blue-400 to-blue-600" />
-              <div className="p-6 flex flex-col h-full gap-5">
-                <div className="flex items-center justify-between">
-                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-700">
-                    {test.category}
-                  </span>
-                  <div className="p-2 rounded-2xl bg-blue-50 text-blue-500">
-                    <HiDocumentText className="w-5 h-5" />
+         <section className="flex justify-center items-center w-full">
+           {filteredTests.length === 1 ? (
+             // Single test - centered, no grid
+             <div className="w-full max-w-2xl px-4">
+               {filteredTests.map((test) => (
+                 <article
+                   key={test.id}
+                   className="group relative bg-white rounded-3xl shadow-xl border border-gray-100 hover:border-blue-300 hover:shadow-2xl transition-all duration-300 overflow-hidden cursor-pointer mx-auto"
+                   onClick={() => handleStartTest(test.id)}
+                 >
+                   {/* Gradient Top Bar */}
+                   <div className="absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r from-blue-400 via-blue-500 to-blue-600" />
+                   
+                   <div className="p-8 flex flex-col h-full gap-6">
+                     {/* Header Section */}
+                     <div className="flex items-start justify-between gap-4">
+                       <div className="flex-1">
+                         <h3 className="text-2xl font-bold text-slate-900 mb-2 group-hover:text-blue-600 transition-colors line-clamp-2">
+                           {test.title}
+                         </h3>
+                         {test.description && (
+                           <p className="text-sm text-slate-600 line-clamp-2 leading-relaxed">
+                             {test.description}
+                           </p>
+                         )}
+                       </div>
+                       <div className="p-3 rounded-xl bg-gradient-to-br from-blue-50 to-blue-100 text-blue-600 group-hover:from-blue-100 group-hover:to-blue-200 transition-all">
+                         <HiDocumentText className="w-6 h-6" />
+                       </div>
+                     </div>
+
+                     {/* Test Info Section */}
+                     {test.questions > 0 && (
+                       <div className="flex items-center gap-2 pt-4 border-t border-gray-100">
+                         <HiLightningBolt className="w-4 h-4 text-yellow-500" />
+                         <span className="text-sm text-slate-600 font-medium">{test.questions} Questions</span>
+                       </div>
+                     )}
+
+                     {/* Action Button */}
+                     <button
+                       onClick={(e) => {
+                         e.stopPropagation();
+                         handleStartTest(test.id);
+                       }}
+                       className="mt-auto w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-yellow-400 to-yellow-500 text-slate-900 font-bold text-sm flex items-center justify-center gap-2 hover:from-yellow-500 hover:to-yellow-600 hover:shadow-lg transition-all duration-200 transform hover:scale-[1.02] group/btn"
+                     >
+                       <HiPlay className="w-5 h-5 group-hover/btn:translate-x-1 transition-transform" />
+                       <span>Start Test</span>
+                       <HiArrowRight className="w-5 h-5 group-hover/btn:translate-x-1 transition-transform" />
+                     </button>
+                   </div>
+                 </article>
+               ))}
+             </div>
+           ) : (
+             // Multiple tests - grid layout
+             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8 max-w-7xl w-full px-4 mx-auto">
+            {filteredTests.map((test) => (
+              <article
+                key={test.id}
+                className="group relative bg-white rounded-3xl shadow-xl border border-gray-100 hover:border-blue-300 hover:shadow-2xl transition-all duration-300 overflow-hidden cursor-pointer"
+                onClick={() => handleStartTest(test.id)}
+              >
+                {/* Gradient Top Bar */}
+                <div className="absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r from-blue-400 via-blue-500 to-blue-600" />
+                
+                <div className="p-8 flex flex-col h-full gap-6">
+                  {/* Header Section */}
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1">
+                      <h3 className="text-2xl font-bold text-slate-900 mb-2 group-hover:text-blue-600 transition-colors line-clamp-2">
+                        {test.title}
+                      </h3>
+                      {test.description && (
+                        <p className="text-sm text-slate-600 line-clamp-2 leading-relaxed">
+                          {test.description}
+                        </p>
+                      )}
+                    </div>
+                    <div className="p-3 rounded-xl bg-gradient-to-br from-blue-50 to-blue-100 text-blue-600 group-hover:from-blue-100 group-hover:to-blue-200 transition-all">
+                      <HiDocumentText className="w-6 h-6" />
+                    </div>
                   </div>
-                </div>
 
-                <div className="space-y-2">
-                  <h3 className="text-xl font-bold text-slate-900 group-hover:text-blue-600 transition-colors">
-                    {test.title}
-                  </h3>
-                  <p className="text-sm text-slate-500 line-clamp-3">{test.description}</p>
-                </div>
+                  {/* Test Info Section */}
+                  {test.questions > 0 && (
+                    <div className="flex items-center gap-2 pt-4 border-t border-gray-100">
+                      <HiLightningBolt className="w-4 h-4 text-yellow-500" />
+                      <span className="text-sm text-slate-600 font-medium">{test.questions} Questions</span>
+                    </div>
+                  )}
 
-                <button
-                  onClick={() => handleStartTest(test.id)}
-                  className="mt-auto w-full py-3 px-4 rounded-2xl yellow-bg-400 yellow-text-950 font-semibold font-semibold text-sm flex items-center justify-center gap-2 hover:bg-blue-700 transition-all duration-200 shadow-lg group/btn"
-                >
-                  <HiPlay className="w-4 h-4 group-hover/btn:translate-x-0.5 transition-transform" />
-                  Start test
-                  <HiArrowRight className="w-4 h-4 group-hover/btn:translate-x-1 transition-transform" />
-                </button>
-              </div>
-            </article>
-          ))}
+                  {/* Action Button */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleStartTest(test.id);
+                    }}
+                    className="mt-auto w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-yellow-400 to-yellow-500 text-slate-900 font-bold text-sm flex items-center justify-center gap-2 hover:from-yellow-500 hover:to-yellow-600 hover:shadow-lg transition-all duration-200 transform hover:scale-[1.02] group/btn"
+                  >
+                    <HiPlay className="w-5 h-5 group-hover/btn:translate-x-1 transition-transform" />
+                    <span>Start Test</span>
+                    <HiArrowRight className="w-5 h-5 group-hover/btn:translate-x-1 transition-transform" />
+                  </button>
+                </div>
+              </article>
+            ))}
+          </div>
+           )}
         </section>
         )}
       </div>

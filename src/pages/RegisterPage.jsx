@@ -162,7 +162,7 @@ export default function RegisterPage() {
                   localStorage.getItem("userToken") || 
                   localStorage.getItem("authToken");
     
-    // If user has a token, redirect to profile or pending destination
+    // If user has a token, redirect to test list page or pending destination
     if (token) {
       const redirectTarget =
         location.state?.redirectTo || sessionStorage.getItem("redirectAfterAuth");
@@ -170,7 +170,7 @@ export default function RegisterPage() {
         sessionStorage.removeItem("redirectAfterAuth");
         navigate(redirectTarget, { replace: true });
       } else {
-        navigate("/profile", { replace: true });
+        navigate("/testlist", { replace: true });
       }
     }
   }, [navigate, location]);
@@ -458,7 +458,8 @@ export default function RegisterPage() {
           sessionStorage.removeItem("redirectAfterAuth");
           navigate(redirectTarget, { replace: true });
         } else {
-          setShowSuccessModal(true);
+          // Navigate to test list page after successful registration
+          navigate("/testlist", { replace: true });
         }
       } else {
         setRegisterError(response.data?.message || "Registration failed. Please try again.");
@@ -502,7 +503,7 @@ export default function RegisterPage() {
 
   const handleSuccessClose = () => {
     setShowSuccessModal(false);
-    navigate("/profile");
+    navigate("/testlist");
   };
 
   return (
@@ -512,9 +513,12 @@ export default function RegisterPage() {
         onClose={handleSuccessClose}
         type="success"
         title="Account Created Successfully!"
-        message={"Your account is ready. You can now view your profile or start your assessments."}
-        primaryText="Go to Profile"
-        onPrimary={handleSuccessClose}
+        message={"Your account is ready. You can now start your assessments."}
+        primaryText="Go to Test"
+        onPrimary={() => {
+          handleSuccessClose();
+          navigate("/testlist");
+        }}
       />
       
       <AlertModal

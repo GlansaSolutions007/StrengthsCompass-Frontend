@@ -675,7 +675,7 @@ export default function Profile() {
                 type="button"
                 onClick={closePasswordModal}
                 disabled={passwordLoading}
-                className="btn text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 hover:text-gray-900 border border-gray-300"
+                className="btn btn-primary text-sm"
               >
                 Cancel
               </button>
@@ -811,8 +811,7 @@ export default function Profile() {
                             setUpdateError("");
                             fetchUserData();
                           }}
-                          className="btn bg-gray-100 hover:bg-gray-200 text-white hover:text-white border border-gray-300"
-                        >
+                        className="btn btn-primary text-sm">
                           Cancel
                         </button>
                         <button

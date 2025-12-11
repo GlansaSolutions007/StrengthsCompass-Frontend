@@ -30,7 +30,7 @@ export default function LoginPage() {
                   localStorage.getItem("userToken") || 
                   localStorage.getItem("authToken");
     
-    // If user has a token, redirect to landing page or pending destination
+    // If user has a token, redirect to test list page or pending destination
     if (token) {
       const redirectTarget =
         location.state?.redirectTo || sessionStorage.getItem("redirectAfterAuth");
@@ -38,7 +38,7 @@ export default function LoginPage() {
         sessionStorage.removeItem("redirectAfterAuth");
         navigate(redirectTarget, { replace: true });
       } else {
-        navigate("/", { replace: true });
+        navigate("/testlist", { replace: true });
       }
     }
   }, [navigate, location]);
@@ -139,14 +139,14 @@ export default function LoginPage() {
           localStorage.setItem("adminSelectedVariantId", response.data.data.user.age_group_id ? response.data.data.user.age_group_id : response.data.data.age_group_id);
         }
         
-        // Navigate to redirect target or landing page
+        // Navigate to redirect target or test list page
         const redirectTarget =
           location.state?.redirectTo || sessionStorage.getItem("redirectAfterAuth");
         if (redirectTarget) {
           sessionStorage.removeItem("redirectAfterAuth");
           navigate(redirectTarget, { replace: true });
         } else {
-          navigate("/");
+          navigate("/testlist", { replace: true });
         }
       } else {
         setLoginError(response.data?.message || "Login failed. Please check your credentials.");

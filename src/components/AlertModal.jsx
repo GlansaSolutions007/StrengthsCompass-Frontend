@@ -203,14 +203,14 @@ export default function AlertModal({
               {secondaryText && (
                 <button
                   onClick={onSecondary || handleClose}
-                  className="btn btn-secondary text-sm"
+                  className="btn btn-primary text-sm"
                 >
                   {secondaryText}
                 </button>
               )}
               <button
                 onClick={onPrimary || handleClose}
-                className="btn btn-primary text-sm"
+                className={`btn ${type === "warning" && (primaryText?.toLowerCase().includes("delete") || primaryText?.toLowerCase().includes("logout")) ? "btn-danger" : "btn-primary"} text-sm`}
               >
                 {primaryText}
               </button>

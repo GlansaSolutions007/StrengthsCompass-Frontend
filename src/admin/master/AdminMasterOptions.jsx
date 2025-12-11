@@ -448,14 +448,14 @@ export default function AdminMasterOptions() {
             onClick={() =>
               setDeleteConfirm({ isOpen: false, id: null, name: "" })
             }
-            className="btn btn-outline-warning btn-sm"
+            className="btn btn-primary text-sm"
           >
             Cancel
           </button>
           <button
             onClick={del}
             disabled={actionLoading.delete}
-            className="btn btn-warning btn-sm"
+            className="btn btn-danger"
           >
             {actionLoading.delete ? "Deleting..." : "Delete"}
           </button>
@@ -554,7 +554,7 @@ export default function AdminMasterOptions() {
                   <button
                     onClick={closeForm}
                     disabled={actionLoading.create}
-                    className="btn btn-ghost"
+                    className="btn btn-primary text-sm"
                   >
                     Cancel
                   </button>
@@ -673,7 +673,7 @@ export default function AdminMasterOptions() {
                 <div className="flex justify-end gap-3 pt-4">
                   <button
                     onClick={closeViewModal}
-                    className="btn btn-ghost"
+                    className="btn btn-primary text-sm"
                   >
                     Close
                   </button>
@@ -816,7 +816,7 @@ export default function AdminMasterOptions() {
                   <button
                     onClick={closeEditModal}
                     disabled={actionLoading.update}
-                    className="btn btn-ghost"
+                    className="btn btn-primary text-sm"
                   >
                     Cancel
                   </button>
