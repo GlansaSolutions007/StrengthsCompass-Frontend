@@ -914,7 +914,7 @@ export default function AdminUserList() {
                     </div>
                     <div className="flex-1">
                       <p className="text-xs neutral-text-muted mb-0.5">Email</p>
-                      <p className="neutral-text font-medium break-words text-sm">
+                      <p className="neutral-text font-medium break-all text-xs sm:text-sm word-break">
                         {viewModal.user.email || "N/A"}
                       </p>
                     </div>
@@ -1152,7 +1152,7 @@ export default function AdminUserList() {
       ) : (
           <>
             <div className="overflow-x-auto rounded-lg border border-neutral-border-light">
-              <table className="table">
+              <table className="table w-full min-w-[800px]">
                 <thead>
                   <tr className="bg-medium border-b border-neutral-border-light">
                     {/* <th
@@ -1162,14 +1162,14 @@ export default function AdminUserList() {
                       ID {sortBy === "id" && (sortOrder === "asc" ? "↑" : "↓")}
                     </th> */}
                     <th
-                      className="font-semibold text-sm py-3 px-4 text-left neutral-text-muted cursor-pointer hover:primary-text transition"
+                      className="font-semibold text-xs sm:text-sm py-3 px-2 md:px-4 text-left neutral-text-muted cursor-pointer hover:primary-text transition"
                       onClick={() => handleSort("name")}
                     >
                       Name{" "}
                       {sortBy === "name" && (sortOrder === "asc" ? "↑" : "↓")}
                     </th>
                     <th
-                      className="font-semibold text-sm py-3 px-4 text-left neutral-text-muted cursor-pointer hover:primary-text transition"
+                      className="font-semibold text-xs sm:text-sm py-3 px-2 md:px-4 text-left neutral-text-muted cursor-pointer hover:primary-text transition min-w-[150px]"
                       onClick={() => handleSort("email")}
                     >
                       Email{" "}
@@ -1228,20 +1228,20 @@ export default function AdminUserList() {
                         className={`border-b border-neutral-border-light ${isEven ? 'bg-white' : 'bg-gray-50'} hover:bg-gray-100 transition-colors`}
                       >
                         {/* <td className="py-3 px-4 neutral-text-muted">{user.id}</td> */}
-                        <td className="py-3 px-4 neutral-text">{user.name}</td>
-                        <td className="py-3 px-4 neutral-text">
-                          {user.email}
+                        <td className="py-3 px-2 md:px-4 neutral-text text-sm">{user.name}</td>
+                        <td className="py-3 px-2 md:px-4 neutral-text text-xs sm:text-sm break-all min-w-[150px] max-w-[200px]">
+                          <span className="block break-words">{user.email}</span>
                         </td>
-                        <td className="py-3 px-4 neutral-text-muted">
+                        <td className="py-3 px-2 md:px-4 neutral-text-muted text-sm">
                           {user.phone}
                         </td>
-                        <td className="py-3 px-4 neutral-text">
+                        <td className="py-3 px-2 md:px-4 neutral-text text-xs sm:text-sm">
                           {user.age && user.age !== "N/A" ? `${user.age}` : "N/A"}
                         </td>
-                        <td className="py-3 px-4 neutral-text capitalize">
+                        <td className="py-3 px-2 md:px-4 neutral-text capitalize text-xs sm:text-sm">
                           {user.gender && user.gender !== "N/A" ? user.gender : "N/A"}
                         </td>
-                        <td className="py-3 px-4 neutral-text">
+                        <td className="py-3 px-2 md:px-4 neutral-text text-xs sm:text-sm">
                           {user.profession && user.profession !== "N/A" ? user.profession : "N/A"}
                         </td>
                         {/* <td className="py-3 px-4">

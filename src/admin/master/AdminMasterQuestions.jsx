@@ -1916,8 +1916,8 @@ export default function AdminMasterQuestions() {
 
         {/* Search and Bulk Actions */}
         <div className="mb-4 flex flex-col md:flex-row gap-3 items-start md:items-center justify-between">
-          <div className="flex-1 w-full md:max-w-md flex gap-3 items-center">
-            <div className="group flex flex-1 rounded-md overflow-hidden border border-neutral-300 transition-all focus-within:ring-2 focus-within:ring-secondary focus-within:border-secondary">
+          <div className="flex-1 w-full md:max-w-md">
+            <div className="group flex w-full rounded-md overflow-hidden border border-neutral-300 transition-all focus-within:ring-2 focus-within:ring-secondary focus-within:border-secondary">
               {/* Left Icon Box */}
               <div className="flex items-center justify-center bg-primary-bg-light px-3 transition-all group-focus-within:bg-secondary-bg-light">
                 <HiSearch className="h-5 w-5 primary-text group-focus-within:secondary-text transition-colors" />
@@ -1946,8 +1946,9 @@ export default function AdminMasterQuestions() {
                 </button>
               )}
             </div>
-            
-            {/* Unassigned Filter */}
+          </div>
+          <div className="flex items-center gap-3">
+            {/* Unassigned Filter - Right Side */}
             <div className="flex items-center gap-2 px-3 py-2 bg-white border border-neutral-300 rounded-md">
               <input
                 type="checkbox"
@@ -1966,37 +1967,37 @@ export default function AdminMasterQuestions() {
                 Show Unassigned
               </label>
             </div>
+            {selectedItems.length > 0 && (
+              <div className="flex items-center gap-2">
+                <span className="text-sm neutral-text-muted">
+                  {selectedItems.length} selected
+                </span>
+                <button
+                  onClick={() => setShowBulkAssignModal(true)}
+                  disabled={actionLoading.bulkAssign}
+                  className="btn btn-secondary btn-sm"
+                >
+                  <HiCollection className="w-4 h-4 mr-2" /> Assign to Cluster/Construct
+                </button>
+                <button
+                  onClick={deleteSelected}
+                  disabled={actionLoading.delete === "bulk"}
+                  className="btn btn-danger btn-sm"
+                >
+                  {actionLoading.delete === "bulk" ? (
+                    <>
+                      <span className="spinner spinner-sm mr-2"></span>
+                      Deleting...
+                    </>
+                  ) : (
+                    <>
+                      <HiTrash className="w-4 h-4 mr-2" /> Delete Selected
+                    </>
+                  )}
+                </button>
+              </div>
+            )}
           </div>
-          {selectedItems.length > 0 && (
-            <div className="flex items-center gap-2">
-              <span className="text-sm neutral-text-muted">
-                {selectedItems.length} selected
-              </span>
-              <button
-                onClick={() => setShowBulkAssignModal(true)}
-                disabled={actionLoading.bulkAssign}
-                className="btn btn-secondary btn-sm"
-              >
-                <HiCollection className="w-4 h-4 mr-2" /> Assign to Cluster/Construct
-              </button>
-              <button
-                onClick={deleteSelected}
-                disabled={actionLoading.delete === "bulk"}
-                className="btn btn-danger btn-sm"
-              >
-                {actionLoading.delete === "bulk" ? (
-                  <>
-                    <span className="spinner spinner-sm mr-2"></span>
-                    Deleting...
-                  </>
-                ) : (
-                  <>
-                    <HiTrash className="w-4 h-4 mr-2" /> Delete Selected
-                  </>
-                )}
-              </button>
-            </div>
-          )}
         </div>
 
         {/* Questions List Section - Simple */}
@@ -2042,7 +2043,7 @@ export default function AdminMasterQuestions() {
           <>
             {/* Table - Simple and Clean */}
             <div className="overflow-x-auto rounded-lg border border-neutral-border-light">
-              <table className="table">
+              <table className="table w-full min-w-[700px]">
                 <thead>
                   <tr className="bg-medium border-b border-neutral-border-light">
                     <th
@@ -2059,12 +2060,12 @@ export default function AdminMasterQuestions() {
                         />
                       </div>
                     </th>
-                    <th className="font-semibold text-sm py-3 px-4 text-left neutral-text-muted">S.No</th>
-                    <th className="font-semibold text-sm py-3 px-4 text-left neutral-text-muted">Question Text</th>
-                    <th className="font-semibold text-sm py-3 px-4 text-left neutral-text-muted">Category</th>
-                    {/* <th className="font-semibold text-sm py-3 px-4 text-left neutral-text-muted">Order No</th> */}
-                    <th className="font-semibold text-sm py-3 px-4 text-left neutral-text-muted">Construct</th>
-                    <th className="font-semibold text-sm py-3 px-4 neutral-text-muted" style={{ textAlign: 'right' }}>Actions</th>
+                    <th className="font-semibold text-xs sm:text-sm py-3 px-2 md:px-4 text-left neutral-text-muted">S.No</th>
+                    <th className="font-semibold text-xs sm:text-sm py-3 px-2 md:px-4 text-left neutral-text-muted">Question Text</th>
+                    <th className="font-semibold text-xs sm:text-sm py-3 px-2 md:px-4 text-left neutral-text-muted">Category</th>
+                    {/* <th className="font-semibold text-xs sm:text-sm py-3 px-2 md:px-4 text-left neutral-text-muted">Order No</th> */}
+                    <th className="font-semibold text-xs sm:text-sm py-3 px-2 md:px-4 text-left neutral-text-muted">Construct</th>
+                    <th className="font-semibold text-xs sm:text-sm py-3 px-2 md:px-4 neutral-text-muted" style={{ textAlign: 'right' }}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -2089,16 +2090,16 @@ export default function AdminMasterQuestions() {
                             />
                           </div>
                         </td>
-                        <td className="py-3 px-4 neutral-text-muted">
+                        <td className="py-3 px-2 md:px-4 neutral-text-muted text-xs sm:text-sm">
                           {(currentPage - 1) * itemsPerPage + index + 1}
                         </td>
-                        <td className="py-3 px-4 neutral-text">
-                          <span className="text-sm">
+                        <td className="py-3 px-2 md:px-4 neutral-text">
+                          <span className="text-xs sm:text-sm break-words">
                             {item.question_text || "N/A"}
                           </span>
                         </td>
-                        <td className="py-3 px-4 neutral-text">
-                          <span className="text-sm">
+                        <td className="py-3 px-2 md:px-4 neutral-text">
+                          <span className="text-xs sm:text-sm">
                             {item.category || "N/A"}
                           </span>
                         </td>
