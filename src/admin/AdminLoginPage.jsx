@@ -8,6 +8,15 @@ import logoImage from "../../Images/Logo.png";
 export default function AdminLoginPage() {
   const navigate = useNavigate();
 
+  // Helper function to format age range display
+  // Display "40+" for any age range that starts at 40 or above
+  const formatAgeRange = (from, to) => {
+    if (typeof from === "number" && from >= 40) {
+      return `${from}+`;
+    }
+    return `${from} - ${to}`;
+  };
+
   // Check authentication and separate admin/user routes
   useEffect(() => {
     const adminToken = localStorage.getItem("adminToken");
@@ -426,7 +435,7 @@ export default function AdminLoginPage() {
                       </option>
                       {ageGroups.map((ag) => (
                         <option key={ag.id} value={ag.id}>
-                          {ag.name} ({ag.from} - {ag.to})
+                          {ag.name} ({formatAgeRange(ag.from, ag.to)})
                         </option>
                       ))}
                     </>

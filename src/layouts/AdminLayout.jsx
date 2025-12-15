@@ -160,6 +160,15 @@ export default function AdminLayout() {
     },
   ];
 
+  // Helper function to format age range display
+  // Display "40+" for any age range that starts at 40 or above
+  const formatAgeRange = (from, to) => {
+    if (typeof from === "number" && from >= 40) {
+      return `${from}+`;
+    }
+    return `${from} - ${to}`;
+  };
+
   const isRouteActive = (path, options = {}) => {
     const currentPath = location.pathname;
     const fromTestResults = Boolean(location.state?.fromTestResults);
@@ -425,7 +434,7 @@ export default function AdminLayout() {
                           )}
                           {ageGroups.map((ag) => (
                             <option key={ag.id} value={ag.id}>
-                              {ag.name} ({ag.from} - {ag.to})
+                              {ag.name} ({formatAgeRange(ag.from, ag.to)})
                             </option>
                           ))}
                         </>

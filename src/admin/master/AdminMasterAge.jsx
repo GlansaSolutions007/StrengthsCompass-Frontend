@@ -19,6 +19,16 @@ import AlertModal from "../../components/AlertModal";
 
 export default function AdminMasterAge() {
   const navigate = useNavigate();
+  
+  // Helper function to format age range display
+  // Display "40+" for any age range that starts at 40 or above
+  const formatAgeRange = (from, to) => {
+    if (typeof from === "number" && from >= 40) {
+      return `${from}+`;
+    }
+    return `${from} - ${to}`;
+  };
+  
   const [items, setItems] = useState([]);
   const [formData, setFormData] = useState({
     name: "",
@@ -987,7 +997,7 @@ export default function AdminMasterAge() {
                       </option>
                       {items.map((ag) => (
                         <option key={ag.id} value={ag.id}>
-                          {ag.name} ({ag.from} - {ag.to})
+                          {ag.name} ({formatAgeRange(ag.from, ag.to)})
                         </option>
                       ))}
                     </select>
@@ -1024,7 +1034,7 @@ export default function AdminMasterAge() {
                                 className="checkbox-custom"
                               />
                               <span className="text-sm neutral-text">
-                                {ag.name} ({ag.from} - {ag.to})
+                                {ag.name} ({formatAgeRange(ag.from, ag.to)})
                               </span>
                             </label>
                           ))}
@@ -1480,7 +1490,7 @@ export default function AdminMasterAge() {
                           <td className="py-3 px-4 neutral-text">
                             <span className="text-sm">
                               {item.from !== undefined && item.to !== undefined 
-                                ? `${item.from} - ${item.to}` 
+                                ? formatAgeRange(item.from, item.to)
                                 : "N/A"}
                             </span>
                           </td>
