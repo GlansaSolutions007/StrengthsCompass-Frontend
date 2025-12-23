@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import apiClient from "../../config/api";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import {
   HiPlus,
   HiPencil,
@@ -15,6 +15,7 @@ import AlertModal from "../../components/AlertModal";
 
 export default function AdminMasterOrganizations() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -33,7 +34,6 @@ export default function AdminMasterOrganizations() {
   const [isActive, setIsActive] = useState(true);
 
     const [editingId, setEditingId] = useState(null);
-    const [editingData, setEditingData] = useState({});
     const [actionLoading, setActionLoading] = useState({
         create: false,
         update: false,
@@ -47,12 +47,6 @@ export default function AdminMasterOrganizations() {
     });
     const [searchQuery, setSearchQuery] = useState("");
     const [selectedItems, setSelectedItems] = useState([]);
-    const [viewModal, setViewModal] = useState({
-        isOpen: false,
-        organization: null,
-        loading: false,
-    });
-    const [isClosingView, setIsClosingView] = useState(false);
     const [showForm, setShowForm] = useState(false);
     const [isClosingForm, setIsClosingForm] = useState(false);
   const [uploadModal, setUploadModal] = useState({
@@ -66,6 +60,17 @@ export default function AdminMasterOrganizations() {
   useEffect(() => {
     fetchOrganizations();
   }, []);
+
+  useEffect(() => {
+    const urlParams = new URLSearchParams(location.search);
+    const editId = urlParams.get('edit');
+    if (editId) {
+      const organization = items.find(item => item.id === parseInt(editId));
+      if (organization) {
+        handleEdit(organization);
+      }
+    }
+  }, [location.search, items]);
 
     const fetchOrganizations = async () => {
         try {
@@ -171,7 +176,6 @@ export default function AdminMasterOrganizations() {
 
     const handleEdit = (organization) => {
         setEditingId(organization.id);
-        setEditingData(organization);
         setName(organization.name || "");
         setShortcode(organization.shortcode || "");
         setRegistrationNo(organization.registration_no || "");
@@ -299,29 +303,8 @@ export default function AdminMasterOrganizations() {
         }, 200);
     };
 
-    const openViewModal = async (organization) => {
-        setViewModal({ isOpen: true, organization: null, loading: true });
-        try {
-            const response = await apiClient.get(`/organizations/${organization.id}`);
-            if (response.data?.status && response.data.data) {
-                setViewModal({ isOpen: true, organization: response.data.data, loading: false });
-            } else {
-                setError("Failed to load organization details");
-                setViewModal({ isOpen: false, organization: null, loading: false });
-            }
-        } catch (err) {
-            console.error("Error fetching organization details:", err);
-            setError("Failed to load organization details. Please try again.");
-            setViewModal({ isOpen: false, organization: null, loading: false });
-        }
-    };
-
-    const closeViewModal = () => {
-        setIsClosingView(true);
-        setTimeout(() => {
-            setViewModal({ isOpen: false, organization: null, loading: false });
-            setIsClosingView(false);
-        }, 200);
+    const handleViewOrganization = (organization) => {
+        navigate(`/admin/dashboard/master/organizations/${organization.id}`);
     };
 
     const filtered = items.filter((item) =>
@@ -466,188 +449,6 @@ export default function AdminMasterOrganizations() {
                     </button>
                 </div>
             </AlertModal>
-
-            {/* View Modal */}
-            {(viewModal.isOpen || isClosingView) && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 overflow-y-auto"
-                    style={{ zIndex: 1000 }}
-                >
-                    <div
-                        className={`absolute inset-0 overlay ${isClosingView ? "animate-backdrop-out" : "animate-backdrop-in"
-                            }`}
-                        style={{ backgroundColor: "rgba(0, 0, 0, 0.3)" }}
-                        onClick={closeViewModal}
-                    />
-                    <div
-                        className={`relative rounded-2xl max-w-4xl w-full shadow-2xl overflow-hidden border border-white/20 my-8 ${isClosingView ? "animate-modal-out" : "animate-modal-in"
-                            }`}
-                        style={{ backgroundColor: "rgba(255, 255, 255, 0.95)" }}
-                    >
-                        <div className="p-6 primary-bg-light">
-                            <div className="flex items-center justify-between">
-                                <h3 className="text-xl font-bold primary-text">
-                                    View Organization Details
-                                </h3>
-                            </div>
-                        </div>
-
-                        <div
-                            className="p-6 max-h-[80vh] overflow-y-auto"
-                            style={{ backgroundColor: 'rgba(249, 250, 251, 0.8)' }}
-                        >
-                            {viewModal.loading ? (
-                                <div className="flex flex-col items-center justify-center py-12">
-                                    <span className="spinner spinner-lg mb-3"></span>
-                                    <p className="text-sm neutral-text-muted">Loading organization details...</p>
-                                </div>
-                            ) : (
-                                <div className="space-y-4">
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <div>
-                                            <label className="text-sm font-semibold neutral-text block mb-2">
-                                                Organization Name
-                                            </label>
-                                            <div className="text-base neutral-text font-medium p-3 bg-white rounded-lg border border-neutral-200">
-                                                {viewModal.organization?.name || "N/A"}
-                                            </div>
-                                        </div>
-
-                                        <div>
-                                            <label className="text-sm font-semibold neutral-text block mb-2">
-                                                Shortcode
-                                            </label>
-                                            <div className="text-base neutral-text font-medium p-3 bg-white rounded-lg border border-neutral-200">
-                                                {viewModal.organization?.shortcode || "N/A"}
-                                            </div>
-                                        </div>
-
-                                        <div>
-                                            <label className="text-sm font-semibold neutral-text block mb-2">
-                                                Registration No
-                                            </label>
-                                            <div className="text-base neutral-text font-medium p-3 bg-white rounded-lg border border-neutral-200">
-                                                {viewModal.organization?.registration_no || "N/A"}
-                                            </div>
-                                        </div>
-
-                                        <div>
-                                            <label className="text-sm font-semibold neutral-text block mb-2">
-                                                Email
-                                            </label>
-                                            <div className="text-base neutral-text font-medium p-3 bg-white rounded-lg border border-neutral-200">
-                                                {viewModal.organization?.email || "N/A"}
-                                            </div>
-                                        </div>
-
-                                        <div>
-                                            <label className="text-sm font-semibold neutral-text block mb-2">
-                                                Contact Number
-                                            </label>
-                                            <div className="text-base neutral-text font-medium p-3 bg-white rounded-lg border border-neutral-200">
-                                                {viewModal.organization?.contact_number || "N/A"}
-                                            </div>
-                                        </div>
-
-                                        <div>
-                                            <label className="text-sm font-semibold neutral-text block mb-2">
-                                                City
-                                            </label>
-                                            <div className="text-base neutral-text font-medium p-3 bg-white rounded-lg border border-neutral-200">
-                                                {viewModal.organization?.city || "N/A"}
-                                            </div>
-                                        </div>
-
-                                        <div>
-                                            <label className="text-sm font-semibold neutral-text block mb-2">
-                                                State
-                                            </label>
-                                            <div className="text-base neutral-text font-medium p-3 bg-white rounded-lg border border-neutral-200">
-                                                {viewModal.organization?.state || "N/A"}
-                                            </div>
-                                        </div>
-
-                                        <div>
-                                            <label className="text-sm font-semibold neutral-text block mb-2">
-                                                Country
-                                            </label>
-                                            <div className="text-base neutral-text font-medium p-3 bg-white rounded-lg border border-neutral-200">
-                                                {viewModal.organization?.country || "N/A"}
-                                            </div>
-                                        </div>
-
-                                        <div className="md:col-span-2">
-                                            <label className="text-sm font-semibold neutral-text block mb-2">
-                                                Status
-                                            </label>
-                                            <div className="text-base neutral-text font-medium p-3 bg-white rounded-lg border border-neutral-200">
-                                                <span
-                                                    className={`badge ${viewModal.organization?.is_active
-                                                            ? "badge-accent"
-                                                            : "badge-neutral"
-                                                        }`}
-                                                >
-                                                    {viewModal.organization?.is_active ? "Active" : "Inactive"}
-                                                </span>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div className="md:col-span-2">
-                                        <label className="text-sm font-semibold neutral-text block mb-2">
-                                            Address
-                                        </label>
-                                        <div className="text-base neutral-text p-3 bg-white rounded-lg border border-neutral-200 min-h-[60px]">
-                                            {viewModal.organization?.address || "N/A"}
-                                        </div>
-                                    </div>
-
-                                    <div className="flex justify-end gap-3 pt-4">
-                                        <button
-                                            onClick={closeViewModal}
-                                            className="btn btn-primary text-sm"
-                                        >
-                                            Close
-                                        </button>
-                                        {!viewModal.loading && viewModal.organization && (
-                                            <button
-                                                onClick={() => {
-                                                    closeViewModal();
-                                                    setTimeout(() => {
-                                                        handleEdit(viewModal.organization);
-                                                    }, 220);
-                                                }}
-                                                className="btn secondary-bg black-text hover:secondary-bg-dark shadow-md"
-                                            >
-                                                <HiPencil className="w-4 h-4 mr-2" /> Edit
-                                            </button>
-                                        )}
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                    <style>{`
-            @keyframes modal-out {
-              from {
-                opacity: 1;
-                transform: scale(1) translateY(0);
-              }
-              to {
-                opacity: 0;
-                transform: scale(0.95) translateY(-10px);
-              }
-            }
-            @keyframes backdrop-out {
-              from {
-                opacity: 1;
-              }
-              to {
-                opacity: 0;
-              }
-            }
-          `}</style>
-                </div>
-            )}
 
             {/* Form Modal */}
             {(showForm || isClosingForm) && (
@@ -1203,7 +1004,7 @@ export default function AdminMasterOrganizations() {
                                                         <HiUpload />
                                                     </button>
                                                     <button
-                                                        onClick={() => openViewModal(item)}
+                                                        onClick={() => handleViewOrganization(item)}
                                                         className="btn-view"
                                                         title="View"
                                                     >

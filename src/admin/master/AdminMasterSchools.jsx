@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import apiClient from "../../config/api";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import {
   HiPlus,
   HiPencil,
@@ -15,6 +15,7 @@ import AlertModal from "../../components/AlertModal";
 
 export default function AdminMasterSchools() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -34,7 +35,6 @@ export default function AdminMasterSchools() {
   const [isActive, setIsActive] = useState(true);
 
   const [editingId, setEditingId] = useState(null);
-  const [editingData, setEditingData] = useState({});
   const [actionLoading, setActionLoading] = useState({
     create: false,
     update: false,
@@ -48,12 +48,6 @@ export default function AdminMasterSchools() {
   });
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedItems, setSelectedItems] = useState([]);
-  const [viewModal, setViewModal] = useState({
-    isOpen: false,
-    school: null,
-    loading: false,
-  });
-  const [isClosingView, setIsClosingView] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [isClosingForm, setIsClosingForm] = useState(false);
   const [uploadModal, setUploadModal] = useState({
@@ -67,6 +61,21 @@ export default function AdminMasterSchools() {
   useEffect(() => {
     fetchSchools();
   }, []);
+
+  // Handle edit query parameter
+  useEffect(() => {
+    const urlParams = new URLSearchParams(location.search);
+    const editId = urlParams.get('edit');
+    
+    if (editId && items.length > 0) {
+      const schoolToEdit = items.find(item => item.id.toString() === editId);
+      if (schoolToEdit) {
+        handleEdit(schoolToEdit);
+        // Clear the query parameter
+        navigate('/admin/dashboard/master/schools', { replace: true });
+      }
+    }
+  }, [location.search, items, navigate]);
 
   const fetchSchools = async () => {
     try {
@@ -168,7 +177,6 @@ export default function AdminMasterSchools() {
 
   const handleEdit = (school) => {
     setEditingId(school.id);
-    setEditingData(school);
     setName(school.name || "");
     setShortcode(school.shortcode || "");
     setRegistrationNo(school.registration_no || "");
@@ -299,21 +307,8 @@ export default function AdminMasterSchools() {
     }, 200);
   };
 
-  const openViewModal = async (school) => {
-    setViewModal({ isOpen: true, school: null, loading: true });
-    try {
-      const response = await apiClient.get(`/schools/${school.id}`);
-      if (response.data?.status && response.data.data) {
-        setViewModal({ isOpen: true, school: response.data.data, loading: false });
-      } else {
-        setError("Failed to load school details");
-        setViewModal({ isOpen: false, school: null, loading: false });
-      }
-    } catch (err) {
-      console.error("Error fetching school details:", err);
-      setError("Failed to load school details. Please try again.");
-      setViewModal({ isOpen: false, school: null, loading: false });
-    }
+  const handleViewSchool = (school) => {
+    navigate(`/admin/dashboard/master/schools/${school.id}`);
   };
 
   const closeViewModal = () => {
@@ -466,200 +461,6 @@ export default function AdminMasterSchools() {
           </button>
         </div>
       </AlertModal>
-
-      {/* View Modal */}
-      {(viewModal.isOpen || isClosingView) && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 overflow-y-auto"
-          style={{ zIndex: 1000 }}
-        >
-          <div
-            className={`absolute inset-0 overlay ${
-              isClosingView ? "animate-backdrop-out" : "animate-backdrop-in"
-            }`}
-            style={{ backgroundColor: "rgba(0, 0, 0, 0.3)" }}
-            onClick={closeViewModal}
-          />
-          <div 
-            className={`relative rounded-2xl max-w-4xl w-full shadow-2xl overflow-hidden border border-white/20 my-8 ${
-              isClosingView ? "animate-modal-out" : "animate-modal-in"
-            }`}
-            style={{ backgroundColor: "rgba(255, 255, 255, 0.95)" }}
-          >
-            <div className="p-6 primary-bg-light">
-              <div className="flex items-center justify-between">
-                <h3 className="text-xl font-bold primary-text">
-                  View School Details
-                </h3>
-              </div>
-            </div>
-
-            <div 
-              className="p-6 max-h-[80vh] overflow-y-auto"
-              style={{ backgroundColor: 'rgba(249, 250, 251, 0.8)' }}
-            >
-              {viewModal.loading ? (
-                <div className="flex flex-col items-center justify-center py-12">
-                  <span className="spinner spinner-lg mb-3"></span>
-                  <p className="text-sm neutral-text-muted">Loading school details...</p>
-                </div>
-              ) : (
-              <div className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-sm font-semibold neutral-text block mb-2">
-                      School Name
-                    </label>
-                    <div className="text-base neutral-text font-medium p-3 bg-white rounded-lg border border-neutral-200">
-                      {viewModal.school?.name || "N/A"}
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="text-sm font-semibold neutral-text block mb-2">
-                      Shortcode
-                    </label>
-                    <div className="text-base neutral-text font-medium p-3 bg-white rounded-lg border border-neutral-200">
-                      {viewModal.school?.shortcode || "N/A"}
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="text-sm font-semibold neutral-text block mb-2">
-                      Registration No
-                    </label>
-                    <div className="text-base neutral-text font-medium p-3 bg-white rounded-lg border border-neutral-200">
-                      {viewModal.school?.registration_no || "N/A"}
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="text-sm font-semibold neutral-text block mb-2">
-                      Email
-                    </label>
-                    <div className="text-base neutral-text font-medium p-3 bg-white rounded-lg border border-neutral-200">
-                      {viewModal.school?.email || "N/A"}
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="text-sm font-semibold neutral-text block mb-2">
-                      Contact Number
-                    </label>
-                    <div className="text-base neutral-text font-medium p-3 bg-white rounded-lg border border-neutral-200">
-                      {viewModal.school?.contact_number || "N/A"}
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="text-sm font-semibold neutral-text block mb-2">
-                      Principal Name
-                    </label>
-                    <div className="text-base neutral-text font-medium p-3 bg-white rounded-lg border border-neutral-200">
-                      {viewModal.school?.principal_name || "N/A"}
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="text-sm font-semibold neutral-text block mb-2">
-                      City
-                    </label>
-                    <div className="text-base neutral-text font-medium p-3 bg-white rounded-lg border border-neutral-200">
-                      {viewModal.school?.city || "N/A"}
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="text-sm font-semibold neutral-text block mb-2">
-                      State
-                    </label>
-                    <div className="text-base neutral-text font-medium p-3 bg-white rounded-lg border border-neutral-200">
-                      {viewModal.school?.state || "N/A"}
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="text-sm font-semibold neutral-text block mb-2">
-                      Country
-                    </label>
-                    <div className="text-base neutral-text font-medium p-3 bg-white rounded-lg border border-neutral-200">
-                      {viewModal.school?.country || "N/A"}
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="text-sm font-semibold neutral-text block mb-2">
-                      Status
-                    </label>
-                    <div className="text-base neutral-text font-medium p-3 bg-white rounded-lg border border-neutral-200">
-                      <span
-                        className={`badge ${
-                          viewModal.school?.is_active
-                            ? "badge-accent"
-                            : "badge-neutral"
-                        }`}
-                      >
-                        {viewModal.school?.is_active ? "Active" : "Inactive"}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="md:col-span-2">
-                  <label className="text-sm font-semibold neutral-text block mb-2">
-                    Address
-                  </label>
-                  <div className="text-base neutral-text p-3 bg-white rounded-lg border border-neutral-200 min-h-[60px]">
-                    {viewModal.school?.address || "N/A"}
-                  </div>
-                </div>
-
-                <div className="flex justify-end gap-3 pt-4">
-                  <button
-                    onClick={closeViewModal}
-                    className="btn btn-primary text-sm"
-                  >
-                    Close
-                  </button>
-                    {!viewModal.loading && viewModal.school && (
-                      <button
-                        onClick={() => {
-                          closeViewModal();
-                          setTimeout(() => {
-                            handleEdit(viewModal.school);
-                          }, 220);
-                        }}
-                    className="btn secondary-bg black-text hover:secondary-bg-dark shadow-md"
-                  >
-                    <HiPencil className="w-4 h-4 mr-2" /> Edit
-                  </button>
-                    )}
-                </div>
-              </div>
-              )}
-            </div>
-          </div>
-          <style>{`
-            @keyframes modal-out {
-              from {
-                opacity: 1;
-                transform: scale(1) translateY(0);
-              }
-              to {
-                opacity: 0;
-                transform: scale(0.95) translateY(-10px);
-              }
-            }
-            @keyframes backdrop-out {
-              from {
-                opacity: 1;
-              }
-              to {
-                opacity: 0;
-              }
-            }
-          `}</style>
-        </div>
-      )}
 
       {/* Form Modal */}
       {(showForm || isClosingForm) && (
@@ -1235,7 +1036,7 @@ export default function AdminMasterSchools() {
                           <HiUpload />
                         </button>
                         <button
-                          onClick={() => openViewModal(item)}
+                          onClick={() => handleViewSchool(item)}
                           className="btn-view"
                           title="View"
                         >
