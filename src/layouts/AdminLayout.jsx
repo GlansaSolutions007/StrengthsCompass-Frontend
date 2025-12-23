@@ -367,6 +367,36 @@ export default function AdminLayout() {
               </span>
               <span className={`text-sm font-medium ${isRouteActive("/admin/dashboard/master/age") ? "text-black" : "text-white"}`}>Age</span>
             </NavLink>
+            <NavLink
+              to="/admin/dashboard/master/schools"
+              className={({ isActive }) =>
+                `flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 group ${
+                  isActive
+                    ? "bg-[#eab308] text-black shadow-md"
+                    : "text-gray-300 hover:bg-gray-800 hover:text-white"
+                }`
+              }
+            >
+              <span className={isRouteActive("/admin/dashboard/master/schools") ? "text-black" : "text-gray-400 group-hover:text-white"}>
+                <HiOutlineClipboardList className="w-5 h-5" />
+              </span>
+              <span className={`text-sm font-medium ${isRouteActive("/admin/dashboard/master/schools") ? "text-black" : "text-white"}`}>Schools</span>
+            </NavLink>
+            <NavLink
+              to="/admin/dashboard/master/organizations"
+              className={({ isActive }) =>
+                `flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 group ${
+                  isActive
+                    ? "bg-[#eab308] text-black shadow-md"
+                    : "text-gray-300 hover:bg-gray-800 hover:text-white"
+                }`
+              }
+            >
+              <span className={isRouteActive("/admin/dashboard/master/organizations") ? "text-black" : "text-gray-400 group-hover:text-white"}>
+                <HiOutlineClipboardList className="w-5 h-5" />
+              </span>
+              <span className={`text-sm font-medium ${isRouteActive("/admin/dashboard/master/organizations") ? "text-black" : "text-white"}`}>Organizations</span>
+            </NavLink>
           </div>
 
           <NavLink
