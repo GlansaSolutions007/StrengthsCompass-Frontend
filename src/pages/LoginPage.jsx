@@ -63,6 +63,23 @@ export default function LoginPage() {
     return "";
   };
 
+  const validateEmailOrUsername = (value) => {
+    if (!value) return "Email or Username is required";
+    if (value.length < 2) return "Email or Username must be at least 2 characters";
+    // Check if it's an email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (emailRegex.test(value)) {
+      // If it looks like an email, validate it as email
+      return "";
+    } else {
+      // If it doesn't look like an email, treat it as username
+      // Username validation: alphanumeric, underscore, dash, min 3 chars
+      if (value.length < 3) return "Username must be at least 3 characters";
+      if (!/^[a-zA-Z0-9_-]+$/.test(value)) return "Username can only contain letters, numbers, underscores, and dashes";
+      return "";
+    }
+  };
+
   const validatePassword = (password) => {
     if (!password) return "Password is required";
     if (password.length < 8) return "Password must be at least 8 characters";
@@ -72,7 +89,7 @@ export default function LoginPage() {
   const handleBlur = (field) => {
     setTouched({ ...touched, [field]: true });
     if (field === "email") {
-      setErrors({ ...errors, email: validateEmail(email) });
+      setErrors({ ...errors, email: validateEmailOrUsername(email) });
     } else if (field === "password") {
       setErrors({ ...errors, password: validatePassword(password) });
     }
@@ -83,7 +100,7 @@ export default function LoginPage() {
       setEmail(value);
       setLoginError("");
       if (touched.email) {
-        setErrors({ ...errors, email: validateEmail(value) });
+        setErrors({ ...errors, email: validateEmailOrUsername(value) });
       }
     } else if (field === "password") {
       setPassword(value);
@@ -99,7 +116,7 @@ export default function LoginPage() {
     setLoginError("");
     setIsLoading(true);
     
-    const emailError = validateEmail(email);
+    const emailError = validateEmailOrUsername(email);
     const passwordError = validatePassword(password);
 
     if (emailError || passwordError) {
@@ -190,8 +207,7 @@ export default function LoginPage() {
     const emailToSend = forgotEmail.trim() || email.trim();
     const emailError = validateEmail(emailToSend);
     if (emailError) {
-      setForgotError(emailError);
-      setForgotError("Please enter a valid email before requesting a reset link.");
+      setForgotError("Please enter a valid email address before requesting a reset link.");
       return;
     }
 
@@ -316,7 +332,7 @@ export default function LoginPage() {
 
           <div className="space-y-2">
             <label className="block text-sm font-medium neutral-text-muted">
-              Email
+              Email or Username
             </label>
             <div
               className={`group flex w-full rounded-md overflow-hidden border transition-all focus-within:ring-2 focus-within:ring-secondary focus-within:border-secondary ${
@@ -334,12 +350,12 @@ export default function LoginPage() {
 
               {/* Input Field */}
               <input
-                type="email"
+                type="text"
                 required
                 value={email}
                 onChange={(e) => handleChange("email", e.target.value)}
                 onBlur={() => handleBlur("email")}
-                placeholder="Enter email address"
+                placeholder="Enter email or username"
                 className="flex-1 py-2 px-3 bg-white text-sm focus:outline-none focus:bg-secondary-bg-light transition-colors"
               />
             </div>
