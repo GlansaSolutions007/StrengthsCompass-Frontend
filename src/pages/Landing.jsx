@@ -60,15 +60,11 @@ export default function Landing() {
             </span>
 
             <h1 className="font-weight-700 text-neutral-900 text-4xl md:text-6xl leading-tight">
-              Discover the{" "}
-              <span className="text-secondary-300">colorful power</span> of
-              smart assessments.
+             Unlock Your Hidden Strengths Today
             </h1>
 
             <p className="font16 text-neutral-700 mt-2 max-w-lg">
-              Practice aptitude, reasoning, and behavioral tests with vivid
-              dashboards, instant feedback, and personalized insights that guide
-              your next move.
+            Discover Your True Strengths with Strengths Compass. Unlock personalized insights through our validated psychometric assessment, guiding you to leverage natural talents for career growth, personal development, and everyday success. Start navigating life with clarity and confidence today.
             </p>
             <button
               onClick={handleLetsStart}

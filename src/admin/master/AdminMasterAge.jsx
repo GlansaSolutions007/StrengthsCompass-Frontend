@@ -24,7 +24,7 @@ export default function AdminMasterAge() {
   // Display "40+" for any age range that starts at 40 or above
   const formatAgeRange = (from, to) => {
     if (typeof from === "number" && from >= 40) {
-      return `${from}+`;
+      return `${from-1}+`;
     }
     return `${from} - ${to}`;
   };
