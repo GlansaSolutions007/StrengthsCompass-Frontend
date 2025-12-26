@@ -1503,7 +1503,7 @@ export default function UserResults() {
         <div className="flex items-center gap-3 mb-6">
           <button
             onClick={handleBackNavigation}
-            className="btn bg-blue-600 hover:bg-blue-700 text-white shadow-md"
+            className="btn bg-blue-600 hover:bg-blue-700 text-white shadow-md btn-secondary"
           >
             <HiArrowLeft className="w-5 h-5 mr-2" /> {backLabel}
           </button>
@@ -1527,7 +1527,7 @@ export default function UserResults() {
         <div className="flex items-center gap-3">
           <button
             onClick={handleBackNavigation}
-            className="btn bg-blue-600 hover:bg-blue-700 text-white shadow-md"
+            className="btn bg-blue-600 hover:bg-blue-700 text-white shadow-md  btn-secondary"
           >
             <HiArrowLeft className="w-5 h-5 mr-2" /> {backLabel}
           </button>

@@ -306,7 +306,7 @@ export default function Test() {
       const payload = {
         user_id: finalUserId,
         answers: answersArray,
-        isConsent: isConsent,
+        is_consent: isConsent,
       };
 
       const response = await apiClient.post(`/tests/${testId}/submit`, payload);
@@ -506,7 +506,7 @@ export default function Test() {
                   }
                 }}
                 disabled={!isConsent}
-                className="px-6 py-2.5 rounded-lg font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed bg-blue-600 hover:bg-blue-700 text-white shadow-md"
+                className="btn btn-secondary text-sm disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 I Agree & Continue
               </button>
@@ -530,7 +530,7 @@ export default function Test() {
         }}
         type="success"
         title="Test Submitted Successfully!"
-        message="Your test has been submitted successfully. You can view your results in your profile."
+        message={<>Congratulations! You have successfully completed the test. Thank you for taking the time to complete the assessment.<br /><br />Our team will review your results and get back to you soon.</>}
         primaryText="View Profile"
         onPrimary={() => {
           setShowSuccessModal(false);
