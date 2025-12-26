@@ -24,6 +24,10 @@ import AdminTestResults from "./admin/AdminTestResults";
 import TestDetails from "./admin/TestDetails";
 import AdminLayout from "./layouts/AdminLayout";
 import ResetPassword from "./pages/ResetPassword";
+import AdminMasterSchools from "./admin/master/AdminMasterSchools";
+import AdminMasterOrganizations from "./admin/master/AdminMasterOrganizations";
+import SchoolDetails from "./admin/SchoolDetails";
+import OrganizationDetails from "./admin/OrganizationDetails";
 
 export default function App() {
   return (
@@ -55,6 +59,10 @@ export default function App() {
         <Route path="master/tests/:testId" element={<TestDetails />} />
         <Route path="master/age" element={<AdminMasterAge />} />
         <Route path="profile" element={<AdminProfile />} />
+        <Route path="master/schools" element={<AdminMasterSchools />} />
+        <Route path="master/schools/:schoolId" element={<SchoolDetails />} />
+        <Route path="master/organizations" element={<AdminMasterOrganizations />} />
+        <Route path="master/organizations/:organizationId" element={<OrganizationDetails />} />
       </Route>
 
      

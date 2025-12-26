@@ -13,6 +13,17 @@ import apiClient from "../config/api";
 import AlertModal from "../components/AlertModal";
 // validations-only mode: no auth
 
+// Hide scrollbar for sidebar
+const hideScrollbarStyle = `
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .hide-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+`;
+
 export default function AdminLayout() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -164,7 +175,7 @@ export default function AdminLayout() {
   // Display "40+" for any age range that starts at 40 or above
   const formatAgeRange = (from, to) => {
     if (typeof from === "number" && from >= 40) {
-      return `${from}+`;
+      return `${from-1}+`;
     }
     return `${from} - ${to}`;
   };
@@ -202,6 +213,7 @@ export default function AdminLayout() {
 
   return (
     <div className="min-h-screen w-screen bg neutral-text flex">
+      <style>{hideScrollbarStyle}</style>
       <AlertModal
         isOpen={!!variantError}
         onClose={() => setVariantError(null)}
@@ -218,7 +230,7 @@ export default function AdminLayout() {
         autoClose={3000}
       />
       {/* Sidebar */}
-      <aside className="w-64 bg-gray-800 flex flex-col sticky top-0 h-screen overflow-y-auto">
+      <aside className="w-64 bg-gray-800 flex flex-col flex-shrink-0 sticky top-0 h-screen overflow-y-auto hide-scrollbar">
         {/* Header */}
         <div className="p-0 m-0 bg-gray-800">
           <div className="flex items-center justify-center">
@@ -367,6 +379,36 @@ export default function AdminLayout() {
               </span>
               <span className={`text-sm font-medium ${isRouteActive("/admin/dashboard/master/age") ? "text-black" : "text-white"}`}>Age</span>
             </NavLink>
+            <NavLink
+              to="/admin/dashboard/master/schools"
+              className={({ isActive }) =>
+                `flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 group ${
+                  isActive
+                    ? "bg-[#eab308] text-black shadow-md"
+                    : "text-gray-300 hover:bg-gray-800 hover:text-white"
+                }`
+              }
+            >
+              <span className={isRouteActive("/admin/dashboard/master/schools") ? "text-black" : "text-gray-400 group-hover:text-white"}>
+                <HiOutlineClipboardList className="w-5 h-5" />
+              </span>
+              <span className={`text-sm font-medium ${isRouteActive("/admin/dashboard/master/schools") ? "text-black" : "text-white"}`}>Schools</span>
+            </NavLink>
+            <NavLink
+              to="/admin/dashboard/master/organizations"
+              className={({ isActive }) =>
+                `flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 group ${
+                  isActive
+                    ? "bg-[#eab308] text-black shadow-md"
+                    : "text-gray-300 hover:bg-gray-800 hover:text-white"
+                }`
+              }
+            >
+              <span className={isRouteActive("/admin/dashboard/master/organizations") ? "text-black" : "text-gray-400 group-hover:text-white"}>
+                <HiOutlineClipboardList className="w-5 h-5" />
+              </span>
+              <span className={`text-sm font-medium ${isRouteActive("/admin/dashboard/master/organizations") ? "text-black" : "text-white"}`}>Organizations</span>
+            </NavLink>
           </div>
 
           <NavLink
@@ -452,8 +494,8 @@ export default function AdminLayout() {
         </div>
         
         {/* Content Area */}
-        <div className="flex-1 bg-medium">
-          <div className="w-full ">
+        <div className="flex-1 bg-medium overflow-x-auto">
+          <div className="w-full max-w-7xl mx-auto p-6">
             <Outlet />
           </div>
         </div>

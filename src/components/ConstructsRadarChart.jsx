@@ -1,62 +1,54 @@
 import React from "react";
 
 /**
- * StrengthsRadarChart Component
- * Displays a radar chart (spider chart) showing strengths in a clock layout
+ * ConstructsRadarChart Component
+ * Displays a radar chart (spider chart) showing constructs in a dynamic layout
  *
  * @param {Object} props
- * @param {Object} props.clusterScores - Object with cluster names as keys and score objects as values
+ * @param {Object} props.constructScores - Object with construct names as keys and score objects as values
  *   Each score object should have { average, percentage, ... }
- * @param {Array} props.clusters - Array of cluster names in display order
- * @param {Number} props.size - Size of the chart in pixels (default: 500)
- * @param {String} props.title - Chart title (default: "Strengths Compass - Full Radar Chart (Clock Layout)")
+ * @param {Array} props.constructs - Array of construct names in display order
+ * @param {Number} props.size - Size of the chart in pixels (default: 600)
+ * @param {String} props.title - Chart title (default: "Constructs Radar Chart")
  */
-export default function StrengthsRadarChart({
-  clusterScores = {},
-  clusters = [],
+export default function ConstructsRadarChart({
+  constructScores = {},
+  constructs = [],
   size = 600,
   widthsize = 1000,
   heightsize = 700,
-  title = "Strengths Compass - Cluster Radar Chart (Clock Layout)"
+  title = "Constructs Radar Chart"
 }) {
-  // If clusters prop provided, use it; otherwise use keys from clusterScores
-  const clusterNames = clusters.length > 0 ? clusters : Object.keys(clusterScores);
+  // If constructs prop provided, use it; otherwise use keys from constructScores
+  const constructNames = constructs.length > 0 ? constructs : Object.keys(constructScores);
 
-  // Convert clusterScores to data array in the order of clusters
-  const data = clusterNames.map(name => ({
+  // Convert constructScores to data array in the order of constructs
+  const data = constructNames.map(name => ({
     name,
-    percentage: clusterScores[name]?.percentage || 0,
-    average: clusterScores[name]?.average || 0,
+    percentage: constructScores[name]?.percentage || 0,
+    average: constructScores[name]?.average || 0,
   }));
 
-  // Create cluster config from names
-  const clusterConfig = clusterNames.map((name, index) => ({
-    id: `c${index + 1}`,
+  // Create construct config from names
+  const constructConfig = constructNames.map((name, index) => ({
+    id: `construct${index + 1}`,
     name,
     order: index,
   }));
 
-  // Ensure we have data points for all clusters
-  if (clusterConfig.length !== 6) {
-    console.warn("StrengthsRadarChart expects exactly 6 clusters");
-  }
+  const numConstructs = constructConfig.length;
 
   // Chart configuration
   const centerX = size / 2;
   const centerY = size / 2;
-  const radius = size * 0.35; // Chart radius (35% of size)
-  const labelRadius = size * 0.42; // Label position radius
+  const radius = size * 0.42; // Chart radius (42% of size)
+  const labelRadius = size * 0.50; // Label position radius
 
-  // Clock positions for 6 axes, ordered to match the polygon path:
-  // 12:00, 02:00, 04:00, 06:00, 08:00, 10:00
-  const positions = [
-    { angle: -90, label: "top" },           // 12 o'clock
-    { angle: -30, label: "top-right" },     // 2 o'clock
-    { angle: 30, label: "bottom-right" },   // 4 o'clock
-    { angle: 90, label: "bottom" },         // 6 o'clock
-    { angle: 150, label: "bottom-left" },   // 8 o'clock
-    { angle: -150, label: "top-left" },     // 10 o'clock
-  ];
+  // Generate positions dynamically based on number of constructs
+  const positions = Array.from({ length: numConstructs }, (_, index) => {
+    const angle = (360 / numConstructs) * index - 90; // Start from top (-90 degrees)
+    return { angle, index };
+  });
 
   // Convert degrees to radians
   const toRadians = (degrees) => (degrees * Math.PI) / 180;
@@ -70,62 +62,33 @@ export default function StrengthsRadarChart({
     };
   };
 
-  // Helper to normalise cluster names for matching
+  // Helper to normalise construct names for matching
   const normalizeName = (name = "") =>
     name.toLowerCase().replace(/[^a-z0-9]/g, "");
 
-  // Helper to split cluster name into 2 lines
-  // Exceptions: "Leadership & Growth Orientation" and "Caring & Connection" stay in one line
+  // Helper to split construct name into 2 lines if needed
   const splitNameIntoLines = (name = "") => {
-    const normalized = normalizeName(name);
-    
-    // Keep these in one line
-    if (
-      normalized.includes("leadership") && 
-      normalized.includes("growth") && 
-      normalized.includes("orientation")
-    ) {
-      return [name, ""];
-    }
-    
-    if (
-      normalized.includes("caring") && 
-      normalized.includes("connection")
-    ) {
-      return [name, ""];
-    }
-    
-    // For other names, split at "&" if present
-    if (name.includes("&")) {
-      const parts = name.split("&");
-      if (parts.length === 2) {
-        return [parts[0].trim() + " &", parts[1].trim()];
-      }
-    }
-    
-    // Default: split at middle if multiple words
     const words = name.split(" ");
     if (words.length > 2) {
       const midPoint = Math.ceil(words.length / 2);
       return [words.slice(0, midPoint).join(" "), words.slice(midPoint).join(" ")];
     }
-    
     return [name, ""];
   };
 
-  // Build ordered data array based on cluster configuration
-  const orderedData = clusterConfig.map((cluster, index) => {
+  // Build ordered data array based on construct configuration
+  const orderedData = constructConfig.map((construct, index) => {
     const match = data.find((item) => {
       const n = normalizeName(item.name);
-      const clusterNormalized = normalizeName(cluster.name);
-      return n.includes(cluster.id.toLowerCase()) ||
-             clusterNormalized.includes(n) ||
-             n.includes(clusterNormalized);
+      const constructNormalized = normalizeName(construct.name);
+      return n.includes(construct.id.toLowerCase()) ||
+             constructNormalized.includes(n) ||
+             n.includes(constructNormalized);
     });
 
     return {
       // Fallback to keep polygon intact even if data missing
-      name: match?.name || cluster.name,
+      name: match?.name || construct.name,
       percentage:
         match?.percentage !== undefined && match?.percentage !== null
           ? match.percentage
@@ -134,7 +97,7 @@ export default function StrengthsRadarChart({
         match?.average !== undefined && match?.average !== null
           ? match.average
           : null,
-      _clusterId: cluster.id,
+      _constructId: construct.id,
       _orderIndex: index,
     };
   });
@@ -164,13 +127,13 @@ export default function StrengthsRadarChart({
       <h3 className="text-lg font-semibold neutral-text mb-4 text-center">
         {title}
       </h3>
-      
+
       <div className="w-full max-w-full overflow-hidden flex justify-center">
         <svg
           width={widthsize}
           height={heightsize}
-          viewBox={`0 0 ${size} ${size}`}
-          className="strengths-radar-chart max-w-full h-auto"
+          viewBox={`-20 -20 ${size + 70} ${size + 70}`}
+          className="constructs-radar-chart max-w-full h-auto"
           style={{ fontFamily: "'Poppins', sans-serif" }}
           preserveAspectRatio="xMidYMid meet"
         >
@@ -190,11 +153,11 @@ export default function StrengthsRadarChart({
             <text
               x={centerX + circle.radius + 10}
               y={centerY + 5}
-              fontSize="14"
+              fontSize="12"
               fill="#6b7280"
               textAnchor="start"
               className="font-semibold"
-              fontWeight="600"
+              fontWeight="400"
             >
               {circle.label}
             </text>
@@ -233,8 +196,8 @@ export default function StrengthsRadarChart({
         {/* Data polygon (filled area) */}
         <polygon
           points={polygonPoints}
-          fill="rgba(251, 146, 60, 0.3)"
-          stroke="#fb923c"
+          fill="rgba(59, 130, 246, 0.3)"
+          stroke="#3b82f6"
           strokeWidth="2"
           fillOpacity="0.4"
         />
@@ -254,49 +217,48 @@ export default function StrengthsRadarChart({
               cx={point.x}
               cy={point.y}
               r="4"
-              fill="#fb923c"
+              fill="#3b82f6"
               stroke="#fff"
               strokeWidth="2"
             />
           );
         })}
 
-        {/* Labels for each strength */}
+        {/* Labels for each construct */}
         {orderedData.map((item, index) => {
           const angle = positions[index]?.angle || -90;
           const normalizedValue = Math.max(
             0,
             Math.min(100, item.percentage ?? item.value ?? 0)
           );
-          
+
           // Determine text anchor based on position
           let textAnchor = "middle";
-          if (angle === -90) textAnchor = "middle"; // top
-          else if (angle === -30) textAnchor = "start"; // top-right
-          else if (angle === 30) textAnchor = "start"; // bottom-right
-          else if (angle === 90) textAnchor = "middle"; // bottom
-          else if (angle === 150) textAnchor = "end"; // bottom-left
-          else if (angle === -150) textAnchor = "end"; // top-left
+          const angleNorm = ((angle % 360) + 360) % 360; // Normalize angle to 0-360
+          if (angleNorm >= 315 || angleNorm < 45) textAnchor = "middle"; // top
+          else if (angleNorm >= 45 && angleNorm < 135) textAnchor = "start"; // right
+          else if (angleNorm >= 135 && angleNorm < 225) textAnchor = "middle"; // bottom
+          else if (angleNorm >= 225 && angleNorm < 315) textAnchor = "end"; // left
 
           // Adjust label position slightly outward
           const labelDistance = labelRadius + 15;
           const adjustedLabelPoint = getPoint(angle, labelDistance);
-          
-          // Split name into lines (exceptions handled in function)
+
+          // Split name into lines
           const nameLines = splitNameIntoLines(item.name);
           const isTwoLines = nameLines[1] && nameLines[1].trim() !== "";
 
           return (
             <g key={index}>
-              {/* Strength name label - 2 lines for most, 1 line for exceptions */}
+              {/* Construct name label */}
               <text
                 x={adjustedLabelPoint.x}
                 y={adjustedLabelPoint.y - (isTwoLines ? 8 : 0)}
-                fontSize="16"
+                fontSize="10"
                 fill="#1e293b"
                 textAnchor={textAnchor}
-                className="font-bold"
-                fontWeight="700"
+                className="font-semibold"
+                fontWeight="600"
                 style={{ dominantBaseline: "middle" }}
               >
                 <tspan x={adjustedLabelPoint.x} dy="0" textAnchor={textAnchor}>
@@ -312,7 +274,7 @@ export default function StrengthsRadarChart({
               <text
                 x={adjustedLabelPoint.x}
                 y={adjustedLabelPoint.y + (isTwoLines ? 32 : 20)}
-                fontSize="14"
+                fontSize="12"
                 fill="#64748b"
                 textAnchor={textAnchor}
                 className="font-semibold"
@@ -330,4 +292,3 @@ export default function StrengthsRadarChart({
     </div>
   );
 }
-

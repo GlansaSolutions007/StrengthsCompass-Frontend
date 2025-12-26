@@ -10,6 +10,7 @@ import {
 } from "react-icons/hi";
 import AlertModal from "../components/AlertModal";
 import StrengthsRadarChart from "../components/StrengthsRadarChart";
+import ConstructsRadarChart from "../components/ConstructsRadarChart";
 import TensionHeatmap from "../components/TensionHeatmap";
 import ConstructSynergyTensionMatrix from "../components/ConstructSynergyTensionMatrix";
 
@@ -1499,10 +1500,48 @@ export default function UserResults() {
                     </div>
                   )}
                    {/* Strengths Radar Chart */}
-                  {radarChartData.length > 0 && (
+                  {testResult?.cluster_scores && (
                     <div id="pdf-radar-chart-section" className="mb-10 max-w-4xl mx-auto">
                       <StrengthsRadarChart 
-                        data={radarChartData}
+                        clusterScores={testResult.cluster_scores}
+                        clusters={[
+                          "Caring & Self-Understanding",
+                          "Character & Moral Foundation",
+                          "Drive & Achievement", 
+                          "Emotional Strength",
+                          "Personal Agency & Growth",
+                          "Openness & Future Orientation"
+                        ]}
+                        size={500}
+                      />
+                    </div>
+                  )}
+
+                  {/* Constructs Radar Chart */}
+                  {testResult?.construct_scores && (
+                    <div id="pdf-constructs-radar-chart-section" className="mb-10 max-w-4xl mx-auto">
+                      <ConstructsRadarChart 
+                        constructScores={testResult.construct_scores}
+                        constructs={[
+                          "Self-Awareness",
+                          "Honesty-Humility",
+                          "Reliability",
+                          "Perseverance",
+                          "Self-Discipline",
+                          "Initiative",
+                          "Psychological Resilience",
+                          "Emotional Regulation",
+                          "Cognitive Flexibility",
+                          "Leadership",
+                          "Self-Efficacy",
+                          "Growth Mindset",
+                          "GRIT",
+                          "Creativity & Curiosity",
+                          "Altruism",
+                          "Empathy",
+                          "Cooperation",
+                          "Optimism"
+                        ]}
                         size={500}
                       />
                     </div>
@@ -1516,13 +1555,13 @@ export default function UserResults() {
                   )} */}
 
                   {/* Construct Synergy-Tension Matrix */}
-                  <div id="pdf-construct-matrix-section" className="mb-10 max-w-7xl mx-auto">
+                  {/* <div id="pdf-construct-matrix-section" className="mb-10 max-w-7xl mx-auto">
                     <ConstructSynergyTensionMatrix 
                       matrix={constructSynergyMatrix.length > 0 ? constructSynergyMatrix : []}
                       labels={constructLabels.length > 0 ? constructLabels : []}
                       constructScores={testResult?.construct_scores || {}}
                     />
-                  </div>
+                  </div> */}
 
                   {/* Footer */}
                   <div className="test-report-footer">
