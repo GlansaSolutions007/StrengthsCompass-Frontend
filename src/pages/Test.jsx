@@ -19,6 +19,8 @@ export default function Test() {
   const [submitError, setSubmitError] = useState(null);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [userId, setUserId] = useState(null);
+  const [showConsentModal, setShowConsentModal] = useState(false);
+  const [isConsent, setIsConsent] = useState(false);
   const itemsPerPage = 10;
 
   // Check if admin is logged in and redirect
@@ -213,6 +215,19 @@ export default function Test() {
     fetchUserId(); // Fetch user ID from API
   }, [testId]);
 
+  // Show consent modal after test data is loaded
+  useEffect(() => {
+    if (!loading && !error && questions.length > 0) {
+      // Check if user has already given consent (stored in sessionStorage for this session)
+      const hasConsented = sessionStorage.getItem(`test_${testId}_consent`);
+      if (!hasConsented && !showConsentModal) {
+        setShowConsentModal(true);
+      } else if (hasConsented) {
+        setIsConsent(true);
+      }
+    }
+  }, [loading, error, questions.length, testId, showConsentModal]);
+
   useEffect(() => {
     const adminToken = localStorage.getItem("adminToken");
     if (adminToken) return;
@@ -291,6 +306,7 @@ export default function Test() {
       const payload = {
         user_id: finalUserId,
         answers: answersArray,
+        isConsent: isConsent,
       };
 
       const response = await apiClient.post(`/tests/${testId}/submit`, payload);
@@ -333,6 +349,13 @@ export default function Test() {
   }, [answers, questions, options, testId, userId, fetchUserId]);
 
   const handleSubmit = useCallback(async () => {
+    // Check if consent is given
+    if (!isConsent) {
+      setShowConsentModal(true);
+      setSubmitError("You must provide consent before submitting the test.");
+      return;
+    }
+
     // Ensure all questions have been answered
     const unanswered = getUnansweredQuestions(questions);
     if (unanswered.length > 0) {
@@ -370,6 +393,7 @@ export default function Test() {
     testId,
     submitTestData,
     fetchUserId,
+    isConsent,
   ]);
 
   // Calculate pagination
@@ -426,6 +450,71 @@ export default function Test() {
 
   return (
     <div className="min-h-screen w-screen blue-bg-50 text-slate-900">
+      {/* Consent Modal with Blur Background */}
+      {showConsentModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          {/* Blur Background */}
+          <div 
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={() => {
+              // Don't allow closing by clicking outside if consent is not given
+              if (isConsent) {
+                setShowConsentModal(false);
+              }
+            }}
+          ></div>
+          
+          {/* Modal Content */}
+          <div className="relative bg-white rounded-2xl shadow-2xl max-w-2xl w-full mx-4 p-6 md:p-8 z-10">
+            <div className="mb-6">
+              <h2 className="text-2xl md:text-3xl font-bold text-gray-800 mb-4">
+                Consent to Take Assessment
+              </h2>
+              <div className="space-y-4">
+                <p className="text-gray-700 text-base leading-relaxed">
+                  I consent to take this assessment for personal development purposes only. Results are self-reported tendencies, not diagnostic. I agree to use responsibly and release creators from liability.
+                </p>
+                <div className="flex items-start pt-2">
+                  <div className="flex items-center h-5 mt-0.5">
+                    <input
+                      type="checkbox"
+                      id="consent-checkbox"
+                      checked={isConsent}
+                      onChange={(e) => setIsConsent(e.target.checked)}
+                      className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500 focus:ring-2 cursor-pointer"
+                    />
+                  </div>
+                  <label 
+                    htmlFor="consent-checkbox" 
+                    className="ml-3 text-sm text-gray-700 cursor-pointer"
+                  >
+                    I agree to the terms and conditions above
+                  </label>
+                </div>
+              </div>
+            </div>
+            
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => {
+                  if (isConsent) {
+                    // Store consent in sessionStorage for this test
+                    if (testId) {
+                      sessionStorage.setItem(`test_${testId}_consent`, 'true');
+                    }
+                    setShowConsentModal(false);
+                  }
+                }}
+                disabled={!isConsent}
+                className="px-6 py-2.5 rounded-lg font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed bg-blue-600 hover:bg-blue-700 text-white shadow-md"
+              >
+                I Agree & Continue
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <AlertModal
         isOpen={!!submitError}
         onClose={() => setSubmitError(null)}
@@ -450,6 +539,7 @@ export default function Test() {
       />
       <Navbar />
 
+      {!showConsentModal && (
       <div className="w-full px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <div className="mb-6 rounded-2xl border border-blue-100 bg-white/80 backdrop-blur p-5 shadow-sm">
@@ -572,6 +662,7 @@ export default function Test() {
           )}
         </div>
       </div>
+      )}
     </div>
   );
 }

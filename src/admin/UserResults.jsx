@@ -1080,7 +1080,7 @@ export default function UserResults() {
         }
       }
 
-      // Convert and add Radar Chart
+      // Convert and add Strengths Radar Chart
       if (radarChartData.length > 0) {
         try {
           const radarSection = document.getElementById(
@@ -1160,6 +1160,89 @@ export default function UserResults() {
           }
         } catch (err) {
           console.error("Error adding radar chart to PDF:", err);
+        }
+      }
+
+      // Convert and add Constructs Radar Chart
+      if (testResult?.construct_scores && Object.keys(testResult.construct_scores).length > 0) {
+        try {
+          const constructsRadarSection = document.getElementById(
+            "pdf-constructs-radar-chart-section"
+          );
+          let constructsRadarCapture = await captureElementImage(constructsRadarSection, 160);
+
+          if (!constructsRadarCapture && constructsRadarSection) {
+            const fallbackSvg = constructsRadarSection.querySelector(
+              'svg[viewBox*="500"], svg.constructs-radar-chart'
+            );
+            if (fallbackSvg) {
+              const svgData = new XMLSerializer().serializeToString(
+                fallbackSvg
+              );
+              const svgBlob = new Blob([svgData], {
+                type: "image/svg+xml;charset=utf-8",
+              });
+              const url = URL.createObjectURL(svgBlob);
+
+              const img = new Image();
+              await new Promise((resolve, reject) => {
+                img.onload = resolve;
+                img.onerror = reject;
+                img.src = url;
+              });
+
+              const canvas = document.createElement("canvas");
+              canvas.width = 500;
+              canvas.height = 500;
+              const ctx = canvas.getContext("2d");
+              ctx.fillStyle = "white";
+              ctx.fillRect(0, 0, canvas.width, canvas.height);
+              ctx.drawImage(img, 0, 0);
+
+              const imgData = canvas.toDataURL("image/png");
+              const imgWidth = 150;
+              const imgHeight = 150;
+              constructsRadarCapture = { imgData, imgWidth, imgHeight };
+              URL.revokeObjectURL(url);
+            }
+          }
+
+          if (constructsRadarCapture) {
+            doc.addPage();
+            currentY = 25;
+
+            doc.setFontSize(16);
+            doc.setFont(undefined, "bold");
+            doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+            doc.text("Constructs Radar Chart", 105, currentY, {
+              align: "center",
+            });
+            currentY += 15;
+
+            const pageWidth = 210;
+            const centerX = (pageWidth - constructsRadarCapture.imgWidth) / 2;
+            const availableHeight = pageHeight - currentY - bottomMargin;
+            const centerY =
+              currentY +
+              Math.max(0, (availableHeight - constructsRadarCapture.imgHeight) / 2);
+            const imageY =
+              centerY + constructsRadarCapture.imgHeight > pageHeight - bottomMargin
+                ? currentY
+                : centerY;
+
+            doc.addImage(
+              constructsRadarCapture.imgData,
+              "PNG",
+              centerX,
+              imageY,
+              constructsRadarCapture.imgWidth,
+              constructsRadarCapture.imgHeight
+            );
+
+            currentY = pageHeight - bottomMargin;
+          }
+        } catch (err) {
+          console.error("Error adding constructs radar chart to PDF:", err);
         }
       }
 
@@ -1282,7 +1365,9 @@ export default function UserResults() {
       }
 
       // Footer (matching web page format)
-      const pageCount = doc.internal.pages.length - 1;
+      let pageCount = doc.internal.pages.length - 1;
+      
+      // Add page numbers to all pages
       for (let i = 1; i <= pageCount; i++) {
         doc.setPage(i);
         doc.setFontSize(8);
@@ -1290,20 +1375,90 @@ export default function UserResults() {
         doc.text(`Page ${i} of ${pageCount}`, 105, 295, { align: "center" });
       }
 
+      // Add disclaimer and footer info on last page
       doc.setPage(pageCount);
+      
+      // Check if we have enough space on current page (need ~50mm for disclaimer)
+      let footerY = currentY;
+      if (footerY > pageHeight - 50) {
+        // Not enough space, add a new page
+        doc.addPage();
+        footerY = 20;
+        pageCount = doc.internal.pages.length - 1;
+        // Update page numbers
+        for (let i = 1; i <= pageCount; i++) {
+          doc.setPage(i);
+          doc.setFontSize(8);
+          doc.setTextColor(grayColor[0], grayColor[1], grayColor[2]);
+          doc.text(`Page ${i} of ${pageCount}`, 105, 295, { align: "center" });
+        }
+        doc.setPage(pageCount);
+      }
+      
+      // Add "Strengths Compass - Confidential Report" title
+      doc.setFontSize(10);
+      doc.setFont(undefined, "bold");
+      doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+      doc.text("Strengths Compass - Confidential Report", 105, footerY, {
+        align: "center",
+      });
+      footerY += 10;
+      
+      // Add Disclaimer heading
+      doc.setFontSize(10);
+      doc.setFont(undefined, "bold");
+      doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+      doc.text("Disclaimer:", 105, footerY, { align: "center" });
+      footerY += 8;
+      
+      // Add Disclaimer text (left-aligned with margins)
       doc.setFontSize(8);
+      doc.setFont(undefined, "normal");
+      doc.setTextColor(grayColor[0], grayColor[1], grayColor[2]);
+      const disclaimerText = 
+        "You have consented and taken this assessment for personal development purposes only. " +
+        "You understand results are not diagnostic, medical, or clinical, and represent self-reported tendencies. " +
+        "These results may be influenced by context, mood, and self‑perception. " +
+        "Use them as a starting point for reflection and coaching, not as a definitive judgment. " +
+        "For mental health or medical concerns, consult a qualified professional.";
+      
+      // Left-align the disclaimer text with proper margins
+      const leftMargin = 10; // Left margin in mm
+      const rightMargin = 10; // Right margin in mm
+      const textWidth = 210 - leftMargin - rightMargin; // Page width minus margins
+      
+      const disclaimerLines = doc.splitTextToSize(disclaimerText, textWidth);
+      disclaimerLines.forEach((line) => {
+        if (footerY > pageHeight - 15) {
+          // If we're running out of space, add a new page
+          doc.addPage();
+          footerY = 20;
+          pageCount = doc.internal.pages.length - 1;
+          // Update page numbers
+          for (let i = 1; i <= pageCount; i++) {
+            doc.setPage(i);
+            doc.setFontSize(8);
+            doc.setTextColor(grayColor[0], grayColor[1], grayColor[2]);
+            doc.text(`Page ${i} of ${pageCount}`, 105, 295, { align: "center" });
+          }
+          doc.setPage(pageCount);
+        }
+        doc.text(line, leftMargin, footerY, { align: "left" });
+        footerY += 5;
+      });
+      
+      // Add generation date at the bottom
+      footerY += 5;
+      doc.setFontSize(7);
       doc.setTextColor(grayColor[0], grayColor[1], grayColor[2]);
       doc.text(
         `Generated on ${new Date(
           testResult.created_at || Date.now()
         ).toLocaleString()}`,
         105,
-        280,
+        footerY,
         { align: "center" }
       );
-      doc.text("Strengths Compass - Confidential Report", 105, 288, {
-        align: "center",
-      });
 
       console.log("PDF generation completed, saving file...");
       const fileName = `Test_Results_${
