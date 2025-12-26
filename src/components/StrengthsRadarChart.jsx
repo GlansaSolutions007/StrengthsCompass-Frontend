@@ -122,7 +122,7 @@ export default function StrengthsRadarChart({
   const clusterOrder = [
     {
       clock: "12:00",
-      label: "C5: Leadership & Growth",
+      label: "Leadership & Growth",
       keys: [
         "c5",
         "leadership&growthorientation",
@@ -132,27 +132,27 @@ export default function StrengthsRadarChart({
     },
     {
       clock: "02:00",
-      label: "C3: Drive & Achievement",
+      label: "Drive & Achievement",
       keys: ["c3", "drive&achievement", "driveachievement"],
     },
     {
       clock: "04:00",
-      label: "C4: Resilience & Adaptability",
+      label: "Resilience & Adaptability",
       keys: ["c4", "resilience&adaptability", "resilienceadaptability"],
     },
     {
       clock: "08:00",
-      label: "C1: Caring & Connection",
+      label: "Caring & Connection",
       keys: ["c1", "caring&connection", "caringconnection"],
     },
     {
       clock: "10:00",
-      label: "C6: Optimism & Innovation",
+      label: "Optimism & Innovation",
       keys: ["c6", "optimism&innovation", "optimisminnovation"],
     },
     {
       clock: "06:00",
-      label: "C2: Humility & Integrity",
+      label: "Humility & Integrity",
       keys: ["c2", "humility&integrity", "humilityintegrity"],
     },
   ];
