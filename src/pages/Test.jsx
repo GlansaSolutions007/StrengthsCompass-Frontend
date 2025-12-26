@@ -467,11 +467,11 @@ export default function Test() {
           {/* Modal Content */}
           <div className="relative bg-white rounded-2xl shadow-2xl max-w-2xl w-full mx-4 p-6 md:p-8 z-10">
             <div className="mb-6">
-              <h2 className="text-2xl md:text-3xl font-bold text-gray-800 mb-4">
+              <h2 className="text-lg md:text-3xl font-bold text-gray-800 mb-4">
                 Consent to Take Assessment
               </h2>
               <div className="space-y-4">
-                <p className="text-gray-700 text-base leading-relaxed">
+                <p className="text-gray-700 text-sm leading-relaxed">
                   I consent to take this assessment for personal development purposes only. Results are self-reported tendencies, not diagnostic. I agree to use responsibly and release creators from liability.
                 </p>
                 <div className="flex items-start pt-2">
@@ -486,7 +486,7 @@ export default function Test() {
                   </div>
                   <label 
                     htmlFor="consent-checkbox" 
-                    className="ml-3 text-sm text-gray-700 cursor-pointer"
+                    className="ml-3 text-sm text-gray-900 cursor-pointer"
                   >
                     I agree to the terms and conditions above
                   </label>
