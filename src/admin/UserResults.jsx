@@ -1398,9 +1398,9 @@ export default function UserResults() {
       // Add disclaimer and footer info on last page
       doc.setPage(pageCount);
 
-      // Check if we have enough space on current page (need ~50mm for disclaimer)
+      // Check if we have enough space on current page (need ~60mm for disclaimer section)
       let footerY = currentY;
-      if (footerY > pageHeight - 50) {
+      if (footerY > pageHeight - 60) {
         // Not enough space, add a new page
         doc.addPage();
         footerY = 20;
@@ -1415,8 +1415,12 @@ export default function UserResults() {
         doc.setPage(pageCount);
       }
 
-      // Add generation date first (matching web page order)
+      // Start from a consistent position for disclaimer section
+      footerY = Math.max(footerY, 20);
+      
+      // Add generation date at the very top (smaller, lighter gray)
       doc.setFontSize(7);
+      doc.setFont(undefined, "normal");
       doc.setTextColor(grayColor[0], grayColor[1], grayColor[2]);
       doc.text(
         `Generated on ${new Date(
@@ -1426,42 +1430,45 @@ export default function UserResults() {
         footerY,
         { align: "center" }
       );
-      footerY += 6;
-
-      // Add "Strengths Compass - Confidential Report" title
-      doc.setFontSize(10);
+      footerY += 8;
+      
+      // Add "Strengths Compass - Confidential Report" title (larger than date, smaller than Disclaimer heading, bold)
+      doc.setFontSize(11);
       doc.setFont(undefined, "bold");
       doc.setTextColor(textColor[0], textColor[1], textColor[2]);
       doc.text("Strengths Compass - Confidential Report", 105, footerY, {
         align: "center",
       });
       footerY += 10;
-
-      // Add Disclaimer heading
-      doc.setFontSize(10);
+      
+      // Add Disclaimer heading (bold, centered, larger than title)
+      doc.setFontSize(12);
       doc.setFont(undefined, "bold");
       doc.setTextColor(textColor[0], textColor[1], textColor[2]);
       doc.text("Disclaimer:", 105, footerY, { align: "center" });
       footerY += 8;
-
-      // Add Disclaimer text (left-aligned with proper letter spacing and alignment)
+      
+      // Add Disclaimer text (left-aligned within a centered block, smaller, lighter gray)
       doc.setFontSize(8);
       doc.setFont(undefined, "normal");
       doc.setTextColor(grayColor[0], grayColor[1], grayColor[2]);
       const disclaimerText =
         "You have consented and taken this assessment for personal development purposes only. " +
-        "You understand results are not diagnostic, medical, or clinical, and represent self-reported tendencies. " +
-        "These results may be influenced by context, mood, and self‑perception. " +
+        "You understand results are not diagnostic, medical, or clinical, and represent self reported tendencies. " +
+        "These results may be influenced by context, mood, and self perception. " +
         "Use them as a starting point for reflection and coaching, not as a definitive judgment. " +
         "For mental health or medical concerns, consult a qualified professional.";
-
-      // Left-align the disclaimer text with proper margins
-      const leftMargin = 20; // Left margin in mm for better alignment
-      const maxWidth = 170; // Maximum width for text
-
-      const disclaimerLines = doc.splitTextToSize(disclaimerText, maxWidth);
+      
+      // Create a centered text block with left-aligned text inside
+      // The block should be narrower than the full page width
+      const textBlockWidth = 170; // Width of the centered text block in mm
+      const textBlockLeft = (210 - textBlockWidth) / 2; // Center the block on the page
+      
+      // Use splitTextToSize to break text into lines that fit the width
+      const disclaimerLines = doc.splitTextToSize(disclaimerText, textBlockWidth);
+      
       disclaimerLines.forEach((line) => {
-        if (footerY > pageHeight - 15) {
+        if (footerY > pageHeight - 20) {
           // If we're running out of space, add a new page
           doc.addPage();
           footerY = 20;
@@ -1477,25 +1484,36 @@ export default function UserResults() {
           }
           doc.setPage(pageCount);
         }
-
-        // Ensure consistent letter spacing for each line
-        doc.setCharSpace(0);
-        // Left-align the line
-        doc.text(line, leftMargin, footerY);
-        footerY += 5;
+        
+        // Left-align each line by using the x position directly without align option
+        // This ensures proper left alignment within the centered block
+        doc.text(line.trim(), textBlockLeft, footerY);
+        footerY += 4.5;
       });
-
-      // Add email contact info at the end (matching web page)
-      footerY += 5;
-      doc.setFontSize(8);
+      
+      // Add email contact info at the bottom
+      footerY += 8;
+      doc.setFontSize(7);
       doc.setFont(undefined, "normal");
       doc.setTextColor(grayColor[0], grayColor[1], grayColor[2]);
-      doc.text(
-        "For any queries regarding the report, please send an email to: guide@axiscompass.in",
-        105,
-        footerY,
-        { align: "center" }
-      );
+      
+      // Split the text to make email bold
+      const emailPrefix = "For any queries regarding the report, please send an email to: ";
+      const emailAddress = "guide@axiscompass.in";
+      
+      // Calculate the width of the prefix text
+      const prefixWidth = doc.getTextWidth(emailPrefix);
+      
+      // Calculate starting position to center the entire text
+      const fullTextWidth = doc.getTextWidth(emailPrefix + emailAddress);
+      const startX = (210 - fullTextWidth) / 2;
+      
+      // Draw the prefix text
+      doc.text(emailPrefix, startX, footerY);
+      
+      // Draw the email address in bold
+      doc.setFont(undefined, "bold");
+      doc.text(emailAddress, startX + prefixWidth, footerY);
 
       console.log("PDF generation completed, saving file...");
       const fileName = `Strengths-Compass-Test-Report-${
