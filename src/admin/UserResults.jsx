@@ -894,6 +894,16 @@ export default function UserResults() {
       doc.setFont(undefined, "normal");
       doc.setTextColor(textColor[0], textColor[1], textColor[2]);
       doc.text(testResult.status || "N/A", leftColumn + 35, currentY);
+      currentY += 10;
+
+      // Total Score
+      checkPageBreak(10);
+      doc.setFont(undefined, "bold");
+      doc.setTextColor(grayColor[0], grayColor[1], grayColor[2]);
+      doc.text("Total Score:", leftColumn, currentY);
+      doc.setFont(undefined, "normal");
+      doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+      doc.text(testResult.scores?.total_score || "N/A", leftColumn + 35, currentY);
       currentY += 15;
 
       // Report Summary (only if exists, matching web page)
@@ -1164,12 +1174,18 @@ export default function UserResults() {
       }
 
       // Convert and add Constructs Radar Chart
-      if (testResult?.construct_scores && Object.keys(testResult.construct_scores).length > 0) {
+      if (
+        testResult?.construct_scores &&
+        Object.keys(testResult.construct_scores).length > 0
+      ) {
         try {
           const constructsRadarSection = document.getElementById(
             "pdf-constructs-radar-chart-section"
           );
-          let constructsRadarCapture = await captureElementImage(constructsRadarSection, 160);
+          let constructsRadarCapture = await captureElementImage(
+            constructsRadarSection,
+            160
+          );
 
           if (!constructsRadarCapture && constructsRadarSection) {
             const fallbackSvg = constructsRadarSection.querySelector(
@@ -1224,9 +1240,13 @@ export default function UserResults() {
             const availableHeight = pageHeight - currentY - bottomMargin;
             const centerY =
               currentY +
-              Math.max(0, (availableHeight - constructsRadarCapture.imgHeight) / 2);
+              Math.max(
+                0,
+                (availableHeight - constructsRadarCapture.imgHeight) / 2
+              );
             const imageY =
-              centerY + constructsRadarCapture.imgHeight > pageHeight - bottomMargin
+              centerY + constructsRadarCapture.imgHeight >
+              pageHeight - bottomMargin
                 ? currentY
                 : centerY;
 
@@ -1366,7 +1386,7 @@ export default function UserResults() {
 
       // Footer (matching web page format)
       let pageCount = doc.internal.pages.length - 1;
-      
+
       // Add page numbers to all pages
       for (let i = 1; i <= pageCount; i++) {
         doc.setPage(i);
@@ -1377,7 +1397,7 @@ export default function UserResults() {
 
       // Add disclaimer and footer info on last page
       doc.setPage(pageCount);
-      
+
       // Check if we have enough space on current page (need ~50mm for disclaimer)
       let footerY = currentY;
       if (footerY > pageHeight - 50) {
@@ -1394,7 +1414,20 @@ export default function UserResults() {
         }
         doc.setPage(pageCount);
       }
-      
+
+      // Add generation date first (matching web page order)
+      doc.setFontSize(7);
+      doc.setTextColor(grayColor[0], grayColor[1], grayColor[2]);
+      doc.text(
+        `Generated on ${new Date(
+          testResult.created_at || Date.now()
+        ).toLocaleString()}`,
+        105,
+        footerY,
+        { align: "center" }
+      );
+      footerY += 6;
+
       // Add "Strengths Compass - Confidential Report" title
       doc.setFontSize(10);
       doc.setFont(undefined, "bold");
@@ -1403,31 +1436,30 @@ export default function UserResults() {
         align: "center",
       });
       footerY += 10;
-      
+
       // Add Disclaimer heading
       doc.setFontSize(10);
       doc.setFont(undefined, "bold");
       doc.setTextColor(textColor[0], textColor[1], textColor[2]);
       doc.text("Disclaimer:", 105, footerY, { align: "center" });
       footerY += 8;
-      
-      // Add Disclaimer text (left-aligned with margins)
+
+      // Add Disclaimer text (left-aligned with proper letter spacing and alignment)
       doc.setFontSize(8);
       doc.setFont(undefined, "normal");
       doc.setTextColor(grayColor[0], grayColor[1], grayColor[2]);
-      const disclaimerText = 
+      const disclaimerText =
         "You have consented and taken this assessment for personal development purposes only. " +
         "You understand results are not diagnostic, medical, or clinical, and represent self-reported tendencies. " +
         "These results may be influenced by context, mood, and self‑perception. " +
         "Use them as a starting point for reflection and coaching, not as a definitive judgment. " +
         "For mental health or medical concerns, consult a qualified professional.";
-      
+
       // Left-align the disclaimer text with proper margins
-      const leftMargin = 10; // Left margin in mm
-      const rightMargin = 10; // Right margin in mm
-      const textWidth = 210 - leftMargin - rightMargin; // Page width minus margins
-      
-      const disclaimerLines = doc.splitTextToSize(disclaimerText, textWidth);
+      const leftMargin = 20; // Left margin in mm for better alignment
+      const maxWidth = 170; // Maximum width for text
+
+      const disclaimerLines = doc.splitTextToSize(disclaimerText, maxWidth);
       disclaimerLines.forEach((line) => {
         if (footerY > pageHeight - 15) {
           // If we're running out of space, add a new page
@@ -1439,29 +1471,34 @@ export default function UserResults() {
             doc.setPage(i);
             doc.setFontSize(8);
             doc.setTextColor(grayColor[0], grayColor[1], grayColor[2]);
-            doc.text(`Page ${i} of ${pageCount}`, 105, 295, { align: "center" });
+            doc.text(`Page ${i} of ${pageCount}`, 105, 295, {
+              align: "center",
+            });
           }
           doc.setPage(pageCount);
         }
-        doc.text(line, leftMargin, footerY, { align: "left" });
+
+        // Ensure consistent letter spacing for each line
+        doc.setCharSpace(0);
+        // Left-align the line
+        doc.text(line, leftMargin, footerY);
         footerY += 5;
       });
-      
-      // Add generation date at the bottom
+
+      // Add email contact info at the end (matching web page)
       footerY += 5;
-      doc.setFontSize(7);
+      doc.setFontSize(8);
+      doc.setFont(undefined, "normal");
       doc.setTextColor(grayColor[0], grayColor[1], grayColor[2]);
       doc.text(
-        `Generated on ${new Date(
-          testResult.created_at || Date.now()
-        ).toLocaleString()}`,
+        "For any queries regarding the report, please send an email to: guide@axiscompass.in",
         105,
         footerY,
         { align: "center" }
       );
 
       console.log("PDF generation completed, saving file...");
-      const fileName = `Test_Results_${
+      const fileName = `Strengths-Compass-Test-Report-${
         user?.name?.replace(/\s+/g, "_") || "User"
       }_${Date.now()}.pdf`;
       doc.save(fileName);
@@ -1718,10 +1755,16 @@ export default function UserResults() {
 
                           <div className="test-report-info-item">
                             <div className="test-report-info-label">
-                              test Status
+                              Test Status
                             </div>
                             <div className="test-report-info-value">
                               {result.status || "N/A"}
+                            </div>
+                          </div>
+                          <div className="test-report-info-item">
+                            <div className="test-report-info-label">Total Score</div>
+                            <div className="test-report-info-value">
+                              {result.scores?.total_score || "N/A"}
                             </div>
                           </div>
                         </div>
@@ -1954,7 +1997,7 @@ export default function UserResults() {
                       </p>
                       <p>Strengths Compass - Confidential Report</p>
                       <p className="mt-4 font-bold">Disclaimer:</p>
-                      <p> 
+                      <p>
                         You have consented and taken this assessment for
                         personal development purposes only. You understand
                         results are not diagnostic, medical, or clinical, and
@@ -1963,6 +2006,20 @@ export default function UserResults() {
                         them as a starting point for reflection and coaching,
                         not as a definitive judgment. For mental health or
                         medical concerns, consult a qualified professional.
+                      </p>
+
+                      <p className="mt-4">
+                        For any queries regarding the report, please send an
+                        email to:{" "}
+                        <a
+                          href="mailto:guide@axiscompass.in"
+                          style={{
+                            color: "#2563eb",
+                            textDecoration: "underline",
+                          }}
+                        >
+                          guide@axiscompass.in
+                        </a>
                       </p>
                     </div>
                   </div>
