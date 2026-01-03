@@ -49,7 +49,7 @@ export default function Navbar() {
       <div className="max-w-7xl mx-auto flex items-center justify-between">
         {/* Logo Section */}
         <Link to="/" className="flex items-center gap-3 group">
-          <div className="flex items-center">
+          <div className="flex items-center white-bg p-[10px] rounded">
             <img
               src={logoImage}
               alt="Psychometric logo"

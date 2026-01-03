@@ -26,8 +26,10 @@ import AdminLayout from "./layouts/AdminLayout";
 import ResetPassword from "./pages/ResetPassword";
 import AdminMasterSchools from "./admin/master/AdminMasterSchools";
 import AdminMasterOrganizations from "./admin/master/AdminMasterOrganizations";
+import AdminMasterLanguages from "./admin/master/AdminMasterLanguages";
 import SchoolDetails from "./admin/SchoolDetails";
 import OrganizationDetails from "./admin/OrganizationDetails";
+import LanguageSelection from "./pages/LanguageSelection";
 
 export default function App() {
   return (
@@ -40,6 +42,7 @@ export default function App() {
       <Route path="/testlist" element={<TestList />} />
       <Route path="/test" element={<Test />} />
       <Route path="/test/:testId" element={<Test />} />
+      <Route path="/language-selection" element={<LanguageSelection />} />
       <Route path="/admin" element={<AdminLoginPage />} />
       <Route path="/admin/login" element={<AdminLoginPage />} />
       
@@ -63,6 +66,7 @@ export default function App() {
         <Route path="master/schools/:schoolId" element={<SchoolDetails />} />
         <Route path="master/organizations" element={<AdminMasterOrganizations />} />
         <Route path="master/organizations/:organizationId" element={<OrganizationDetails />} />
+        <Route path="master/languages" element={<AdminMasterLanguages />} />
       </Route>
 
      

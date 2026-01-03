@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { HiCheck, HiChevronLeft, HiChevronRight } from "react-icons/hi";
+import { HiCheck, HiChevronLeft, HiChevronRight, HiTranslate, HiChevronDown } from "react-icons/hi";
 import Navbar from "../components/Navbar";
 import AlertModal from "../components/AlertModal";
 import apiClient from "../config/api";
@@ -21,7 +21,19 @@ export default function Test() {
   const [userId, setUserId] = useState(null);
   const [showConsentModal, setShowConsentModal] = useState(false);
   const [isConsent, setIsConsent] = useState(false);
+  const [userAge, setUserAge] = useState(null);
+  const [selectedLanguage, setSelectedLanguage] = useState(null);
+  const [showLanguageDropdown, setShowLanguageDropdown] = useState(false);
   const itemsPerPage = 10;
+
+  // Available languages for 13-17 age group
+  const languages = [
+    { id: 1, name: "Telugu", code: "te" },
+    { id: 2, name: "Hindi", code: "hi" },
+    { id: 3, name: "Tamil", code: "ta" },
+    { id: 4, name: "Kannada", code: "kn" },
+    { id: 5, name: "Malayalam", code: "ml" },
+  ];
 
   // Check if admin is logged in and redirect
   useEffect(() => {
@@ -215,6 +227,59 @@ export default function Test() {
     fetchUserId(); // Fetch user ID from API
   }, [testId]);
 
+  // Get user age from localStorage
+  useEffect(() => {
+    const storedUser = localStorage.getItem("user");
+    if (storedUser) {
+      try {
+        const user = JSON.parse(storedUser);
+        const age = user.age ? parseInt(user.age) : null;
+        setUserAge(age);
+      } catch (err) {
+        console.error("Error parsing user data:", err);
+      }
+    }
+  }, []);
+
+  // Load saved language from localStorage
+  useEffect(() => {
+    const savedLanguage = localStorage.getItem("selectedLanguage");
+    if (savedLanguage) {
+      try {
+        const language = JSON.parse(savedLanguage);
+        setSelectedLanguage(language);
+      } catch (err) {
+        console.error("Error parsing saved language:", err);
+      }
+    }
+  }, []);
+
+  // Load saved answers from localStorage when questions are loaded
+  useEffect(() => {
+    if (!loading && questions.length > 0 && testId) {
+      const savedAnswersKey = `test_${testId}_answers`;
+      const savedAnswers = localStorage.getItem(savedAnswersKey);
+      if (savedAnswers) {
+        try {
+          const parsedAnswers = JSON.parse(savedAnswers);
+          setAnswers(parsedAnswers);
+        } catch (err) {
+          console.error("Error parsing saved answers:", err);
+        }
+      }
+    }
+  }, [loading, questions.length, testId]);
+
+  // Check if user is in 13-17 age group
+  const isEligibleForLanguageSelection = userAge !== null && userAge >= 13 && userAge <= 17;
+
+  const handleLanguageSelect = (language) => {
+    setSelectedLanguage(language);
+    setShowLanguageDropdown(false);
+    // Save selected language to localStorage
+    localStorage.setItem("selectedLanguage", JSON.stringify(language));
+  };
+
   // Show consent modal after test data is loaded
   useEffect(() => {
     if (!loading && !error && questions.length > 0) {
@@ -247,6 +312,12 @@ export default function Test() {
   const handleAnswerSelect = (questionId, optionIndex) => {
     const updatedAnswers = { ...answers, [questionId]: optionIndex };
     setAnswers(updatedAnswers);
+    
+    // Save answers to localStorage
+    if (testId) {
+      const savedAnswersKey = `test_${testId}_answers`;
+      localStorage.setItem(savedAnswersKey, JSON.stringify(updatedAnswers));
+    }
   };
 
   const getUnansweredQuestions = useCallback(
@@ -329,6 +400,12 @@ export default function Test() {
         const existingTests = JSON.parse(localStorage.getItem("userTestResults") || "[]");
         existingTests.push(testResult);
         localStorage.setItem("userTestResults", JSON.stringify(existingTests));
+        
+        // Clear saved answers from localStorage after successful submission
+        if (testId) {
+          const savedAnswersKey = `test_${testId}_answers`;
+          localStorage.removeItem(savedAnswersKey);
+        }
         
         // Show success modal
         setShowSuccessModal(true);
@@ -541,13 +618,60 @@ export default function Test() {
 
       {!showConsentModal && (
       <div className="w-full px-4 sm:px-6 lg:px-8 py-8">
+        {/* Language Dropdown - Only for 13-17 age group */}
+        {isEligibleForLanguageSelection && (
+          <div className="mb-6 flex justify-end">
+            <div className="relative">
+              <button
+                onClick={() => setShowLanguageDropdown(!showLanguageDropdown)}
+                className="flex items-center gap-2 px-4 py-2 yellow-bg-400 border border-yellow-500 rounded-lg shadow-sm hover:yellow-bg-500 transition-colors"
+              >
+                <HiTranslate className="w-5 h-5 text-gray-500" />
+                <span className="text-sm font-medium text-gray-500">
+                  {selectedLanguage ? selectedLanguage.name : "Select Language"}
+                </span>
+                <HiChevronDown className="w-4 h-4 text-gray-500" />
+              </button>
+              
+              {showLanguageDropdown && (
+                <>
+                  <div
+                    className="fixed inset-0 z-10"
+                    onClick={() => setShowLanguageDropdown(false)}
+                  ></div>
+                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-yellow-300 z-20">
+                    <div className="py-2">
+                      {languages.map((language) => (
+                        <button
+                          key={language.id}
+                          onClick={() => handleLanguageSelect(language)}
+                          className={`w-full text-left px-4 py-2 text-sm transition-colors flex items-center justify-between bg-white ${
+                            selectedLanguage?.id === language.id
+                              ? "text-yellow-600"
+                              : "text-white hover:bg-yellow-50"
+                          }`}
+                        >
+                          <span>{language.name}</span>
+                          {selectedLanguage?.id === language.id && (
+                            <HiCheck className="w-4 h-4 text-yellow-600" />
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Header */}
         <div className="mb-6 rounded-2xl border border-blue-100 bg-white/80 backdrop-blur p-5 shadow-sm">
           <h1 className="text-2xl md:text-3xl font-bold text-blue-900 mb-2">
             {testName}
           </h1>
           <p className="text-sm text-slate-600">
-          Read each sentence and think about how true it is for you in your daily life. Answer based on how you really are, not how you wish to be. There are no right or wrong answers.          </p>
+          Read each sentence and think about how true it is for you in your daily life. Answer based on how you really are, not how you wish to be. There are no right or wrong answers.          </p>
         </div>
 
         {/* Questions Table */}

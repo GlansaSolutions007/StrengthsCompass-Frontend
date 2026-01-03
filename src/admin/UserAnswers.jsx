@@ -409,7 +409,7 @@ export default function UserAnswers() {
       const workbook = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(workbook, worksheet, "Answers");
 
-      const fileName = `User_${userId || "answers"}_${selectedTestId || "test"}.xlsx`;
+      const fileName = `Strengths-Compass-User-${userId || "answers"}_${selectedTestId || "test"}.xlsx`;
       XLSX.writeFile(workbook, fileName);
     } catch (err) {
       console.error("Error generating Excel:", err);
@@ -506,7 +506,7 @@ export default function UserAnswers() {
               <>
                 <span className="spinner spinner-sm"></span>
                 Preparing Excel...
-              </>
+              </> 
             ) : (
               <>
                 <HiDownload className="w-4 h-4" />
