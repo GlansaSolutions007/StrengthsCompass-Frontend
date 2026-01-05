@@ -6,6 +6,7 @@ import {
   HiOutlineChartPie,
   HiOutlineUserCircle,
   HiChevronDown,
+  HiTranslate,
 } from "react-icons/hi";
 import React, { useEffect, useState } from "react";
 import logo from "../../Images/Logo.png";
@@ -232,9 +233,9 @@ export default function AdminLayout() {
       {/* Sidebar */}
       <aside className="w-64 bg-gray-800 flex flex-col shrink-0 sticky top-0 h-screen overflow-y-auto hide-scrollbar">
         {/* Header */}
-        <div className="p-0 m-0 bg-gray-800">
-          <div className="flex items-center justify-center">
-            <div className="w-40 h-25 items-center justify-center overflow-hidden">
+        <div className="p-0 m-0 white-bg" style={{ height: '100px', minHeight: '100px' }}>
+          <div className="flex items-center justify-center h-full">
+            <div className="w-50 h-30 items-center justify-center overflow-hidden">
               <img 
                 src={logo} 
                 alt="Strengths Compass Logo" 
@@ -408,6 +409,21 @@ export default function AdminLayout() {
                 <HiOutlineClipboardList className="w-5 h-5" />
               </span>
               <span className={`text-sm font-medium ${isRouteActive("/admin/dashboard/master/organizations") ? "text-black" : "text-white"}`}>Organizations</span>
+            </NavLink>
+            <NavLink
+              to="/admin/dashboard/master/languages"
+              className={({ isActive }) =>
+                `flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 group ${
+                  isActive
+                    ? "bg-[#eab308] text-black shadow-md"
+                    : "text-gray-300 hover:bg-gray-800 hover:text-white"
+                }`
+              }
+            >
+              <span className={isRouteActive("/admin/dashboard/master/languages") ? "text-black" : "text-gray-400 group-hover:text-white"}>
+                <HiTranslate className="w-5 h-5" />
+              </span>
+              <span className={`text-sm font-medium ${isRouteActive("/admin/dashboard/master/languages") ? "text-black" : "text-white"}`}>Languages</span>
             </NavLink>
           </div>
 

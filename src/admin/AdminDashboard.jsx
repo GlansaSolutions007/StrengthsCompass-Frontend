@@ -125,7 +125,7 @@ export default function AdminDashboard() {
       const link = document.createElement("a");
       link.href = url;
       const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-      link.download = `test-results-${timestamp}.xlsx`;
+      link.download = `Strengths-Compass-Test-Reports-${timestamp}.xlsx`;
       document.body.appendChild(link);
       link.click();
       link.remove();

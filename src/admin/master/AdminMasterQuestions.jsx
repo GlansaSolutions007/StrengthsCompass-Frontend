@@ -14,6 +14,8 @@ import {
   HiCloudUpload,
   HiEye,
   HiSearch,
+  HiTranslate,
+  HiDownload,
 } from "react-icons/hi";
 import AlertModal from "../../components/AlertModal";
 
@@ -73,6 +75,9 @@ export default function AdminMasterQuestions() {
   const [isClosingBulkAssign, setIsClosingBulkAssign] = useState(false);
   const [bulkAssignClusterId, setBulkAssignClusterId] = useState("");
   const [bulkAssignConstructId, setBulkAssignConstructId] = useState("");
+  const [showLanguageUploadModal, setShowLanguageUploadModal] = useState(false);
+  const [isClosingLanguageUpload, setIsClosingLanguageUpload] = useState(false);
+  const [languageUploadFile, setLanguageUploadFile] = useState(null);
 
   const fetchClusters = async () => {
     try {
@@ -411,6 +416,22 @@ export default function AdminMasterQuestions() {
       setBulkAssignClusterId("");
       setBulkAssignConstructId("");
       setFieldErrors({});
+    }, 220);
+  };
+
+  const closeLanguageUploadModal = () => {
+    if (isClosingLanguageUpload) return;
+    setIsClosingLanguageUpload(true);
+    setTimeout(() => {
+      setIsClosingLanguageUpload(false);
+      setShowLanguageUploadModal(false);
+      setLanguageUploadFile(null);
+      setFieldErrors({});
+      // Reset file input
+      const fileInput = document.getElementById("language-upload-file");
+      if (fileInput) {
+        fileInput.value = "";
+      }
     }, 220);
   };
 
@@ -1595,6 +1616,245 @@ export default function AdminMasterQuestions() {
         </div>
       )}
 
+      {/* Language Upload Modal */}
+      {(showLanguageUploadModal || isClosingLanguageUpload) && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center p-4 overflow-y-auto"
+          style={{ zIndex: 1000 }}
+        >
+          <div
+            className={`absolute inset-0 overlay ${
+              isClosingLanguageUpload ? "animate-backdrop-out" : "animate-backdrop-in"
+            }`}
+            style={{ backgroundColor: 'rgba(0, 0, 0, 0.3)' }}
+            onClick={closeLanguageUploadModal}
+          />
+          <div 
+            className={`relative rounded-2xl max-w-2xl w-full shadow-2xl overflow-hidden border border-white/20 my-8 ${
+              isClosingLanguageUpload ? "animate-modal-out" : "animate-modal-in"
+            }`}
+            style={{ backgroundColor: 'rgba(255, 255, 255, 0.95)' }}
+          >
+            <div 
+              className="p-6 primary-bg-light"
+            >
+              <div className="flex items-center justify-between">
+                <h3 className="text-xl font-bold primary-text">
+                  Language Upload
+                </h3>
+                
+              </div>
+            </div>
+
+            <div 
+              className="p-6 max-h-[80vh] overflow-y-auto"
+              style={{ backgroundColor: 'rgba(249, 250, 251, 0.8)' }}
+            >
+              <div className="space-y-6">
+                {/* Bulk Upload Section */}
+                <div className="bg-white p-6 rounded-lg border border-neutral-border-light">
+                  <h4 className="text-sm font-semibold neutral-text mb-2 flex items-center gap-2">
+                    <HiCloudUpload className="w-5 h-5" />
+                    Bulk Upload Questions
+                  </h4>
+                  <p className="text-xs neutral-text-muted mb-4">
+                    Upload questions with language translations. The file should contain question text in multiple languages.
+                  </p>
+                
+                  <div className="mb-4">
+                    <label className="text-sm font-semibold neutral-text block mb-2">
+                      Upload File <span className="danger-text">*</span>
+                    </label>
+                    <div className="flex gap-3 items-start">
+                      <div className="flex-1">
+                        <input
+                          id="language-upload-file"
+                          type="file"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            setLanguageUploadFile(file || null);
+                            if (file) {
+                              if (fieldErrors.languageUploadFile) {
+                                setFieldErrors({ ...fieldErrors, languageUploadFile: "" });
+                              }
+                            }
+                          }}
+                          accept=".xlsx,.xls,.csv"
+                          disabled={actionLoading.bulkUpload}
+                          className={`input ${fieldErrors.languageUploadFile ? "input-error" : ""}`}
+                        />
+                        {fieldErrors.languageUploadFile && (
+                          <p className="danger-text text-xs mt-1.5">
+                            {fieldErrors.languageUploadFile}
+                          </p>
+                        )}
+                        <p className="text-xs neutral-text-muted mt-1.5">
+                          Supported formats: Excel (.xlsx, .xls) or CSV (.csv)
+                        </p>
+                      </div>
+                      <button
+                        onClick={async () => {
+                          const errors = {};
+                          if (!languageUploadFile) {
+                            errors.languageUploadFile = "Please select a file to upload";
+                            setFieldErrors(errors);
+                            return;
+                          }
+
+                          setError(null);
+                          setFieldErrors({});
+                          setActionLoading({ ...actionLoading, bulkUpload: true });
+
+                          try {
+                            const formData = new FormData();
+                            formData.append("file", languageUploadFile);
+
+                            const response = await apiClient.post("/questions/language-bulk-upload", formData, {
+                              headers: {
+                                "Content-Type": "multipart/form-data",
+                              },
+                            });
+
+                            if (response.data?.status) {
+                              setSuccess(
+                                response.data?.message || "Questions uploaded successfully!"
+                              );
+                              fetchQuestions();
+                              // Close modal with animation
+                              closeLanguageUploadModal();
+                            } else {
+                              setError(response.data?.message || "Failed to upload questions");
+                            }
+                          } catch (err) {
+                            console.error("Error uploading questions:", err);
+                            if (err.response?.status === 401) {
+                              localStorage.removeItem("adminToken");
+                              localStorage.removeItem("adminUser");
+                              navigate("/admin/login");
+                            } else {
+                              setError(
+                                err.response?.data?.message ||
+                                  "Failed to upload questions. Please try again."
+                              );
+                            }
+                          } finally {
+                            setActionLoading({ ...actionLoading, bulkUpload: false });
+                          }
+                        }}
+                        disabled={actionLoading.bulkUpload || !languageUploadFile}
+                        className="btn btn-secondary flex-shrink-0"
+                        style={{ height: '42px', minWidth: '120px' }}
+                      >
+                        {actionLoading.bulkUpload ? (
+                          <>
+                            <span className="spinner spinner-sm"></span>
+                            Uploading...
+                          </>
+                        ) : (
+                          <>
+                            <HiCloudUpload className="w-4 h-4" /> Upload
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Download Section */}
+                <div className="bg-white p-6 rounded-lg border border-neutral-border-light">
+                  <h4 className="text-sm font-semibold neutral-text mb-2 flex items-center gap-2">
+                    <HiDownload className="w-5 h-5" />
+                    Download Template
+                  </h4>
+                  <p className="text-xs neutral-text-muted mb-4">
+                    Download a template file to see the required format for language uploads.
+                  </p>
+                
+                  <button
+                    onClick={async () => {
+                      try {
+                        setActionLoading({ ...actionLoading, bulkUpload: true });
+                        const response = await apiClient.get("/questions/language-template", {
+                          responseType: 'blob',
+                        });
+                        
+                        const url = window.URL.createObjectURL(new Blob([response.data]));
+                        const link = document.createElement('a');
+                        link.href = url;
+                        link.setAttribute('download', 'language-questions-template.xlsx');
+                        document.body.appendChild(link);
+                        link.click();
+                        link.remove();
+                        window.URL.revokeObjectURL(url);
+                        
+                        setSuccess("Template downloaded successfully!");
+                      } catch (err) {
+                        console.error("Error downloading template:", err);
+                        setError(
+                          err.response?.data?.message ||
+                            "Failed to download template. Please try again."
+                        );
+                      } finally {
+                        setActionLoading({ ...actionLoading, bulkUpload: false });
+                      }
+                    }}
+                    disabled={actionLoading.bulkUpload}
+                    className="btn btn-primary"
+                  >
+                    {actionLoading.bulkUpload ? (
+                      <>
+                        <span className="spinner spinner-sm mr-2"></span>
+                        Downloading...
+                      </>
+                    ) : (
+                      <>
+                        <HiDownload className="w-4 h-4 mr-2" /> Download Template
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                <div className="flex justify-end gap-3 pt-4 border-t border-neutral-border-light">
+                  <button
+                    onClick={closeLanguageUploadModal}
+                    disabled={actionLoading.bulkUpload || isClosingLanguageUpload}
+                    className="btn btn-primary text-sm"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <style>{`
+            @keyframes modal-out {
+              from {
+                opacity: 1;
+                transform: scale(1) translateY(0);
+              }
+              to {
+                opacity: 0;
+                transform: scale(0.95) translateY(-10px);
+              }
+            }
+            @keyframes backdrop-out {
+              from {
+                opacity: 1;
+              }
+              to {
+                opacity: 0;
+              }
+            }
+            .animate-modal-out {
+              animation: modal-out 220ms ease-in forwards;
+            }
+            .animate-backdrop-out {
+              animation: backdrop-out 220ms ease-in forwards;
+            }
+          `}</style>
+        </div>
+      )}
+
       {/* Bulk Assign Modal */}
       {(showBulkAssignModal || isClosingBulkAssign) && (
         <div
@@ -1787,15 +2047,25 @@ export default function AdminMasterQuestions() {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold neutral-text">Manage Questions</h1>
-        <button
-          onClick={() => {
-            resetForm();
-            setShowForm(true);
-          }} 
-          className="btn btn-secondary"
-        >
-          <HiPlus className="w-4 h-4 mr-2 black-text" /> Add Questions
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => {
+              setShowLanguageUploadModal(true);
+            }} 
+            className="btn btn-primary"
+          >
+            <HiTranslate className="w-4 h-4 mr-2" /> Language Upload
+          </button>
+          <button
+            onClick={() => {
+              resetForm();
+              setShowForm(true);
+            }} 
+            className="btn btn-secondary"
+          >
+            <HiPlus className="w-4 h-4 mr-2 black-text" /> Add Questions
+          </button>
+        </div>
       </div>
 
       {/* Filter Section */}

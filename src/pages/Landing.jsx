@@ -56,7 +56,7 @@ export default function Landing() {
           {/* LEFT TEXT */}
           <div className="space-y-6">
             <span className="inline-flex items-center gap-3 px-4 py-2 rounded-full bg-white text-blue-600 text-xs font-semibold tracking-[0.4em] uppercase shadow-sm">
-              Bright Futures
+            Strengths Compass
             </span>
 
             <h1 className="font-weight-700 text-neutral-900 text-4xl md:text-6xl leading-tight">

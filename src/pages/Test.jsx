@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { HiCheck, HiChevronLeft, HiChevronRight } from "react-icons/hi";
+import { HiCheck, HiChevronLeft, HiChevronRight, HiTranslate, HiChevronDown } from "react-icons/hi";
 import Navbar from "../components/Navbar";
 import AlertModal from "../components/AlertModal";
 import apiClient from "../config/api";
@@ -19,7 +19,21 @@ export default function Test() {
   const [submitError, setSubmitError] = useState(null);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [userId, setUserId] = useState(null);
+  const [showConsentModal, setShowConsentModal] = useState(false);
+  const [isConsent, setIsConsent] = useState(false);
+  const [userAge, setUserAge] = useState(null);
+  const [selectedLanguage, setSelectedLanguage] = useState(null);
+  const [showLanguageDropdown, setShowLanguageDropdown] = useState(false);
   const itemsPerPage = 10;
+
+  // Available languages for 13-17 age group
+  const languages = [
+    { id: 1, name: "Telugu", code: "te" },
+    { id: 2, name: "Hindi", code: "hi" },
+    { id: 3, name: "Tamil", code: "ta" },
+    { id: 4, name: "Kannada", code: "kn" },
+    { id: 5, name: "Malayalam", code: "ml" },
+  ];
 
   // Check if admin is logged in and redirect
   useEffect(() => {
@@ -213,6 +227,72 @@ export default function Test() {
     fetchUserId(); // Fetch user ID from API
   }, [testId]);
 
+  // Get user age from localStorage
+  useEffect(() => {
+    const storedUser = localStorage.getItem("user");
+    if (storedUser) {
+      try {
+        const user = JSON.parse(storedUser);
+        const age = user.age ? parseInt(user.age) : null;
+        setUserAge(age);
+      } catch (err) {
+        console.error("Error parsing user data:", err);
+      }
+    }
+  }, []);
+
+  // Load saved language from localStorage
+  useEffect(() => {
+    const savedLanguage = localStorage.getItem("selectedLanguage");
+    if (savedLanguage) {
+      try {
+        const language = JSON.parse(savedLanguage);
+        setSelectedLanguage(language);
+      } catch (err) {
+        console.error("Error parsing saved language:", err);
+      }
+    }
+  }, []);
+
+  // Load saved answers from localStorage when questions are loaded
+  useEffect(() => {
+    if (!loading && questions.length > 0 && testId) {
+      const savedAnswersKey = `test_${testId}_answers`;
+      const savedAnswers = localStorage.getItem(savedAnswersKey);
+      if (savedAnswers) {
+        try {
+          const parsedAnswers = JSON.parse(savedAnswers);
+          setAnswers(parsedAnswers);
+        } catch (err) {
+          console.error("Error parsing saved answers:", err);
+        }
+      }
+    }
+  }, [loading, questions.length, testId]);
+
+  // Check if user is in 13-17 age group
+  const isEligibleForLanguageSelection = userAge !== null && userAge >= 13 && userAge <= 17;
+
+  const handleLanguageSelect = (language) => {
+    setSelectedLanguage(language);
+    setShowLanguageDropdown(false);
+    // Save selected language to localStorage
+    localStorage.setItem("selectedLanguage", JSON.stringify(language));
+  };
+
+  // Show consent modal after test data is loaded
+  useEffect(() => {
+    if (!loading && !error && questions.length > 0) {
+      // Check if user has already given consent (stored in sessionStorage for this session)
+      const hasConsented = sessionStorage.getItem(`test_${testId}_consent`);
+      if (!hasConsented && !showConsentModal) {
+        setShowConsentModal(true);
+      } else if (hasConsented) {
+        setIsConsent(true);
+      }
+    }
+  }, [loading, error, questions.length, testId, showConsentModal]);
+
   useEffect(() => {
     const adminToken = localStorage.getItem("adminToken");
     if (adminToken) return;
@@ -232,6 +312,12 @@ export default function Test() {
   const handleAnswerSelect = (questionId, optionIndex) => {
     const updatedAnswers = { ...answers, [questionId]: optionIndex };
     setAnswers(updatedAnswers);
+    
+    // Save answers to localStorage
+    if (testId) {
+      const savedAnswersKey = `test_${testId}_answers`;
+      localStorage.setItem(savedAnswersKey, JSON.stringify(updatedAnswers));
+    }
   };
 
   const getUnansweredQuestions = useCallback(
@@ -291,6 +377,7 @@ export default function Test() {
       const payload = {
         user_id: finalUserId,
         answers: answersArray,
+        is_consent: isConsent,
       };
 
       const response = await apiClient.post(`/tests/${testId}/submit`, payload);
@@ -314,6 +401,12 @@ export default function Test() {
         existingTests.push(testResult);
         localStorage.setItem("userTestResults", JSON.stringify(existingTests));
         
+        // Clear saved answers from localStorage after successful submission
+        if (testId) {
+          const savedAnswersKey = `test_${testId}_answers`;
+          localStorage.removeItem(savedAnswersKey);
+        }
+        
         // Show success modal
         setShowSuccessModal(true);
       } else {
@@ -333,6 +426,13 @@ export default function Test() {
   }, [answers, questions, options, testId, userId, fetchUserId]);
 
   const handleSubmit = useCallback(async () => {
+    // Check if consent is given
+    if (!isConsent) {
+      setShowConsentModal(true);
+      setSubmitError("You must provide consent before submitting the test.");
+      return;
+    }
+
     // Ensure all questions have been answered
     const unanswered = getUnansweredQuestions(questions);
     if (unanswered.length > 0) {
@@ -370,6 +470,7 @@ export default function Test() {
     testId,
     submitTestData,
     fetchUserId,
+    isConsent,
   ]);
 
   // Calculate pagination
@@ -426,6 +527,71 @@ export default function Test() {
 
   return (
     <div className="min-h-screen w-screen blue-bg-50 text-slate-900">
+      {/* Consent Modal with Blur Background */}
+      {showConsentModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          {/* Blur Background */}
+          <div 
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={() => {
+              // Don't allow closing by clicking outside if consent is not given
+              if (isConsent) {
+                setShowConsentModal(false);
+              }
+            }}
+          ></div>
+          
+          {/* Modal Content */}
+          <div className="relative bg-white rounded-2xl shadow-2xl max-w-2xl w-full mx-4 p-6 md:p-8 z-10">
+            <div className="mb-6">
+              <h2 className="text-lg md:text-3xl font-bold text-gray-800 mb-4">
+                Consent to Take Assessment
+              </h2>
+              <div className="space-y-4">
+                <p className="text-gray-700 text-sm leading-relaxed">
+                  I consent to take this assessment for personal development purposes only. Results are self-reported tendencies, not diagnostic. I agree to use responsibly and release creators from liability.
+                </p>
+                <div className="flex items-start pt-2">
+                  <div className="flex items-center h-5 mt-0.5">
+                    <input
+                      type="checkbox"
+                      id="consent-checkbox"
+                      checked={isConsent}
+                      onChange={(e) => setIsConsent(e.target.checked)}
+                      className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500 focus:ring-2 cursor-pointer"
+                    />
+                  </div>
+                  <label 
+                    htmlFor="consent-checkbox" 
+                    className="ml-3 text-sm text-gray-900 cursor-pointer"
+                  >
+                    I agree to the terms and conditions above
+                  </label>
+                </div>
+              </div>
+            </div>
+            
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => {
+                  if (isConsent) {
+                    // Store consent in sessionStorage for this test
+                    if (testId) {
+                      sessionStorage.setItem(`test_${testId}_consent`, 'true');
+                    }
+                    setShowConsentModal(false);
+                  }
+                }}
+                disabled={!isConsent}
+                className="btn btn-secondary text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                I Agree & Continue
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <AlertModal
         isOpen={!!submitError}
         onClose={() => setSubmitError(null)}
@@ -441,7 +607,7 @@ export default function Test() {
         }}
         type="success"
         title="Test Submitted Successfully!"
-        message="Your test has been submitted successfully. You can view your results in your profile."
+        message={<>Congratulations! You have successfully completed the test. Thank you for taking the time to complete the assessment.<br /><br />Our team will review your results and get back to you soon.</>}
         primaryText="View Profile"
         onPrimary={() => {
           setShowSuccessModal(false);
@@ -450,14 +616,62 @@ export default function Test() {
       />
       <Navbar />
 
+      {!showConsentModal && (
       <div className="w-full px-4 sm:px-6 lg:px-8 py-8">
+        {/* Language Dropdown - Only for 13-17 age group */}
+        {isEligibleForLanguageSelection && (
+          <div className="mb-6 flex justify-end">
+            <div className="relative">
+              <button
+                onClick={() => setShowLanguageDropdown(!showLanguageDropdown)}
+                className="flex items-center gap-2 px-4 py-2 yellow-bg-400 border border-yellow-500 rounded-lg shadow-sm hover:yellow-bg-500 transition-colors"
+              >
+                <HiTranslate className="w-5 h-5 text-gray-500" />
+                <span className="text-sm font-medium text-gray-500">
+                  {selectedLanguage ? selectedLanguage.name : "Select Language"}
+                </span>
+                <HiChevronDown className="w-4 h-4 text-gray-500" />
+              </button>
+              
+              {showLanguageDropdown && (
+                <>
+                  <div
+                    className="fixed inset-0 z-10"
+                    onClick={() => setShowLanguageDropdown(false)}
+                  ></div>
+                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-yellow-300 z-20">
+                    <div className="py-2">
+                      {languages.map((language) => (
+                        <button
+                          key={language.id}
+                          onClick={() => handleLanguageSelect(language)}
+                          className={`w-full text-left px-4 py-2 text-sm transition-colors flex items-center justify-between bg-white ${
+                            selectedLanguage?.id === language.id
+                              ? "text-yellow-600"
+                              : "text-white hover:bg-yellow-50"
+                          }`}
+                        >
+                          <span>{language.name}</span>
+                          {selectedLanguage?.id === language.id && (
+                            <HiCheck className="w-4 h-4 text-yellow-600" />
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Header */}
         <div className="mb-6 rounded-2xl border border-blue-100 bg-white/80 backdrop-blur p-5 shadow-sm">
           <h1 className="text-2xl md:text-3xl font-bold text-blue-900 mb-2">
             {testName}
           </h1>
           <p className="text-sm text-slate-600">
-          Read each sentence and think about how true it is for you in your daily life. Answer based on how you really are, not how you wish to be. There are no right or wrong answers.          </p>
+          Read each sentence and think about how true it is for you in your daily life. Answer based on how you really are, not how you wish to be. There are no right or wrong answers.          </p>
         </div>
 
         {/* Questions Table */}
@@ -572,6 +786,7 @@ export default function Test() {
           )}
         </div>
       </div>
+      )}
     </div>
   );
 }

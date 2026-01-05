@@ -22,7 +22,9 @@ export default function UserResults() {
   const backTarget = fromTestResults
     ? "/admin/dashboard/users/test-results"
     : `/admin/dashboard/users/${userId}`;
-  const backLabel = fromTestResults ? "Back to Test Results" : "Back to User Details";
+  const backLabel = fromTestResults
+    ? "Back to Test Results"
+    : "Back to User Details";
 
   const handleBackNavigation = () => {
     navigate(backTarget);
@@ -100,12 +102,26 @@ export default function UserResults() {
       if (userData) {
         const mappedUser = {
           id: userData.id,
-          name: userData.name || `${userData.first_name || ""} ${userData.last_name || ""}`.trim() || userData.username || "N/A",
+          name:
+            userData.name ||
+            `${userData.first_name || ""} ${userData.last_name || ""}`.trim() ||
+            userData.username ||
+            "N/A",
           firstName: userData.first_name || "",
           lastName: userData.last_name || "",
           email: userData.email || "N/A",
-          phone: userData.whatsapp_number || userData.phone || userData.phone_number || userData.contact || "N/A",
-          contact: userData.contact || userData.whatsapp_number || userData.phone || userData.phone_number || "N/A",
+          phone:
+            userData.whatsapp_number ||
+            userData.phone ||
+            userData.phone_number ||
+            userData.contact ||
+            "N/A",
+          contact:
+            userData.contact ||
+            userData.whatsapp_number ||
+            userData.phone ||
+            userData.phone_number ||
+            "N/A",
           whatsappNumber: userData.whatsapp_number || "N/A",
           role: userData.role || "N/A",
           gender: userData.gender || "N/A",
@@ -117,11 +133,12 @@ export default function UserResults() {
           educationalQualification: userData.educational_qualification || "N/A",
           address: userData.address || "N/A",
           zipCode: userData.zip_code || userData.zipCode || "N/A",
-          status: userData.is_active !== undefined
-            ? userData.is_active
-              ? "Active"
-              : "Inactive"
-            : userData.status || "Unknown",
+          status:
+            userData.is_active !== undefined
+              ? userData.is_active
+                ? "Active"
+                : "Inactive"
+              : userData.status || "Unknown",
           lastLogin: userData.last_login || userData.lastLogin || "Never",
           createdAt: userData.created_at || userData.createdAt || "N/A",
           updatedAt: userData.updated_at || userData.updatedAt || "N/A",
@@ -196,7 +213,10 @@ export default function UserResults() {
       let resultsData = null;
       if (response.data?.data && Array.isArray(response.data.data)) {
         resultsData = response.data.data;
-      } else if (response.data?.test_results && Array.isArray(response.data.test_results)) {
+      } else if (
+        response.data?.test_results &&
+        Array.isArray(response.data.test_results)
+      ) {
         resultsData = response.data.test_results;
       } else if (Array.isArray(response.data)) {
         resultsData = response.data;
@@ -204,7 +224,7 @@ export default function UserResults() {
 
       if (resultsData) {
         setTestResults(resultsData);
-        
+
         // Get the latest test result ID to fetch report
         if (resultsData.length > 0) {
           const latestResult = resultsData[0]; // Get first result (usually latest)
@@ -220,7 +240,7 @@ export default function UserResults() {
 
       const summaryFromResponse = extractReportSummary(response.data);
       setReportSummary(summaryFromResponse || "");
-      
+
       // If no test results found, set loading to false
       if (!resultsData || resultsData.length === 0) {
         setLoading(false);
@@ -240,19 +260,21 @@ export default function UserResults() {
       const token = localStorage.getItem("adminToken");
       if (!token) return;
 
-      const response = await apiClient.get(`/test-results/${testResultId}/report`);
+      const response = await apiClient.get(
+        `/test-results/${testResultId}/report`
+      );
       console.log("Report API Response:", response.data);
 
       // Check multiple possible response structures
       let data = response.data?.data;
-      
+
       // If data is not at response.data.data, try response.data directly
       if (!data && response.data) {
         if (response.data.test_result || response.data.report) {
           data = response.data;
         }
       }
-      
+
       if (!data) {
         console.error("No data found in report response");
         return;
@@ -263,12 +285,23 @@ export default function UserResults() {
       if (userData) {
         const mappedUser = {
           id: userData.id,
-          name: userData.name || `${userData.first_name || ""} ${userData.last_name || ""}`.trim() || "N/A",
+          name:
+            userData.name ||
+            `${userData.first_name || ""} ${userData.last_name || ""}`.trim() ||
+            "N/A",
           firstName: userData.first_name || "",
           lastName: userData.last_name || "",
           email: userData.email || "N/A",
-          phone: userData.whatsapp_number || userData.contact_number || userData.contact || "N/A",
-          contact: userData.contact || userData.whatsapp_number || userData.contact_number || "N/A",
+          phone:
+            userData.whatsapp_number ||
+            userData.contact_number ||
+            userData.contact ||
+            "N/A",
+          contact:
+            userData.contact ||
+            userData.whatsapp_number ||
+            userData.contact_number ||
+            "N/A",
           whatsappNumber: userData.whatsapp_number || "N/A",
           role: userData.role || "N/A",
           gender: userData.gender || "N/A",
@@ -297,15 +330,15 @@ export default function UserResults() {
       // Extract cluster insights for radar chart
       // Try cluster_insights first, then calculate from cluster_scores
       let insights = data?.cluster_insights;
-      
+
       if (!insights && testResultData?.cluster_scores) {
         // Create cluster_insights from cluster_scores
         const clusterScores = testResultData.cluster_scores;
-        insights = Object.keys(clusterScores).map(clusterName => ({
+        insights = Object.keys(clusterScores).map((clusterName) => ({
           name: clusterName,
           percentage: clusterScores[clusterName]?.percentage || 0,
           average: clusterScores[clusterName]?.average || 0,
-          strength_band: clusterScores[clusterName]?.category || 'low'
+          strength_band: clusterScores[clusterName]?.category || "low",
         }));
       }
 
@@ -323,22 +356,43 @@ export default function UserResults() {
         // Fallback to cluster_scores
         const clusterScores = testResultData.cluster_scores;
         const radarData = [
-          { name: "Caring & Connection", value: clusterScores["Caring & Connection"]?.percentage || 0 },
-          { name: "Humility & Integrity", value: clusterScores["Humility & Integrity"]?.percentage || 0 },
-          { name: "Drive & Achievement", value: clusterScores["Drive & Achievement"]?.percentage || 0 },
-          { name: "Resilience & Adaptability", value: clusterScores["Resilience & Adaptability"]?.percentage || 0 },
-          { name: "Leadership & Growth Orientation", value: clusterScores["Leadership & Growth Orientation"]?.percentage || 0 },
-          { name: "Optimism & Innovation", value: clusterScores["Optimism & Innovation"]?.percentage || 0 },
+          {
+            name: "Caring & Connection",
+            value: clusterScores["Caring & Connection"]?.percentage || 0,
+          },
+          {
+            name: "Humility & Integrity",
+            value: clusterScores["Humility & Integrity"]?.percentage || 0,
+          },
+          {
+            name: "Drive & Achievement",
+            value: clusterScores["Drive & Achievement"]?.percentage || 0,
+          },
+          {
+            name: "Resilience & Adaptability",
+            value: clusterScores["Resilience & Adaptability"]?.percentage || 0,
+          },
+          {
+            name: "Leadership & Growth Orientation",
+            value:
+              clusterScores["Leadership & Growth Orientation"]?.percentage || 0,
+          },
+          {
+            name: "Optimism & Innovation",
+            value: clusterScores["Optimism & Innovation"]?.percentage || 0,
+          },
         ];
         setRadarChartData(radarData);
-        
+
         // Create cluster insights from cluster scores
-        const insightsFromScores = Object.keys(clusterScores).map(clusterName => ({
-          name: clusterName,
-          percentage: clusterScores[clusterName]?.percentage || 0,
-          average: clusterScores[clusterName]?.average || 0,
-          strength_band: clusterScores[clusterName]?.category || 'low'
-        }));
+        const insightsFromScores = Object.keys(clusterScores).map(
+          (clusterName) => ({
+            name: clusterName,
+            percentage: clusterScores[clusterName]?.percentage || 0,
+            average: clusterScores[clusterName]?.average || 0,
+            strength_band: clusterScores[clusterName]?.category || "low",
+          })
+        );
         setClusterInsights(insightsFromScores);
       }
 
@@ -356,25 +410,32 @@ export default function UserResults() {
       }
 
       // Extract construct synergy-tension matrix
-      const synergyMatrix = data?.construct_synergy_matrix || 
-                           data?.synergy_tension_matrix || 
-                           data?.construct_matrix;
+      const synergyMatrix =
+        data?.construct_synergy_matrix ||
+        data?.synergy_tension_matrix ||
+        data?.construct_matrix;
       if (Array.isArray(synergyMatrix) && synergyMatrix.length > 0) {
         setConstructSynergyMatrix(synergyMatrix);
       }
 
       // Extract construct labels
-      let labels = data?.construct_labels || 
-                   data?.construct_names ||
-                   (constructDetailsData && constructDetailsData.length > 0 
-                     ? constructDetailsData.map(c => c.name || c.construct_name || c.label)
-                     : []);
-      
+      let labels =
+        data?.construct_labels ||
+        data?.construct_names ||
+        (constructDetailsData && constructDetailsData.length > 0
+          ? constructDetailsData.map(
+              (c) => c.name || c.construct_name || c.label
+            )
+          : []);
+
       // Fallback: Extract from construct_scores if available
-      if ((!labels || labels.length === 0) && testResultData?.construct_scores) {
+      if (
+        (!labels || labels.length === 0) &&
+        testResultData?.construct_scores
+      ) {
         labels = Object.keys(testResultData.construct_scores);
       }
-      
+
       if (Array.isArray(labels) && labels.length > 0) {
         setConstructLabels(labels);
       }
@@ -386,7 +447,7 @@ export default function UserResults() {
       } else {
         setReportSummary("");
       }
-      
+
       setLoading(false);
       setError(null);
     } catch (err) {
@@ -400,9 +461,9 @@ export default function UserResults() {
   };
 
   // Helper function to get percentage for a cluster or construct
-  const getPercentage = (name, type = 'cluster') => {
-    if (type === 'cluster') {
-      const insight = clusterInsights.find(ci => ci.name === name);
+  const getPercentage = (name, type = "cluster") => {
+    if (type === "cluster") {
+      const insight = clusterInsights.find((ci) => ci.name === name);
       return insight?.percentage || null;
     } else {
       // For constructs, check in construct_scores
@@ -415,67 +476,73 @@ export default function UserResults() {
 
   // Helper function to get traffic light color based on band
   const getBandColor = (band) => {
-    if (!band) return 'gray';
+    if (!band) return "gray";
     const bandLower = band.toLowerCase();
-    if (bandLower === 'low') return 'blue';
-    if (bandLower === 'medium') return 'yellow';
-    if (bandLower === 'high') return 'green';
-    return 'gray';
+    if (bandLower === "low") return "blue";
+    if (bandLower === "medium") return "yellow";
+    if (bandLower === "high") return "green";
+    return "gray";
   };
 
   // Traffic Light Component
   const TrafficLight = ({ band }) => {
     const activeColor = getBandColor(band);
-    
+
     // Get border color and background color based on active light
     const getLightStyles = () => {
-      if (activeColor === 'blue') {
+      if (activeColor === "blue") {
         return {
-          bg: 'bg-blue-500',
-          pulseBg: 'bg-blue-400',
-          border: 'border-blue-500',
-          shadow: 'shadow-md shadow-blue-500/50',
-          ring: 'ring-2 ring-blue-300'
+          bg: "bg-blue-500",
+          pulseBg: "bg-blue-400",
+          border: "border-blue-500",
+          shadow: "shadow-md shadow-blue-500/50",
+          ring: "ring-2 ring-blue-300",
         };
       }
-      if (activeColor === 'yellow') {
+      if (activeColor === "yellow") {
         return {
-          bg: 'bg-yellow-500',
-          pulseBg: 'bg-yellow-400',
-          border: 'border-yellow-500',
-          shadow: 'shadow-md shadow-yellow-500/50',
-          ring: 'ring-2 ring-yellow-300'
+          bg: "bg-yellow-500",
+          pulseBg: "bg-yellow-400",
+          border: "border-yellow-500",
+          shadow: "shadow-md shadow-yellow-500/50",
+          ring: "ring-2 ring-yellow-300",
         };
       }
-      if (activeColor === 'green') {
+      if (activeColor === "green") {
         return {
-          bg: 'bg-green-500',
-          pulseBg: 'bg-green-400',
-          border: 'border-green-500',
-          shadow: 'shadow-md shadow-green-500/50',
-          ring: 'ring-2 ring-green-300'
+          bg: "bg-green-500",
+          pulseBg: "bg-green-400",
+          border: "border-green-500",
+          shadow: "shadow-md shadow-green-500/50",
+          ring: "ring-2 ring-green-300",
         };
       }
       return {
-        bg: 'bg-gray-500',
-        pulseBg: 'bg-gray-400',
-        border: 'border-gray-300',
-        shadow: 'shadow-md',
-        ring: 'ring-2 ring-gray-300'
+        bg: "bg-gray-500",
+        pulseBg: "bg-gray-400",
+        border: "border-gray-300",
+        shadow: "shadow-md",
+        ring: "ring-2 ring-gray-300",
       };
     };
-    
+
     const styles = getLightStyles();
-    
+
     return (
-      <div className={`inline-flex items-center gap-2 px-2.5 py-1.5 bg-white rounded-lg border-3 ${styles.border} shadow-sm`}>
+      <div
+        className={`inline-flex items-center gap-2 px-2.5 py-1.5 bg-white rounded-lg border-3 ${styles.border} shadow-sm`}
+      >
         {/* Active Light Only */}
-        <div className={`relative w-6 h-6 rounded-full transition-all duration-300 ${styles.bg} ${styles.shadow} ${styles.ring}`}>
-          <div className={`absolute inset-0 rounded-full ${styles.pulseBg} animate-pulse opacity-50`}></div>
+        <div
+          className={`relative w-6 h-6 rounded-full transition-all duration-300 ${styles.bg} ${styles.shadow} ${styles.ring}`}
+        >
+          <div
+            className={`absolute inset-0 rounded-full ${styles.pulseBg} animate-pulse opacity-50`}
+          ></div>
         </div>
         {/* Band Value */}
         <span className="text-sm font-semibold text-gray-700">
-          {band ? band.toUpperCase() : 'N/A'}
+          {band ? band.toUpperCase() : "N/A"}
         </span>
       </div>
     );
@@ -501,7 +568,7 @@ export default function UserResults() {
 
     setSavingSummary(true);
     setSummaryStatus(null);
-    
+
     try {
       const payload = {
         report_summary: reportSummary.trim(),
@@ -524,19 +591,21 @@ export default function UserResults() {
       }
     } catch (err) {
       console.error("Error updating report summary:", err);
-      
+
       let errorMessage = "Failed to save summary. Please try again.";
-      
+
       if (err.response?.status === 401) {
         errorMessage = "Session expired. Please login again.";
       } else if (err.response?.status === 404) {
         errorMessage = "Test result not found. Please refresh the page.";
       } else if (err.response?.status === 422) {
-        errorMessage = err.response?.data?.message || "Validation error. Please check your input.";
+        errorMessage =
+          err.response?.data?.message ||
+          "Validation error. Please check your input.";
       } else if (err.response?.data?.message) {
         errorMessage = err.response.data.message;
       }
-      
+
       setSummaryStatus(`Error: ${errorMessage}`);
     } finally {
       setSavingSummary(false);
@@ -546,74 +615,78 @@ export default function UserResults() {
   const generatePDF = async () => {
     try {
       if (!testResult) {
-        alert('No test result available to generate PDF');
+        alert("No test result available to generate PDF");
         return;
       }
 
       setGeneratingPDF(true);
-      console.log('Starting PDF generation...');
+      console.log("Starting PDF generation...");
 
       // Dynamically import jsPDF
-      const jsPDFModule = await import('jspdf');
+      const jsPDFModule = await import("jspdf");
       const jsPDF = jsPDFModule.default;
       const doc = new jsPDF();
-      
-      console.log('jsPDF loaded successfully');
-    
+
+      console.log("jsPDF loaded successfully");
+
       // Colors
       const primaryColor = [102, 126, 234]; // #667eea
       const textColor = [51, 51, 51];
       const grayColor = [128, 128, 128];
-      
+
       // Band colors (RGB)
       const getBandColorRGB = (band) => {
         if (!band) return grayColor;
         const bandLower = band.toLowerCase();
-        if (bandLower === 'low') return [59, 130, 246]; // blue-500
-        if (bandLower === 'medium') return [234, 179, 8]; // yellow-500
-        if (bandLower === 'high') return [34, 197, 94]; // green-500
+        if (bandLower === "low") return [59, 130, 246]; // blue-500
+        if (bandLower === "medium") return [234, 179, 8]; // yellow-500
+        if (bandLower === "high") return [34, 197, 94]; // green-500
         return grayColor;
       };
-      
+
       const pxToMm = (px) => px * 0.264583;
 
       const captureElementImage = async (element, maxWidth = 180) => {
         try {
           if (!element) {
-            console.warn('captureElementImage: element is null');
+            console.warn("captureElementImage: element is null");
             return null;
           }
-          
-          const html2canvas = await import('html2canvas').catch((err) => {
-            console.error('Failed to import html2canvas:', err);
+
+          const html2canvas = await import("html2canvas").catch((err) => {
+            console.error("Failed to import html2canvas:", err);
             return null;
           });
-          
+
           if (!html2canvas) {
-            console.error('html2canvas module not available');
+            console.error("html2canvas module not available");
             return null;
           }
 
           // Allow DOM to settle before capture
-          await new Promise((resolve) => requestAnimationFrame(() => resolve()));
+          await new Promise((resolve) =>
+            requestAnimationFrame(() => resolve())
+          );
 
-          const canvas = await html2canvas.default(element, {
-            backgroundColor: '#ffffff',
-            scale: 2,
-            logging: false,
-            useCORS: true,
-            allowTaint: true
-          }).catch((err) => {
-            console.error('html2canvas capture failed:', err);
-            return null;
-          });
+          const canvas = await html2canvas
+            .default(element, {
+              backgroundColor: "#ffffff",
+              scale: 2,
+              logging: false,
+              useCORS: true,
+              allowTaint: true,
+            })
+            .catch((err) => {
+              console.error("html2canvas capture failed:", err);
+              return null;
+            });
 
           if (!canvas) {
-            console.error('Canvas creation failed');
+            console.error("Canvas creation failed");
             return null;
           }
 
-          const imgData = canvas.toDataURL('image/png');
+          const imgData = canvas.toDataURL("image/png");
           const widthPx = canvas.width;
           const heightPx = canvas.height;
           const naturalWidthMm = pxToMm(widthPx);
@@ -622,7 +695,7 @@ export default function UserResults() {
 
           return { imgData, imgWidth, imgHeight };
         } catch (error) {
-          console.error('Error in captureElementImage:', error);
+          console.error("Error in captureElementImage:", error);
           return null;
         }
       };
@@ -631,18 +704,20 @@ export default function UserResults() {
       const addTrafficLightFromDOM = async (band, x, y) => {
         try {
           // Find all traffic light components - look for divs with specific structure
-          const allDivs = document.querySelectorAll('div');
+          const allDivs = document.querySelectorAll("div");
           let matchingLight = null;
-          
+
           // Find the one matching the band text
           for (const div of allDivs) {
             // Check if it has the traffic light structure: inline-flex, items-center, gap-2, rounded-lg, border-3
-            const classes = div.className || '';
-            if (classes.includes('inline-flex') && 
-                classes.includes('items-center') && 
-                classes.includes('gap-2') &&
-                classes.includes('rounded-lg') &&
-                classes.includes('border-3')) {
+            const classes = div.className || "";
+            if (
+              classes.includes("inline-flex") &&
+              classes.includes("items-center") &&
+              classes.includes("gap-2") &&
+              classes.includes("rounded-lg") &&
+              classes.includes("border-3")
+            ) {
               const text = div.textContent?.trim().toUpperCase();
               if (text && text.includes(band.toUpperCase())) {
                 matchingLight = div;
@@ -650,86 +725,102 @@ export default function UserResults() {
               }
             }
           }
-          
+
           if (matchingLight) {
-            const html2canvas = await import('html2canvas').catch(() => null);
+            const html2canvas = await import("html2canvas").catch(() => null);
             if (html2canvas) {
               const canvas = await html2canvas.default(matchingLight, {
-                backgroundColor: '#ffffff',
+                backgroundColor: "#ffffff",
                 scale: 3, // Higher scale for better quality
                 logging: false,
                 width: matchingLight.offsetWidth,
                 height: matchingLight.offsetHeight,
-                useCORS: true
+                useCORS: true,
               });
-              
-              const imgData = canvas.toDataURL('image/png');
-              
+
+              const imgData = canvas.toDataURL("image/png");
+
               // Calculate size in mm (convert from pixels at 96 DPI)
               const imgWidth = (canvas.width / 96) * 25.4; // Convert pixels to mm
               const imgHeight = (canvas.height / 96) * 25.4;
-              
+
               // Scale to reasonable size (max 25mm width)
               const maxWidth = 25;
               let finalWidth = imgWidth;
               let finalHeight = imgHeight;
-              
+
               if (imgWidth > maxWidth) {
                 const scale = maxWidth / imgWidth;
                 finalWidth = maxWidth;
                 finalHeight = imgHeight * scale;
               }
-              
+
               // Add image centered vertically
-              doc.addImage(imgData, 'PNG', x, y - finalHeight / 2, finalWidth, finalHeight);
+              doc.addImage(
+                imgData,
+                "PNG",
+                x,
+                y - finalHeight / 2,
+                finalWidth,
+                finalHeight
+              );
               return finalWidth;
             }
           }
         } catch (err) {
-          console.error('Error capturing traffic light:', err);
+          console.error("Error capturing traffic light:", err);
         }
-        
+
         // Fallback: draw simple version if capture fails
         const color = getBandColorRGB(band);
-        const bandText = band ? band.toUpperCase() : 'N/A';
+        const bandText = band ? band.toUpperCase() : "N/A";
         const circleRadius = 1.5; // 3mm radius
         const gap = 2;
-        
+
         // Draw circle
         doc.setFillColor(color[0], color[1], color[2]);
-        doc.circle(x + circleRadius, y, circleRadius, 'F');
-        
+        doc.circle(x + circleRadius, y, circleRadius, "F");
+
         // Draw text
         doc.setFontSize(10);
-        doc.setFont(undefined, 'bold');
+        doc.setFont(undefined, "bold");
         doc.setTextColor(textColor[0], textColor[1], textColor[2]);
         doc.text(bandText, x + circleRadius * 2 + gap, y);
-        
+
         return circleRadius * 2 + gap + doc.getTextWidth(bandText);
       };
-      
+
       let yPos = 20;
-      
+
       // Header with gradient effect
       doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-      doc.rect(0, 0, 210, 50, 'F');
+      doc.rect(0, 0, 210, 50, "F");
       doc.setTextColor(255, 255, 255);
       doc.setFontSize(24);
-      doc.setFont(undefined, 'bold');
-      doc.text(testResult.test?.title || 'Strengths Compass', 105, 25, { align: 'center' });
+      doc.setFont(undefined, "bold");
+      doc.text(testResult.test?.title || "Strengths Compass", 105, 25, {
+        align: "center",
+      });
       doc.setFontSize(12);
-      doc.setFont(undefined, 'normal');
-      doc.text(`Test Report - ${testResult.test?.title || 'Strengths Compass Assessment'}`, 105, 35, { align: 'center' });
-      
+      doc.setFont(undefined, "normal");
+      doc.text(
+        `Test Report - ${
+          testResult.test?.title || "Strengths Compass Assessment"
+        }`,
+        105,
+        35,
+        { align: "center" }
+      );
+
       yPos = 60;
       doc.setTextColor(textColor[0], textColor[1], textColor[2]);
-      
+
       const leftColumn = 20;
       const pageHeight = 297; // A4 page height in mm
       const bottomMargin = 30; // Space for footer
       const maxY = pageHeight - bottomMargin;
       let currentY = yPos;
-      
+
       // Helper function to check and add new page if needed
       const checkPageBreak = (requiredSpace = 10) => {
         if (currentY + requiredSpace > maxY) {
@@ -737,12 +828,12 @@ export default function UserResults() {
           currentY = 20;
         }
       };
-      
+
       const addSectionTitle = (title, y) => {
         checkPageBreak(20); // Reserve space for title
         currentY = y;
         doc.setFontSize(16);
-        doc.setFont(undefined, 'bold');
+        doc.setFont(undefined, "bold");
         doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
         doc.text(title, 20, currentY);
         doc.setDrawColor(primaryColor[0], primaryColor[1], primaryColor[2]);
@@ -751,16 +842,16 @@ export default function UserResults() {
         currentY += 15;
         return currentY;
       };
-      
+
       // Helper function to add text with automatic page breaks
       const addTextWithPageBreak = (text, x, maxWidth, fontSize = 10) => {
         const lines = doc.splitTextToSize(text, maxWidth);
         const lineHeight = fontSize * 0.4; // Line height in mm
-        
+
         lines.forEach((line) => {
           checkPageBreak(lineHeight + 2);
           doc.setFontSize(fontSize);
-          doc.setFont(undefined, 'normal');
+          doc.setFont(undefined, "normal");
           doc.setTextColor(textColor[0], textColor[1], textColor[2]);
           doc.text(line, x, currentY);
           currentY += lineHeight + 2;
@@ -768,215 +859,256 @@ export default function UserResults() {
       };
 
       // User Information Section - Only Name, Email, and Test Status (matching web page)
-      addSectionTitle('User Information', currentY);
-      
+      addSectionTitle("User Information", currentY);
+
       doc.setFontSize(11);
-      doc.setFont(undefined, 'normal');
+      doc.setFont(undefined, "normal");
       doc.setTextColor(textColor[0], textColor[1], textColor[2]);
-      
+
       // Name
       checkPageBreak(10);
-      doc.setFont(undefined, 'bold');
+      doc.setFont(undefined, "bold");
       doc.setTextColor(grayColor[0], grayColor[1], grayColor[2]);
       doc.setFontSize(10);
-      doc.text('Name:', leftColumn, currentY);
-      doc.setFont(undefined, 'normal');
+      doc.text("Name:", leftColumn, currentY);
+      doc.setFont(undefined, "normal");
       doc.setTextColor(textColor[0], textColor[1], textColor[2]);
-      doc.text(user?.name || 'N/A', leftColumn + 25, currentY);
+      doc.text(user?.name || "N/A", leftColumn + 25, currentY);
       currentY += 10;
-      
+
       // Email
       checkPageBreak(10);
-      doc.setFont(undefined, 'bold');
+      doc.setFont(undefined, "bold");
       doc.setTextColor(grayColor[0], grayColor[1], grayColor[2]);
-      doc.text('Email:', leftColumn, currentY);
-      doc.setFont(undefined, 'normal');
+      doc.text("Email:", leftColumn, currentY);
+      doc.setFont(undefined, "normal");
       doc.setTextColor(textColor[0], textColor[1], textColor[2]);
-      doc.text(user?.email || 'N/A', leftColumn + 25, currentY);
+      doc.text(user?.email || "N/A", leftColumn + 25, currentY);
       currentY += 10;
-      
+
       // Test Status
       checkPageBreak(10);
-      doc.setFont(undefined, 'bold');
+      doc.setFont(undefined, "bold");
       doc.setTextColor(grayColor[0], grayColor[1], grayColor[2]);
-      doc.text('Test Status:', leftColumn, currentY);
-      doc.setFont(undefined, 'normal');
+      doc.text("Test Status:", leftColumn, currentY);
+      doc.setFont(undefined, "normal");
       doc.setTextColor(textColor[0], textColor[1], textColor[2]);
-      doc.text(testResult.status || 'N/A', leftColumn + 35, currentY);
+      doc.text(testResult.status || "N/A", leftColumn + 35, currentY);
+      currentY += 10;
+
+      // Total Score
+      checkPageBreak(10);
+      doc.setFont(undefined, "bold");
+      doc.setTextColor(grayColor[0], grayColor[1], grayColor[2]);
+      doc.text("Total Score:", leftColumn, currentY);
+      doc.setFont(undefined, "normal");
+      doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+      doc.text(testResult.scores?.total_score || "N/A", leftColumn + 35, currentY);
       currentY += 15;
 
       // Report Summary (only if exists, matching web page)
       if (reportSummary && reportSummary.trim()) {
         currentY += 10;
-        addSectionTitle('Report Summary', currentY);
+        addSectionTitle("Report Summary", currentY);
         doc.setFontSize(11);
-        doc.setFont(undefined, 'normal');
+        doc.setFont(undefined, "normal");
         doc.setTextColor(textColor[0], textColor[1], textColor[2]);
         addTextWithPageBreak(reportSummary, leftColumn, 170, 11);
         currentY += 5;
       }
 
       // Cluster Scores (matching web page format)
-      if (testResult?.cluster_scores && Object.keys(testResult.cluster_scores).length > 0) {
+      if (
+        testResult?.cluster_scores &&
+        Object.keys(testResult.cluster_scores).length > 0
+      ) {
         currentY += 10;
-        addSectionTitle('Cluster Scores', currentY);
-        
+        addSectionTitle("Cluster Scores", currentY);
+
         doc.setFontSize(11);
-        doc.setFont(undefined, 'normal');
+        doc.setFont(undefined, "normal");
         doc.setTextColor(textColor[0], textColor[1], textColor[2]);
-        
-        for (const [clusterName, clusterData] of Object.entries(testResult.cluster_scores)) {
+
+        for (const [clusterName, clusterData] of Object.entries(
+          testResult.cluster_scores
+        )) {
           checkPageBreak(15); // Reserve space for cluster name
-          
+
           // Cluster Name
           doc.setFontSize(12);
-          doc.setFont(undefined, 'bold');
+          doc.setFont(undefined, "bold");
           doc.setTextColor(textColor[0], textColor[1], textColor[2]);
           doc.text(clusterName, leftColumn, currentY);
           currentY += 8;
-          
+
           // Band with traffic light
           if (clusterData.category) {
             checkPageBreak(10);
             doc.setFontSize(10);
-            doc.setFont(undefined, 'bold');
+            doc.setFont(undefined, "bold");
             doc.setTextColor(grayColor[0], grayColor[1], grayColor[2]);
-            doc.text('Band:', leftColumn, currentY);
-            
+            doc.text("Band:", leftColumn, currentY);
+
             // Capture traffic light from DOM (matching UI exactly)
             const lightX = leftColumn + 20;
             const lightY = currentY;
-            const lightWidth = await addTrafficLightFromDOM(clusterData.category, lightX, lightY);
+            const lightWidth = await addTrafficLightFromDOM(
+              clusterData.category,
+              lightX,
+              lightY
+            );
             currentY += 8;
           }
-          
+
           // Score
           if (clusterData.percentage !== undefined) {
             checkPageBreak(7);
             doc.setFontSize(10);
-            doc.setFont(undefined, 'bold');
+            doc.setFont(undefined, "bold");
             doc.setTextColor(grayColor[0], grayColor[1], grayColor[2]);
-            doc.text('Score:', leftColumn, currentY);
-            doc.setFont(undefined, 'normal');
+            doc.text("Score:", leftColumn, currentY);
+            doc.setFont(undefined, "normal");
             doc.setTextColor(textColor[0], textColor[1], textColor[2]);
             doc.text(`${clusterData.percentage}%`, leftColumn + 20, currentY);
             currentY += 7;
           }
-          
+
           // Description
           if (clusterData.description) {
             checkPageBreak(10);
             doc.setFontSize(10);
-            doc.setFont(undefined, 'bold');
+            doc.setFont(undefined, "bold");
             doc.setTextColor(grayColor[0], grayColor[1], grayColor[2]);
-            doc.text('Description:', leftColumn, currentY);
+            doc.text("Description:", leftColumn, currentY);
             currentY += 5;
             addTextWithPageBreak(clusterData.description, leftColumn, 170, 10);
             currentY += 3;
           }
-          
+
           // Tendency
           if (clusterData.behaviour) {
             checkPageBreak(10);
             doc.setFontSize(10);
-            doc.setFont(undefined, 'bold');
+            doc.setFont(undefined, "bold");
             doc.setTextColor(grayColor[0], grayColor[1], grayColor[2]);
-            doc.text('Tendency:', leftColumn, currentY);
+            doc.text("Tendency:", leftColumn, currentY);
             currentY += 5;
             addTextWithPageBreak(clusterData.behaviour, leftColumn, 170, 10);
             currentY += 5;
           }
-          
+
           currentY += 5;
         }
       }
 
       // Construct Scores (matching web page format)
-      if (testResult?.construct_scores && Object.keys(testResult.construct_scores).length > 0) {
+      if (
+        testResult?.construct_scores &&
+        Object.keys(testResult.construct_scores).length > 0
+      ) {
         currentY += 10;
-        addSectionTitle('Construct Scores', currentY);
-        
+        addSectionTitle("Construct Scores", currentY);
+
         doc.setFontSize(11);
-        doc.setFont(undefined, 'normal');
+        doc.setFont(undefined, "normal");
         doc.setTextColor(textColor[0], textColor[1], textColor[2]);
-        
-        for (const [constructName, constructData] of Object.entries(testResult.construct_scores)) {
+
+        for (const [constructName, constructData] of Object.entries(
+          testResult.construct_scores
+        )) {
           checkPageBreak(15); // Reserve space for construct name
-          
+
           // Construct Name
           doc.setFontSize(12);
-          doc.setFont(undefined, 'bold');
+          doc.setFont(undefined, "bold");
           doc.setTextColor(textColor[0], textColor[1], textColor[2]);
           doc.text(constructName, leftColumn, currentY);
           currentY += 8;
-          
+
           // Band with traffic light
           if (constructData.category) {
             checkPageBreak(10);
             doc.setFontSize(10);
-            doc.setFont(undefined, 'bold');
+            doc.setFont(undefined, "bold");
             doc.setTextColor(grayColor[0], grayColor[1], grayColor[2]);
-            doc.text('Band:', leftColumn, currentY);
-            
+            doc.text("Band:", leftColumn, currentY);
+
             // Capture traffic light from DOM (matching UI exactly)
             const lightX = leftColumn + 20;
             const lightY = currentY;
-            const lightWidth = await addTrafficLightFromDOM(constructData.category, lightX, lightY);
+            const lightWidth = await addTrafficLightFromDOM(
+              constructData.category,
+              lightX,
+              lightY
+            );
             currentY += 8;
           }
-          
+
           // Score
           if (constructData.percentage !== undefined) {
             checkPageBreak(7);
             doc.setFontSize(10);
-            doc.setFont(undefined, 'bold');
+            doc.setFont(undefined, "bold");
             doc.setTextColor(grayColor[0], grayColor[1], grayColor[2]);
-            doc.text('Score:', leftColumn, currentY);
-            doc.setFont(undefined, 'normal');
+            doc.text("Score:", leftColumn, currentY);
+            doc.setFont(undefined, "normal");
             doc.setTextColor(textColor[0], textColor[1], textColor[2]);
             doc.text(`${constructData.percentage}%`, leftColumn + 20, currentY);
             currentY += 7;
           }
-          
+
           // Description
           if (constructData.description) {
             checkPageBreak(10);
             doc.setFontSize(10);
-            doc.setFont(undefined, 'bold');
+            doc.setFont(undefined, "bold");
             doc.setTextColor(grayColor[0], grayColor[1], grayColor[2]);
-            doc.text('Description:', leftColumn, currentY);
+            doc.text("Description:", leftColumn, currentY);
             currentY += 5;
-            addTextWithPageBreak(constructData.description, leftColumn, 170, 10);
+            addTextWithPageBreak(
+              constructData.description,
+              leftColumn,
+              170,
+              10
+            );
             currentY += 3;
           }
-          
+
           // Tendency
           if (constructData.behaviour) {
             checkPageBreak(10);
             doc.setFontSize(10);
-            doc.setFont(undefined, 'bold');
+            doc.setFont(undefined, "bold");
             doc.setTextColor(grayColor[0], grayColor[1], grayColor[2]);
-            doc.text('Tendency:', leftColumn, currentY);
+            doc.text("Tendency:", leftColumn, currentY);
             currentY += 5;
             addTextWithPageBreak(constructData.behaviour, leftColumn, 170, 10);
             currentY += 5;
           }
-          
+
           currentY += 5;
         }
       }
 
-      // Convert and add Radar Chart
+      // Convert and add Strengths Radar Chart
       if (radarChartData.length > 0) {
         try {
-          const radarSection = document.getElementById('pdf-radar-chart-section');
+          const radarSection = document.getElementById(
+            "pdf-radar-chart-section"
+          );
           let radarCapture = await captureElementImage(radarSection, 160);
 
           if (!radarCapture) {
-            const fallbackSvg = document.querySelector('svg.strengths-radar-chart, svg[viewBox*="500"]');
+            const fallbackSvg = document.querySelector(
+              'svg.strengths-radar-chart, svg[viewBox*="500"]'
+            );
             if (fallbackSvg) {
-              const svgData = new XMLSerializer().serializeToString(fallbackSvg);
-              const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+              const svgData = new XMLSerializer().serializeToString(
+                fallbackSvg
+              );
+              const svgBlob = new Blob([svgData], {
+                type: "image/svg+xml;charset=utf-8",
+              });
               const url = URL.createObjectURL(svgBlob);
 
               const img = new Image();
@@ -986,15 +1118,15 @@ export default function UserResults() {
                 img.src = url;
               });
 
-              const canvas = document.createElement('canvas');
+              const canvas = document.createElement("canvas");
               canvas.width = 500;
               canvas.height = 500;
-              const ctx = canvas.getContext('2d');
-              ctx.fillStyle = 'white';
+              const ctx = canvas.getContext("2d");
+              ctx.fillStyle = "white";
               ctx.fillRect(0, 0, canvas.width, canvas.height);
               ctx.drawImage(img, 0, 0);
 
-              const imgData = canvas.toDataURL('image/png');
+              const imgData = canvas.toDataURL("image/png");
               const imgWidth = 150;
               const imgHeight = 150;
               radarCapture = { imgData, imgWidth, imgHeight };
@@ -1007,20 +1139,27 @@ export default function UserResults() {
             currentY = 25;
 
             doc.setFontSize(16);
-            doc.setFont(undefined, 'bold');
+            doc.setFont(undefined, "bold");
             doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-            doc.text('Strengths Radar Chart', 105, currentY, { align: 'center' });
+            doc.text("Strengths Radar Chart", 105, currentY, {
+              align: "center",
+            });
             currentY += 15;
 
             const pageWidth = 210;
             const centerX = (pageWidth - radarCapture.imgWidth) / 2;
             const availableHeight = pageHeight - currentY - bottomMargin;
-            const centerY = currentY + Math.max(0, (availableHeight - radarCapture.imgHeight) / 2);
-            const imageY = centerY + radarCapture.imgHeight > pageHeight - bottomMargin ? currentY : centerY;
+            const centerY =
+              currentY +
+              Math.max(0, (availableHeight - radarCapture.imgHeight) / 2);
+            const imageY =
+              centerY + radarCapture.imgHeight > pageHeight - bottomMargin
+                ? currentY
+                : centerY;
 
             doc.addImage(
               radarCapture.imgData,
-              'PNG',
+              "PNG",
               centerX,
               imageY,
               radarCapture.imgWidth,
@@ -1030,7 +1169,100 @@ export default function UserResults() {
             currentY = pageHeight - bottomMargin;
           }
         } catch (err) {
-          console.error('Error adding radar chart to PDF:', err);
+          console.error("Error adding radar chart to PDF:", err);
+        }
+      }
+
+      // Convert and add Constructs Radar Chart
+      if (
+        testResult?.construct_scores &&
+        Object.keys(testResult.construct_scores).length > 0
+      ) {
+        try {
+          const constructsRadarSection = document.getElementById(
+            "pdf-constructs-radar-chart-section"
+          );
+          let constructsRadarCapture = await captureElementImage(
+            constructsRadarSection,
+            160
+          );
+
+          if (!constructsRadarCapture && constructsRadarSection) {
+            const fallbackSvg = constructsRadarSection.querySelector(
+              'svg[viewBox*="500"], svg.constructs-radar-chart'
+            );
+            if (fallbackSvg) {
+              const svgData = new XMLSerializer().serializeToString(
+                fallbackSvg
+              );
+              const svgBlob = new Blob([svgData], {
+                type: "image/svg+xml;charset=utf-8",
+              });
+              const url = URL.createObjectURL(svgBlob);
+
+              const img = new Image();
+              await new Promise((resolve, reject) => {
+                img.onload = resolve;
+                img.onerror = reject;
+                img.src = url;
+              });
+
+              const canvas = document.createElement("canvas");
+              canvas.width = 500;
+              canvas.height = 500;
+              const ctx = canvas.getContext("2d");
+              ctx.fillStyle = "white";
+              ctx.fillRect(0, 0, canvas.width, canvas.height);
+              ctx.drawImage(img, 0, 0);
+
+              const imgData = canvas.toDataURL("image/png");
+              const imgWidth = 150;
+              const imgHeight = 150;
+              constructsRadarCapture = { imgData, imgWidth, imgHeight };
+              URL.revokeObjectURL(url);
+            }
+          }
+
+          if (constructsRadarCapture) {
+            doc.addPage();
+            currentY = 25;
+
+            doc.setFontSize(16);
+            doc.setFont(undefined, "bold");
+            doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+            doc.text("Constructs Radar Chart", 105, currentY, {
+              align: "center",
+            });
+            currentY += 15;
+
+            const pageWidth = 210;
+            const centerX = (pageWidth - constructsRadarCapture.imgWidth) / 2;
+            const availableHeight = pageHeight - currentY - bottomMargin;
+            const centerY =
+              currentY +
+              Math.max(
+                0,
+                (availableHeight - constructsRadarCapture.imgHeight) / 2
+              );
+            const imageY =
+              centerY + constructsRadarCapture.imgHeight >
+              pageHeight - bottomMargin
+                ? currentY
+                : centerY;
+
+            doc.addImage(
+              constructsRadarCapture.imgData,
+              "PNG",
+              centerX,
+              imageY,
+              constructsRadarCapture.imgWidth,
+              constructsRadarCapture.imgHeight
+            );
+
+            currentY = pageHeight - bottomMargin;
+          }
+        } catch (err) {
+          console.error("Error adding constructs radar chart to PDF:", err);
         }
       }
 
@@ -1038,8 +1270,8 @@ export default function UserResults() {
       if (clusterInsights.length > 0) {
         try {
           const heatmapSection =
-            document.getElementById('pdf-heatmap-section') ||
-            document.querySelector('table.heat, .tension-heatmap table');
+            document.getElementById("pdf-heatmap-section") ||
+            document.querySelector("table.heat, .tension-heatmap table");
           const heatmapCapture = await captureElementImage(heatmapSection, 180);
 
           if (heatmapCapture) {
@@ -1047,20 +1279,27 @@ export default function UserResults() {
             currentY = 25;
 
             doc.setFontSize(16);
-            doc.setFont(undefined, 'bold');
+            doc.setFont(undefined, "bold");
             doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-            doc.text('Tension / Synergy Heatmap', 105, currentY, { align: 'center' });
+            doc.text("Tension / Synergy Heatmap", 105, currentY, {
+              align: "center",
+            });
             currentY += 15;
 
             const pageWidth = 210;
             const centerX = (pageWidth - heatmapCapture.imgWidth) / 2;
             const availableHeight = pageHeight - currentY - bottomMargin;
-            const centerY = currentY + Math.max(0, (availableHeight - heatmapCapture.imgHeight) / 2);
-            const imageY = centerY + heatmapCapture.imgHeight > pageHeight - bottomMargin ? currentY : centerY;
+            const centerY =
+              currentY +
+              Math.max(0, (availableHeight - heatmapCapture.imgHeight) / 2);
+            const imageY =
+              centerY + heatmapCapture.imgHeight > pageHeight - bottomMargin
+                ? currentY
+                : centerY;
 
             doc.addImage(
               heatmapCapture.imgData,
-              'PNG',
+              "PNG",
               centerX,
               imageY,
               heatmapCapture.imgWidth,
@@ -1070,42 +1309,59 @@ export default function UserResults() {
             currentY = pageHeight - bottomMargin;
           }
         } catch (err) {
-          console.error('Error adding heatmap to PDF:', err);
+          console.error("Error adding heatmap to PDF:", err);
         }
       }
 
       // Convert and add Construct Synergy-Tension Matrix
       try {
-        console.log('Attempting to capture Construct Synergy-Tension Matrix...');
+        console.log(
+          "Attempting to capture Construct Synergy-Tension Matrix..."
+        );
         // Wait a bit for the matrix to fully render
-        await new Promise(resolve => setTimeout(resolve, 500));
-        
-        const constructMatrixSection = document.getElementById('pdf-construct-matrix-section');
-        console.log('Matrix section found:', !!constructMatrixSection);
-        
+        await new Promise((resolve) => setTimeout(resolve, 500));
+
+        const constructMatrixSection = document.getElementById(
+          "pdf-construct-matrix-section"
+        );
+        console.log("Matrix section found:", !!constructMatrixSection);
+
         if (constructMatrixSection) {
-          const matrixCapture = await captureElementImage(constructMatrixSection, 180);
-          console.log('Matrix capture result:', !!matrixCapture);
+          const matrixCapture = await captureElementImage(
+            constructMatrixSection,
+            180
+          );
+          console.log("Matrix capture result:", !!matrixCapture);
 
           if (matrixCapture) {
             doc.addPage();
             currentY = 25;
 
             doc.setFontSize(16);
-            doc.setFont(undefined, 'bold');
+            doc.setFont(undefined, "bold");
             doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-            doc.text('Strengths Compass: 18x18 Construct Synergy-Tension Matrix', 105, currentY, { align: 'center' });
+            doc.text(
+              "Strengths Compass: 18x18 Construct Synergy-Tension Matrix",
+              105,
+              currentY,
+              { align: "center" }
+            );
             currentY += 15;
 
             const pageWidth = 210;
             const centerX = (pageWidth - matrixCapture.imgWidth) / 2;
             const availableHeight = pageHeight - currentY - bottomMargin;
-            const centerY = currentY + Math.max(0, (availableHeight - matrixCapture.imgHeight) / 2);
-            const imageY = centerY + matrixCapture.imgHeight > pageHeight - bottomMargin ? currentY : centerY;
+            const centerY =
+              currentY +
+              Math.max(0, (availableHeight - matrixCapture.imgHeight) / 2);
+            const imageY =
+              centerY + matrixCapture.imgHeight > pageHeight - bottomMargin
+                ? currentY
+                : centerY;
 
             doc.addImage(
               matrixCapture.imgData,
-              'PNG',
+              "PNG",
               centerX,
               imageY,
               matrixCapture.imgWidth,
@@ -1113,43 +1369,168 @@ export default function UserResults() {
             );
 
             currentY = pageHeight - bottomMargin;
-            console.log('Construct Synergy-Tension Matrix added successfully');
+            console.log("Construct Synergy-Tension Matrix added successfully");
           } else {
-            console.warn('Matrix capture returned null');
+            console.warn("Matrix capture returned null");
           }
         } else {
-          console.warn('Construct matrix section not found in DOM');
+          console.warn("Construct matrix section not found in DOM");
         }
       } catch (err) {
-        console.error('Error adding Construct Synergy-Tension Matrix to PDF:', err);
+        console.error(
+          "Error adding Construct Synergy-Tension Matrix to PDF:",
+          err
+        );
         // Continue with PDF generation even if this section fails
       }
 
       // Footer (matching web page format)
-      const pageCount = doc.internal.pages.length - 1;
+      let pageCount = doc.internal.pages.length - 1;
+
+      // Add page numbers to all pages
       for (let i = 1; i <= pageCount; i++) {
         doc.setPage(i);
         doc.setFontSize(8);
         doc.setTextColor(grayColor[0], grayColor[1], grayColor[2]);
-        doc.text(`Page ${i} of ${pageCount}`, 105, 295, { align: 'center' });
+        doc.text(`Page ${i} of ${pageCount}`, 105, 295, { align: "center" });
       }
-      
+
+      // Add disclaimer and footer info on last page
       doc.setPage(pageCount);
-      doc.setFontSize(8);
-      doc.setTextColor(grayColor[0], grayColor[1], grayColor[2]);
-      doc.text(`Generated on ${new Date(testResult.created_at || Date.now()).toLocaleString()}`, 105, 280, { align: 'center' });
-      doc.text('Strengths Compass - Confidential Report', 105, 288, { align: 'center' });
+
+      // Check if we have enough space on current page (need ~60mm for disclaimer section)
+      let footerY = currentY;
+      if (footerY > pageHeight - 60) {
+        // Not enough space, add a new page
+        doc.addPage();
+        footerY = 20;
+        pageCount = doc.internal.pages.length - 1;
+        // Update page numbers
+        for (let i = 1; i <= pageCount; i++) {
+          doc.setPage(i);
+          doc.setFontSize(8);
+          doc.setTextColor(grayColor[0], grayColor[1], grayColor[2]);
+          doc.text(`Page ${i} of ${pageCount}`, 105, 295, { align: "center" });
+        }
+        doc.setPage(pageCount);
+      }
+
+      // Start from a consistent position for disclaimer section
+      footerY = Math.max(footerY, 20);
       
-      console.log('PDF generation completed, saving file...');
-      const fileName = `Test_Results_${user?.name?.replace(/\s+/g, '_') || 'User'}_${Date.now()}.pdf`;
+      // Add generation date at the very top (smaller, lighter gray)
+      doc.setFontSize(7);
+      doc.setFont(undefined, "normal");
+      doc.setTextColor(grayColor[0], grayColor[1], grayColor[2]);
+      doc.text(
+        `Generated on ${new Date(
+          testResult.created_at || Date.now()
+        ).toLocaleString()}`,
+        105,
+        footerY,
+        { align: "center" }
+      );
+      footerY += 8;
+      
+      // Add "Strengths Compass - Confidential Report" title (larger than date, smaller than Disclaimer heading, bold)
+      doc.setFontSize(11);
+      doc.setFont(undefined, "bold");
+      doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+      doc.text("Strengths Compass - Confidential Report", 105, footerY, {
+        align: "center",
+      });
+      footerY += 10;
+      
+      // Add Disclaimer heading (bold, centered, larger than title)
+      doc.setFontSize(12);
+      doc.setFont(undefined, "bold");
+      doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+      doc.text("Disclaimer:", 105, footerY, { align: "center" });
+      footerY += 8;
+      
+      // Add Disclaimer text (left-aligned within a centered block, smaller, lighter gray)
+      doc.setFontSize(8);
+      doc.setFont(undefined, "normal");
+      doc.setTextColor(grayColor[0], grayColor[1], grayColor[2]);
+      const disclaimerText =
+        "You have consented and taken this assessment for personal development purposes only. " +
+        "You understand results are not diagnostic, medical, or clinical, and represent self reported tendencies. " +
+        "These results may be influenced by context, mood, and self perception. " +
+        "Use them as a starting point for reflection and coaching, not as a definitive judgment. " +
+        "For mental health or medical concerns, consult a qualified professional.";
+      
+      // Create a centered text block with left-aligned text inside
+      // The block should be narrower than the full page width
+      const textBlockWidth = 170; // Width of the centered text block in mm
+      const textBlockLeft = (210 - textBlockWidth) / 2; // Center the block on the page
+      
+      // Use splitTextToSize to break text into lines that fit the width
+      const disclaimerLines = doc.splitTextToSize(disclaimerText, textBlockWidth);
+      
+      disclaimerLines.forEach((line) => {
+        if (footerY > pageHeight - 20) {
+          // If we're running out of space, add a new page
+          doc.addPage();
+          footerY = 20;
+          pageCount = doc.internal.pages.length - 1;
+          // Update page numbers
+          for (let i = 1; i <= pageCount; i++) {
+            doc.setPage(i);
+            doc.setFontSize(8);
+            doc.setTextColor(grayColor[0], grayColor[1], grayColor[2]);
+            doc.text(`Page ${i} of ${pageCount}`, 105, 295, {
+              align: "center",
+            });
+          }
+          doc.setPage(pageCount);
+        }
+        
+        // Left-align each line by using the x position directly without align option
+        // This ensures proper left alignment within the centered block
+        doc.text(line.trim(), textBlockLeft, footerY);
+        footerY += 4.5;
+      });
+      
+      // Add email contact info at the bottom
+      footerY += 8;
+      doc.setFontSize(7);
+      doc.setFont(undefined, "normal");
+      doc.setTextColor(grayColor[0], grayColor[1], grayColor[2]);
+      
+      // Split the text to make email bold
+      const emailPrefix = "For any queries regarding the report, please send an email to: ";
+      const emailAddress = "guide@axiscompass.in";
+      
+      // Calculate the width of the prefix text
+      const prefixWidth = doc.getTextWidth(emailPrefix);
+      
+      // Calculate starting position to center the entire text
+      const fullTextWidth = doc.getTextWidth(emailPrefix + emailAddress);
+      const startX = (210 - fullTextWidth) / 2;
+      
+      // Draw the prefix text
+      doc.text(emailPrefix, startX, footerY);
+      
+      // Draw the email address in bold
+      doc.setFont(undefined, "bold");
+      doc.text(emailAddress, startX + prefixWidth, footerY);
+
+      console.log("PDF generation completed, saving file...");
+      const fileName = `Strengths-Compass-Test-Report-${
+        user?.name?.replace(/\s+/g, "_") || "User"
+      }_${Date.now()}.pdf`;
       doc.save(fileName);
-      console.log('PDF saved successfully:', fileName);
+      console.log("PDF saved successfully:", fileName);
       setGeneratingPDF(false);
     } catch (error) {
-      console.error('Error generating PDF:', error);
-      console.error('Error stack:', error.stack);
+      console.error("Error generating PDF:", error);
+      console.error("Error stack:", error.stack);
       setGeneratingPDF(false);
-      alert(`Error generating PDF: ${error.message || 'Unknown error'}. Please check the console for details.`);
+      alert(
+        `Error generating PDF: ${
+          error.message || "Unknown error"
+        }. Please check the console for details.`
+      );
     }
   };
 
@@ -1159,7 +1540,6 @@ export default function UserResults() {
         <div className="flex flex-col items-center">
           <span className="spinner spinner-lg mb-3"></span>
           <p className="text-sm neutral-text-muted">Loading test results...</p>
-        
         </div>
       </div>
     );
@@ -1178,7 +1558,7 @@ export default function UserResults() {
         <div className="flex items-center gap-3 mb-6">
           <button
             onClick={handleBackNavigation}
-            className="btn bg-blue-600 hover:bg-blue-700 text-white shadow-md"
+            className="btn bg-blue-600 hover:bg-blue-700 text-white shadow-md btn-secondary"
           >
             <HiArrowLeft className="w-5 h-5 mr-2" /> {backLabel}
           </button>
@@ -1197,13 +1577,12 @@ export default function UserResults() {
         message={error || ""}
       />
 
-
       {/* Header */}
       <div className="mb-6 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <button
             onClick={handleBackNavigation}
-            className="btn bg-blue-600 hover:bg-blue-700 text-white shadow-md"
+            className="btn bg-blue-600 hover:bg-blue-700 text-white shadow-md  btn-secondary"
           >
             <HiArrowLeft className="w-5 h-5 mr-2" /> {backLabel}
           </button>
@@ -1211,10 +1590,11 @@ export default function UserResults() {
             <h1 className="text-2xl font-bold neutral-text">Test Results</h1>
             {user && (
               <p className="text-xs neutral-text-muted mt-1">
-                Results for: <span className="font-medium primary-text">{user.name}</span> ({user.email})
+                Results for:{" "}
+                <span className="font-medium primary-text">{user.name}</span> (
+                {user.email})
               </p>
             )}
-           
           </div>
         </div>
         {user && (
@@ -1238,8 +1618,6 @@ export default function UserResults() {
         )}
       </div>
 
-      
-
       {/* Test Results */}
       <div className="max-w-4xl mx-auto">
         {!testResult ? (
@@ -1261,11 +1639,11 @@ export default function UserResults() {
             {(() => {
               const result = testResult;
               return (
-              <div
-                key={result.id}
-                className="bg-white rounded-lg shadow-lg overflow-hidden"
-              >
-                <style>{`
+                <div
+                  key={result.id}
+                  className="bg-white rounded-lg shadow-lg overflow-hidden"
+                >
+                  <style>{`
                   .test-report-header {
                     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
                     color: white;
@@ -1363,199 +1741,263 @@ export default function UserResults() {
                   }
                 `}</style>
 
-                {/* Header */}
-                <div className="test-report-header">
-                  <h1>{result.test?.title || "Strengths Compass"}</h1>
-                  <p>Test Report - {result.test?.title || "Strengths Compass Assessment"}</p>
-                </div>
-
-                <div className="test-report-container">
-                  {/* User Information */}
-                  <div className="test-report-section">
-                    <div className="test-report-section-title">User Information</div>
-                    <div className="test-report-user-info">
-                      <div className="test-report-user-grid">
-                        <div className="test-report-info-item">
-                          <div className="test-report-info-label">Name</div>
-                          <div className="test-report-info-value">
-                            {user?.name || "N/A"}
-                          </div>
-                        </div>
-                        <div className="test-report-info-item">
-                          <div className="test-report-info-label">Email</div>
-                          <div className="test-report-info-value">{user?.email || "N/A"}</div>
-                        </div>
-                       
-                        <div className="test-report-info-item">
-                          <div className="test-report-info-label">test Status</div>
-                          <div className="test-report-info-value">
-                            {result.status || "N/A"}
-                          </div>
-                        </div>
-                       
-                      </div>
-                    </div>
+                  {/* Header */}
+                  <div className="test-report-header">
+                    <h1>{result.test?.title || "Strengths Compass"}</h1>
+                    <p>
+                      Test Report -{" "}
+                      {result.test?.title || "Strengths Compass Assessment"}
+                    </p>
                   </div>
 
-                  {reportSummary && (
-                    <div className="test-report-section mb-6">
-                      <h3 className="text-xl font-semibold neutral-text">Report Summary</h3>
-                      <div className="w-full min-h-[140px] rounded-lg border border-neutral-border-light bg-light p-3 text-sm neutral-text">
-                        {reportSummary}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Cluster Scores */}
-                  {result.cluster_scores && Object.keys(result.cluster_scores).length > 0 && (
+                  <div className="test-report-container">
+                    {/* User Information */}
                     <div className="test-report-section">
-                      <div className="test-report-section-title">Cluster Scores</div>
-                      <div className="test-report-scores-section">
-                        {Object.entries(result.cluster_scores).map(([clusterName, clusterData]) => (
-                          <div key={clusterName} className="test-report-cluster-item">
-                            <div className="flex flex-col gap-2">
-                              <div className="flex justify-between items-center">
-                                <span className="text-lg font-semibold text-gray-700">{clusterName}</span>
-                                
-                              </div>
-                              {
-                                clusterData.category && (
-                                  <div className="flex items-center gap-3">
-                                    <span className="text-sm font-semibold text-gray-700">Band: </span>
-                                    <TrafficLight band={clusterData.category} />
-                                  </div>
-                                )
-                              }
-                              {
-                                clusterData.percentage && (
-                                  <div>
-                                    <span className="text-sm font-semibold text-gray-700">Score: </span>
-                                    <span className="text-sm font-semibold text-gray-700">{clusterData.percentage}%</span>
-                                  </div>
-                                )
-                              }
-                              {clusterData.description && (
-                                <div className="mb-3">
-                                  <span className="text-sm font-semibold text-gray-700">Description: </span>
-                                  <p className="text-sm text-gray-700 mt-1">{clusterData.description}</p>
-                                </div>
-                              )}
-                              {clusterData.behaviour && (
-                                <div className="mb-3">
-                                  <span className="text-sm font-semibold text-gray-700">Tendency: </span>
-                                  <p className="text-sm text-gray-700 mt-1">{clusterData.behaviour}</p>
-                                </div>
-                              )}
+                      <div className="test-report-section-title">
+                        User Information
+                      </div>
+                      <div className="test-report-user-info">
+                        <div className="test-report-user-grid">
+                          <div className="test-report-info-item">
+                            <div className="test-report-info-label">Name</div>
+                            <div className="test-report-info-value">
+                              {user?.name || "N/A"}
                             </div>
                           </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Construct Scores */}
-                  {result.construct_scores && Object.keys(result.construct_scores).length > 0 && (
-                    <div className="test-report-section">
-                      <div className="test-report-section-title">Construct Scores</div>
-                      <div className="test-report-scores-section">
-                        {Object.entries(result.construct_scores).map(([constructName, constructData]) => (
-                          <div key={constructName} className="test-report-cluster-item">
-                            <div className="flex flex-col gap-2">
-                              <div className="flex justify-between items-center">
-                                <span className="text-lg font-semibold text-gray-700">{constructName}</span>
-                                
-                              </div>
-                              {
-                                constructData.category && (
-                                  <div className="flex items-center gap-3">
-                                    <span className="text-sm font-semibold text-gray-700">Band: </span>
-                                    <TrafficLight band={constructData.category} />
-                                  </div>
-                                )
-                              }
-                              {
-                                constructData.percentage && (
-                                  <div>
-                                    <span className="text-sm font-semibold text-gray-700">Score: </span>
-                                    <span className="text-sm font-bold text-gray-700">{constructData.percentage}%</span>
-                                  </div>
-                                )
-                              }
-                              {constructData.description && (
-                                <div className="mb-3">
-                                  <span className="text-sm font-semibold text-gray-700">Description: </span>
-                                  <p className="text-sm text-gray-700 mt-1">{constructData.description}</p>
-                                </div>
-                              )}
-                              {constructData.behaviour && (
-                                <div className="mb-3">
-                                  <span className="text-sm font-semibold text-gray-700">Tendency: </span>
-                                  <p className="text-sm text-gray-700 mt-1">{constructData.behaviour}</p>
-                                </div>
-                              )}
+                          <div className="test-report-info-item">
+                            <div className="test-report-info-label">Email</div>
+                            <div className="test-report-info-value">
+                              {user?.email || "N/A"}
                             </div>
                           </div>
-                        ))}
+
+                          <div className="test-report-info-item">
+                            <div className="test-report-info-label">
+                              Test Status
+                            </div>
+                            <div className="test-report-info-value">
+                              {result.status || "N/A"}
+                            </div>
+                          </div>
+                          <div className="test-report-info-item">
+                            <div className="test-report-info-label">Total Score</div>
+                            <div className="test-report-info-value">
+                              {result.scores?.total_score || "N/A"}
+                            </div>
+                          </div>
+                        </div>
                       </div>
                     </div>
-                  )}
-                   {/* Strengths Radar Chart */}
-                  {testResult?.cluster_scores && (
-                    <div id="pdf-radar-chart-section" className="mb-10 max-w-4xl mx-auto">
-                      <StrengthsRadarChart 
-                        clusterScores={testResult.cluster_scores}
-                        clusters={[
-                          "Caring & Self-Understanding",
-                          "Character & Moral Foundation",
-                          "Drive & Achievement", 
-                          "Emotional Strength",
-                          "Personal Agency & Growth",
-                          "Openness & Future Orientation"
-                        ]}
-                        size={500}
-                      />
-                    </div>
-                  )}
 
-                  {/* Constructs Radar Chart */}
-                  {testResult?.construct_scores && (
-                    <div id="pdf-constructs-radar-chart-section" className="mb-10 max-w-4xl mx-auto">
-                      <ConstructsRadarChart 
-                        constructScores={testResult.construct_scores}
-                        constructs={[
-                          "Self-Awareness",
-                          "Honesty-Humility",
-                          "Reliability",
-                          "Perseverance",
-                          "Self-Discipline",
-                          "Initiative",
-                          "Psychological Resilience",
-                          "Emotional Regulation",
-                          "Cognitive Flexibility",
-                          "Leadership",
-                          "Self-Efficacy",
-                          "Growth Mindset",
-                          "GRIT",
-                          "Creativity & Curiosity",
-                          "Altruism",
-                          "Empathy",
-                          "Cooperation",
-                          "Optimism"
-                        ]}
-                        size={500}
-                      />
-                    </div>
-                  )}
+                    {reportSummary && (
+                      <div className="test-report-section mb-6">
+                        <h3 className="text-xl font-semibold neutral-text">
+                          Report Summary
+                        </h3>
+                        <div className="w-full min-h-[140px] rounded-lg border border-neutral-border-light bg-light p-3 text-sm neutral-text">
+                          {reportSummary}
+                        </div>
+                      </div>
+                    )}
 
-                  {/* Tension Heatmap */}
-                  {/* {clusterInsights.length > 0 && (
+                    {/* Cluster Scores */}
+                    {result.cluster_scores &&
+                      Object.keys(result.cluster_scores).length > 0 && (
+                        <div className="test-report-section">
+                          <div className="test-report-section-title">
+                            Cluster Scores
+                          </div>
+                          <div className="test-report-scores-section">
+                            {Object.entries(result.cluster_scores).map(
+                              ([clusterName, clusterData]) => (
+                                <div
+                                  key={clusterName}
+                                  className="test-report-cluster-item"
+                                >
+                                  <div className="flex flex-col gap-2">
+                                    <div className="flex justify-between items-center">
+                                      <span className="text-lg font-semibold text-gray-700">
+                                        {clusterName}
+                                      </span>
+                                    </div>
+                                    {clusterData.category && (
+                                      <div className="flex items-center gap-3">
+                                        <span className="text-sm font-semibold text-gray-700">
+                                          Band:{" "}
+                                        </span>
+                                        <TrafficLight
+                                          band={clusterData.category}
+                                        />
+                                      </div>
+                                    )}
+                                    {clusterData.percentage && (
+                                      <div>
+                                        <span className="text-sm font-semibold text-gray-700">
+                                          Score:{" "}
+                                        </span>
+                                        <span className="text-sm font-semibold text-gray-700">
+                                          {clusterData.percentage}%
+                                        </span>
+                                      </div>
+                                    )}
+                                    {clusterData.description && (
+                                      <div className="mb-3">
+                                        <span className="text-sm font-semibold text-gray-700">
+                                          Description:{" "}
+                                        </span>
+                                        <p className="text-sm text-gray-700 mt-1">
+                                          {clusterData.description}
+                                        </p>
+                                      </div>
+                                    )}
+                                    {clusterData.behaviour && (
+                                      <div className="mb-3">
+                                        <span className="text-sm font-semibold text-gray-700">
+                                          Tendency:{" "}
+                                        </span>
+                                        <p className="text-sm text-gray-700 mt-1">
+                                          {clusterData.behaviour}
+                                        </p>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              )
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                    {/* Construct Scores */}
+                    {result.construct_scores &&
+                      Object.keys(result.construct_scores).length > 0 && (
+                        <div className="test-report-section">
+                          <div className="test-report-section-title">
+                            Construct Scores
+                          </div>
+                          <div className="test-report-scores-section">
+                            {Object.entries(result.construct_scores).map(
+                              ([constructName, constructData]) => (
+                                <div
+                                  key={constructName}
+                                  className="test-report-cluster-item"
+                                >
+                                  <div className="flex flex-col gap-2">
+                                    <div className="flex justify-between items-center">
+                                      <span className="text-lg font-semibold text-gray-700">
+                                        {constructName}
+                                      </span>
+                                    </div>
+                                    {constructData.category && (
+                                      <div className="flex items-center gap-3">
+                                        <span className="text-sm font-semibold text-gray-700">
+                                          Band:{" "}
+                                        </span>
+                                        <TrafficLight
+                                          band={constructData.category}
+                                        />
+                                      </div>
+                                    )}
+                                    {constructData.percentage && (
+                                      <div>
+                                        <span className="text-sm font-semibold text-gray-700">
+                                          Score:{" "}
+                                        </span>
+                                        <span className="text-sm font-bold text-gray-700">
+                                          {constructData.percentage}%
+                                        </span>
+                                      </div>
+                                    )}
+                                    {constructData.description && (
+                                      <div className="mb-3">
+                                        <span className="text-sm font-semibold text-gray-700">
+                                          Description:{" "}
+                                        </span>
+                                        <p className="text-sm text-gray-700 mt-1">
+                                          {constructData.description}
+                                        </p>
+                                      </div>
+                                    )}
+                                    {constructData.behaviour && (
+                                      <div className="mb-3">
+                                        <span className="text-sm font-semibold text-gray-700">
+                                          Tendency:{" "}
+                                        </span>
+                                        <p className="text-sm text-gray-700 mt-1">
+                                          {constructData.behaviour}
+                                        </p>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              )
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    {/* Strengths Radar Chart */}
+                    {testResult?.cluster_scores && (
+                      <div
+                        id="pdf-radar-chart-section"
+                        className="mb-10 max-w-4xl mx-auto"
+                      >
+                        <StrengthsRadarChart
+                          clusterScores={testResult.cluster_scores}
+                          clusters={[
+                            "Caring & Self-Understanding",
+                            "Character & Moral Foundation",
+                            "Drive & Achievement",
+                            "Emotional Strength",
+                            "Personal Agency & Growth",
+                            "Openness & Future Orientation",
+                          ]}
+                          size={500}
+                        />
+                      </div>
+                    )}
+
+                    {/* Constructs Radar Chart */}
+                    {testResult?.construct_scores && (
+                      <div
+                        id="pdf-constructs-radar-chart-section"
+                        className="mb-10 max-w-4xl mx-auto"
+                      >
+                        <ConstructsRadarChart
+                          constructScores={testResult.construct_scores}
+                          constructs={[
+                            "Self-Awareness",
+                            "Honesty-Humility",
+                            "Reliability",
+                            "Perseverance",
+                            "Self-Discipline",
+                            "Initiative",
+                            "Psychological Resilience",
+                            "Emotional Regulation",
+                            "Cognitive Flexibility",
+                            "Leadership",
+                            "Self-Efficacy",
+                            "Growth Mindset",
+                            "GRIT",
+                            "Creativity & Curiosity",
+                            "Altruism",
+                            "Empathy",
+                            "Cooperation",
+                            "Optimism",
+                          ]}
+                          size={500}
+                        />
+                      </div>
+                    )}
+
+                    {/* Tension Heatmap */}
+                    {/* {clusterInsights.length > 0 && (
                     <div id="pdf-heatmap-section" className="mb-10 max-w-6xl mx-auto">
                       <TensionHeatmap data={clusterInsights} />
                     </div>
                   )} */}
 
-                  {/* Construct Synergy-Tension Matrix */}
-                  {/* <div id="pdf-construct-matrix-section" className="mb-10 max-w-7xl mx-auto">
+                    {/* Construct Synergy-Tension Matrix */}
+                    {/* <div id="pdf-construct-matrix-section" className="mb-10 max-w-7xl mx-auto">
                     <ConstructSynergyTensionMatrix 
                       matrix={constructSynergyMatrix.length > 0 ? constructSynergyMatrix : []}
                       labels={constructLabels.length > 0 ? constructLabels : []}
@@ -1563,22 +2005,48 @@ export default function UserResults() {
                     />
                   </div> */}
 
-                  {/* Footer */}
-                  <div className="test-report-footer">
-                    <p>Generated on {new Date(result.created_at || Date.now()).toLocaleString()}</p>
-                    <p>Strengths Compass - Confidential Report</p>
+                    {/* Footer */}
+                    <div className="test-report-footer">
+                      <p>
+                        Generated on{" "}
+                        {new Date(
+                          result.created_at || Date.now()
+                        ).toLocaleString()}
+                      </p>
+                      <p>Strengths Compass - Confidential Report</p>
+                      <p className="mt-4 font-bold">Disclaimer:</p>
+                      <p>
+                        You have consented and taken this assessment for
+                        personal development purposes only. You understand
+                        results are not diagnostic, medical, or clinical, and
+                        represent self-reported tendencies. These results may be
+                        influenced by context, mood, and self‑perception. Use
+                        them as a starting point for reflection and coaching,
+                        not as a definitive judgment. For mental health or
+                        medical concerns, consult a qualified professional.
+                      </p>
+
+                      <p className="mt-4">
+                        For any queries regarding the report, please send an
+                        email to:{" "}
+                        <a
+                          href="mailto:guide@axiscompass.in"
+                          style={{
+                            color: "#2563eb",
+                            textDecoration: "underline",
+                          }}
+                        >
+                          guide@axiscompass.in
+                        </a>
+                      </p>
+                    </div>
                   </div>
                 </div>
-              </div>
               );
             })()}
           </div>
         )}
-
-     
       </div>
     </div>
   );
 }
-
-  

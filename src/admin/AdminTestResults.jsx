@@ -61,59 +61,93 @@ export default function AdminTestResults() {
           console.log("item.scores?.clusters:", item.scores?.clusters);
           console.log("item.constructs:", item.constructs);
           console.log("item.scores?.constructs:", item.scores?.constructs);
+          console.log("percentage",item.sdb?.percentage);
+
         }
 
         // Extract clusters from API response - check multiple possible locations
         let clustersData = {};
-        if (item.clusters && typeof item.clusters === 'object' && !Array.isArray(item.clusters)) {
+        if (
+          item.clusters &&
+          typeof item.clusters === "object" &&
+          !Array.isArray(item.clusters)
+        ) {
           clustersData = item.clusters;
-        } else if (item.scores?.clusters && typeof item.scores.clusters === 'object' && !Array.isArray(item.scores.clusters)) {
+        } else if (
+          item.scores?.clusters &&
+          typeof item.scores.clusters === "object" &&
+          !Array.isArray(item.scores.clusters)
+        ) {
           clustersData = item.scores.clusters;
-        } else if (item.cluster_scores && typeof item.cluster_scores === 'object' && !Array.isArray(item.cluster_scores)) {
+        } else if (
+          item.cluster_scores &&
+          typeof item.cluster_scores === "object" &&
+          !Array.isArray(item.cluster_scores)
+        ) {
           clustersData = item.cluster_scores;
         }
 
-        const clusters = Object.keys(clustersData).length > 0 
-          ? Object.keys(clustersData).map((key) => {
-              const clusterData = clustersData[key];
-              // Handle both object format and direct value format
-              const data = typeof clusterData === 'object' && clusterData !== null ? clusterData : { name: key };
-              return {
-                name: data?.name || key,
-                total: data?.total ?? null,
-                average: data?.average ?? null,
-                percentage: data?.percentage ?? null,
-                count: data?.count ?? null,
-                category: data?.category || "N/A",
-              };
-            })
-          : [];
+        const clusters =
+          Object.keys(clustersData).length > 0
+            ? Object.keys(clustersData).map((key) => {
+                const clusterData = clustersData[key];
+                // Handle both object format and direct value format
+                const data =
+                  typeof clusterData === "object" && clusterData !== null
+                    ? clusterData
+                    : { name: key };
+                return {
+                  name: data?.name || key,
+                  total: data?.total ?? null,
+                  average: data?.average ?? null,
+                  percentage: data?.percentage ?? null,
+                  count: data?.count ?? null,
+                  category: data?.category || "N/A",
+                };
+              })
+            : [];
 
         // Extract constructs from API response - check multiple possible locations
         let constructsData = {};
-        if (item.constructs && typeof item.constructs === 'object' && !Array.isArray(item.constructs)) {
+        if (
+          item.constructs &&
+          typeof item.constructs === "object" &&
+          !Array.isArray(item.constructs)
+        ) {
           constructsData = item.constructs;
-        } else if (item.scores?.constructs && typeof item.scores.constructs === 'object' && !Array.isArray(item.scores.constructs)) {
+        } else if (
+          item.scores?.constructs &&
+          typeof item.scores.constructs === "object" &&
+          !Array.isArray(item.scores.constructs)
+        ) {
           constructsData = item.scores.constructs;
-        } else if (item.construct_scores && typeof item.construct_scores === 'object' && !Array.isArray(item.construct_scores)) {
+        } else if (
+          item.construct_scores &&
+          typeof item.construct_scores === "object" &&
+          !Array.isArray(item.construct_scores)
+        ) {
           constructsData = item.construct_scores;
         }
 
-        const constructs = Object.keys(constructsData).length > 0
-          ? Object.keys(constructsData).map((key) => {
-              const constructData = constructsData[key];
-              // Handle both object format and direct value format
-              const data = typeof constructData === 'object' && constructData !== null ? constructData : { name: key };
-              return {
-                name: data?.name || key,
-                total: data?.total ?? null,
-                average: data?.average ?? null,
-                percentage: data?.percentage ?? null,
-                count: data?.count ?? null,
-                category: data?.category || "N/A",
-              };
-            })
-          : [];
+        const constructs =
+          Object.keys(constructsData).length > 0
+            ? Object.keys(constructsData).map((key) => {
+                const constructData = constructsData[key];
+                // Handle both object format and direct value format
+                const data =
+                  typeof constructData === "object" && constructData !== null
+                    ? constructData
+                    : { name: key };
+                return {
+                  name: data?.name || key,
+                  total: data?.total ?? null,
+                  average: data?.average ?? null,
+                  percentage: data?.percentage ?? null,
+                  count: data?.count ?? null,
+                  category: data?.category || "N/A",
+                };
+              })
+            : [];
 
         if (index === 0) {
           console.log("Extracted clusters:", clusters);
@@ -127,11 +161,14 @@ export default function AdminTestResults() {
           userId: item.user?.id || null,
           userName:
             item.user?.name ||
-            `${item.user?.first_name || ""} ${item.user?.last_name || ""}`.trim() ||
+            `${item.user?.first_name || ""} ${
+              item.user?.last_name || ""
+            }`.trim() ||
             "N/A",
           email: item.user?.email || "N/A",
           userRole: item.user?.role || "N/A",
-          userContact: item.user?.contact_number || item.user?.whatsapp_number || "N/A",
+          userContact:
+            item.user?.contact_number || item.user?.whatsapp_number || "N/A",
           userGender: item.user?.gender || "N/A",
           userAge: item.user?.age || "N/A",
           userCity: item.user?.city || "N/A",
@@ -150,6 +187,7 @@ export default function AdminTestResults() {
           clusters,
           constructs,
           questions,
+          sdb: item.sdb,
           rawData: item,
         };
       });
@@ -192,15 +230,17 @@ export default function AdminTestResults() {
     if (!searchTerm.trim()) return results;
     const term = searchTerm.toLowerCase();
     return results.filter((result) => {
-      const matchesUser = result.userName.toLowerCase().includes(term) ||
+      const matchesUser =
+        result.userName.toLowerCase().includes(term) ||
         result.email.toLowerCase().includes(term) ||
         result.userContact.toLowerCase().includes(term);
-      const matchesTest = result.testTitle.toLowerCase().includes(term) ||
+      const matchesTest =
+        result.testTitle.toLowerCase().includes(term) ||
         result.overallCategory.toLowerCase().includes(term);
-      const matchesClusters = result.clusters?.some(c => 
+      const matchesClusters = result.clusters?.some((c) =>
         c.name.toLowerCase().includes(term)
       );
-      const matchesConstructs = result.constructs?.some(c => 
+      const matchesConstructs = result.constructs?.some((c) =>
         c.name.toLowerCase().includes(term)
       );
       return matchesUser || matchesTest || matchesClusters || matchesConstructs;
@@ -240,14 +280,13 @@ export default function AdminTestResults() {
       );
 
       const blob = new Blob([response.data], {
-        type:
-          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       });
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
       const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-      link.download = `test-results-${timestamp}.xlsx`;
+      link.download = `Strengths-Compass-Test-Reports-${timestamp}.xlsx`;
       document.body.appendChild(link);
       link.click();
       link.remove();
@@ -375,9 +414,9 @@ export default function AdminTestResults() {
             onClick={handleExportExcel}
             disabled={exporting}
             // className="btn bg-green-600 hover:bg-green-700 text-white shadow-md flex items-center gap-2 w-full sm:w-auto text-sm sm:text-base disabled:opacity-50 disabled:cursor-not-allowed"
-        
+
             className="btn btn-secondary text-sm"
->
+          >
             {exporting ? (
               <>
                 <span className="spinner spinner-sm"></span>
@@ -387,7 +426,9 @@ export default function AdminTestResults() {
             ) : (
               <>
                 <HiDownload className="w-4 h-4 sm:w-5 sm:h-5" />
-                <span className="hidden sm:inline">Download All Test Results</span>
+                <span className="hidden sm:inline">
+                  Download All Test Results
+                </span>
                 <span className="sm:hidden">Download</span>
               </>
             )}
@@ -435,14 +476,18 @@ export default function AdminTestResults() {
                   <input
                     type="date"
                     value={fromDate}
-                    max={new Date().toISOString().split('T')[0]}
+                    max={new Date().toISOString().split("T")[0]}
                     onChange={(e) => {
                       const selectedDate = e.target.value;
                       setFromDate(selectedDate);
                       setDateError("");
-                      
+
                       // Validate: To Date should not be before From Date
-                      if (toDate && selectedDate && new Date(selectedDate) > new Date(toDate)) {
+                      if (
+                        toDate &&
+                        selectedDate &&
+                        new Date(selectedDate) > new Date(toDate)
+                      ) {
                         setDateError("From Date cannot be after To Date");
                       } else if (dateError) {
                         setDateError("");
@@ -464,14 +509,18 @@ export default function AdminTestResults() {
                     type="date"
                     value={toDate}
                     min={fromDate || undefined}
-                    max={new Date().toISOString().split('T')[0]}
+                    max={new Date().toISOString().split("T")[0]}
                     onChange={(e) => {
                       const selectedDate = e.target.value;
                       setToDate(selectedDate);
                       setDateError("");
-                      
+
                       // Validate: To Date should not be before From Date
-                      if (fromDate && selectedDate && new Date(selectedDate) < new Date(fromDate)) {
+                      if (
+                        fromDate &&
+                        selectedDate &&
+                        new Date(selectedDate) < new Date(fromDate)
+                      ) {
                         setDateError("To Date cannot be before From Date");
                       } else if (dateError) {
                         setDateError("");
@@ -495,7 +544,11 @@ export default function AdminTestResults() {
                 type="button"
                 onClick={() => {
                   // Validate dates before applying
-                  if (fromDate && toDate && new Date(fromDate) > new Date(toDate)) {
+                  if (
+                    fromDate &&
+                    toDate &&
+                    new Date(fromDate) > new Date(toDate)
+                  ) {
                     setDateError("From Date cannot be after To Date");
                     return;
                   }
@@ -533,7 +586,6 @@ export default function AdminTestResults() {
                   Clear
                 </button>
               )}
-             
             </div>
           </div>
         </div>
@@ -548,9 +600,7 @@ export default function AdminTestResults() {
             No test results yet
           </h3>
           <p className="text-sm neutral-text-muted text-center">
-            {error
-              ? error
-              : "There are no test results available yet."}
+            {error ? error : "There are no test results available yet."}
           </p>
         </div>
       ) : !hasFiltered ? (
@@ -578,7 +628,7 @@ export default function AdminTestResults() {
                     <th className="font-semibold text-xs sm:text-sm py-2 sm:py-3 px-2 sm:px-4 text-left neutral-text-muted sticky left-[40px] sm:left-[50px] bg-medium z-[5] min-w-[150px] sm:min-w-[200px]">
                       User
                     </th>
-                   
+
                     {/* <th className="font-semibold text-sm py-3 px-4 text-center neutral-text-muted min-w-[100px]">
                       Total Score
                     </th>
@@ -588,7 +638,7 @@ export default function AdminTestResults() {
                     <th className="font-semibold text-sm py-3 px-4 text-center neutral-text-muted min-w-[100px]">
                       Avg %
                     </th> */}
-                  
+
                     <th className="font-semibold text-xs sm:text-sm py-2 sm:py-3 px-2 sm:px-4 text-left neutral-text-muted min-w-[200px] sm:min-w-[300px]">
                       Clusters
                     </th>
@@ -608,7 +658,8 @@ export default function AdminTestResults() {
                 </thead>
                 <tbody>
                   {paginatedResults.map((result, index) => {
-                    const rowNumber = (currentPageSafe - 1) * itemsPerPage + index + 1;
+                    const rowNumber =
+                      (currentPageSafe - 1) * itemsPerPage + index + 1;
                     const isEven = index % 2 === 0;
                     return (
                       <tr
@@ -617,14 +668,22 @@ export default function AdminTestResults() {
                           isEven ? "bg-white" : "bg-gray-50"
                         } hover:bg-gray-100 transition-colors`}
                       >
-                        <td className={`py-2 sm:py-3 px-2 sm:px-4 neutral-text-muted sticky left-0 z-[4] transition-colors text-xs sm:text-sm ${
-                          isEven ? "bg-white group-hover:bg-gray-100" : "bg-gray-50 group-hover:bg-gray-100"
-                        }`}>
+                        <td
+                          className={`py-2 sm:py-3 px-2 sm:px-4 neutral-text-muted sticky left-0 z-[4] transition-colors text-xs sm:text-sm ${
+                            isEven
+                              ? "bg-white group-hover:bg-gray-100"
+                              : "bg-gray-50 group-hover:bg-gray-100"
+                          }`}
+                        >
                           {rowNumber}
                         </td>
-                        <td className={`py-2 sm:py-3 px-2 sm:px-4 sticky left-[40px] sm:left-[50px] z-[4] transition-colors ${
-                          isEven ? "bg-white group-hover:bg-gray-100" : "bg-gray-50 group-hover:bg-gray-100"
-                        }`}>
+                        <td
+                          className={`py-2 sm:py-3 px-2 sm:px-4 sticky left-[40px] sm:left-[50px] z-[4] transition-colors ${
+                            isEven
+                              ? "bg-white group-hover:bg-gray-100"
+                              : "bg-gray-50 group-hover:bg-gray-100"
+                          }`}
+                        >
                           <div className="flex flex-col gap-0.5 sm:gap-1">
                             <span className="font-semibold text-xs sm:text-sm neutral-text break-words">
                               {result.userName}
@@ -640,7 +699,7 @@ export default function AdminTestResults() {
                             </span>
                           </div>
                         </td>
-                       
+
                         {/* <td className="py-2 sm:py-3 px-2 sm:px-4 text-center neutral-text font-medium text-xs sm:text-sm">
                           {result.totalScore}
                         </td>
@@ -652,72 +711,98 @@ export default function AdminTestResults() {
                         <td className="py-2 sm:py-3 px-2 sm:px-4 text-center neutral-text font-medium text-xs sm:text-sm">
                           {result.averagePercentage}
                         </td> */}
-                      
+
                         <td className="py-2 sm:py-3 px-2 sm:px-4">
                           <div className="flex flex-col gap-1 sm:gap-1.5 max-h-40 sm:max-h-48 overflow-y-auto">
-                            {result.clusters && Array.isArray(result.clusters) && result.clusters.length > 0 ? (
+                            {result.clusters &&
+                            Array.isArray(result.clusters) &&
+                            result.clusters.length > 0 ? (
                               result.clusters.map((cluster, idx) => (
-                                <div key={idx} className="text-xs border-l-2 border-blue-400 pl-1 sm:pl-2 py-0.5">
+                                <div
+                                  key={idx}
+                                  className="text-xs border-l-2 border-blue-400 pl-1 sm:pl-2 py-0.5"
+                                >
                                   <div className="font-semibold neutral-text break-words mb-0.5">
-                                    {cluster.name || 'N/A'}
+                                    {cluster.name || "N/A"}
                                   </div>
                                   <div className="flex flex-col gap-0.5 text-xs neutral-text-muted">
-                                   
-                                 
-                                    {cluster.percentage !== null && cluster.percentage !== undefined && (
-                                      <span className="font-medium neutral-text">Score: {cluster.percentage}</span>
-                                    )}
-                                   
-                                    {cluster.category && cluster.category !== "N/A" && (
-                                      <span className={`inline-block w-fit px-1.5 py-0.5 rounded text-xs font-semibold mt-0.5 ${
-                                        cluster.category?.toLowerCase() === "high"
-                                          ? "bg-green-100 text-green-700"
-                                          : cluster.category?.toLowerCase() === "medium"
-                                          ? "bg-yellow-100 text-yellow-700"
-                                          : "bg-gray-100 text-gray-700"
-                                      }`}>
-                                        {cluster.category.toUpperCase()}
-                                      </span>
-                                    )}
+                                    {cluster.percentage !== null &&
+                                      cluster.percentage !== undefined && (
+                                        <span className="font-medium neutral-text">
+                                          Score: {cluster.percentage}
+                                        </span>
+                                      )}
+
+                                    {cluster.category &&
+                                      cluster.category !== "N/A" && (
+                                        <span
+                                          className={`inline-block w-fit px-1.5 py-0.5 rounded text-xs font-semibold mt-0.5 ${
+                                            cluster.category?.toLowerCase() ===
+                                            "high"
+                                              ? "bg-green-100 text-green-700"
+                                              : cluster.category?.toLowerCase() ===
+                                                "medium"
+                                              ? "bg-yellow-100 text-yellow-700"
+                                              : "bg-gray-100 text-gray-700"
+                                          }`}
+                                        >
+                                          {cluster.category.toUpperCase()}
+                                        </span>
+                                      )}
                                   </div>
                                 </div>
                               ))
                             ) : (
-                              <span className="text-xs neutral-text-muted">No cluster data</span>
+                              <span className="text-xs neutral-text-muted">
+                                No cluster data
+                              </span>
                             )}
                           </div>
                         </td>
                         <td className="py-2 sm:py-3 px-2 sm:px-4">
                           <div className="flex flex-col gap-1 sm:gap-1.5 max-h-40 sm:max-h-48 overflow-y-auto">
-                            {result.constructs && Array.isArray(result.constructs) && result.constructs.length > 0 ? (
+                            {result.constructs &&
+                            Array.isArray(result.constructs) &&
+                            result.constructs.length > 0 ? (
                               result.constructs.map((construct, idx) => (
-                                <div key={idx} className="text-xs border-l-2 border-purple-400 pl-1 sm:pl-2 py-0.5">
+                                <div
+                                  key={idx}
+                                  className="text-xs border-l-2 border-purple-400 pl-1 sm:pl-2 py-0.5"
+                                >
                                   <div className="font-semibold neutral-text break-words mb-0.5">
-                                    {construct.name || 'N/A'}
+                                    {construct.name || "N/A"}
                                   </div>
                                   <div className="flex flex-col gap-0.5 text-xs neutral-text-muted">
-                                  
-                                  
-                                    {construct.percentage !== null && construct.percentage !== undefined && (
-                                      <span className="font-medium neutral-text">Score: {construct.percentage}</span>
-                                    )}
-                                 
-                                    {construct.category && construct.category !== "N/A" && (
-                                      <span className={`inline-block w-fit px-1.5 py-0.5 rounded text-xs font-semibold mt-0.5 ${
-                                        construct.category?.toLowerCase() === "high"
-                                          ? "bg-green-100 text-green-700"
-                                          : construct.category?.toLowerCase() === "medium"
-                                          ? "bg-yellow-100 text-yellow-700"
-                                          : "bg-gray-100 text-gray-700"
-                                      }`}>
-                                        {construct.category.toUpperCase()}
-                                      </span>
-                                    )}
+                                    {construct.percentage !== null &&
+                                      construct.percentage !== undefined && (
+                                        <span className="font-medium neutral-text">
+                                          Score: {construct.percentage}
+                                        </span>
+                                      )}
+
+                                    {construct.category &&
+                                      construct.category !== "N/A" && (
+                                        <span
+                                          className={`inline-block w-fit px-1.5 py-0.5 rounded text-xs font-semibold mt-0.5 ${
+                                            construct.category?.toLowerCase() ===
+                                            "high"
+                                              ? "bg-green-100 text-green-700"
+                                              : construct.category?.toLowerCase() ===
+                                                "medium"
+                                              ? "bg-yellow-100 text-yellow-700"
+                                              : "bg-gray-100 text-gray-700"
+                                          }`}
+                                        >
+                                          {construct.category.toUpperCase()}
+                                        </span>
+                                      )}
                                   </div>
                                 </div>
                               ))
                             ) : (
-                              <span className="text-xs neutral-text-muted">No construct data</span>
+                              <span className="text-xs neutral-text-muted">
+                                No construct data
+                              </span>
                             )}
                           </div>
                         </td>
@@ -733,6 +818,8 @@ export default function AdminTestResults() {
                           }`}
                         >
                           <div className="flex flex-col items-stretch justify-center gap-1">
+                           
+
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -742,7 +829,7 @@ export default function AdminTestResults() {
                               disabled={!result.userId}
                               title="View detailed results"
                             >
-                              <HiEye className="w-4 h-4 mr-1" />
+                              {/* <HiEye className="w-4 h-4 mr-1" /> */}
                               <span className="hidden sm:inline">Results</span>
                             </button>
                             <button
@@ -754,7 +841,7 @@ export default function AdminTestResults() {
                               disabled={!result.userId}
                               title="View submitted answers"
                             >
-                              <HiChartBar className="w-4 h-4 mr-1" />
+                              {/* <HiChartBar className="w-4 h-4 mr-1" /> */}
                               <span className="hidden sm:inline">Answers</span>
                             </button>
                             <button
@@ -770,6 +857,13 @@ export default function AdminTestResults() {
                             >
                               Summary
                             </button>
+                             <div className="flex black-text items-center justify-center px-3 py-2 rounded-md primary-bg-medium black-text hover:secondary-bg-dark">
+                                <span className="hidden sm:inline font-medium">
+                                SDB:{" "}
+                                  {result.sdb?.percentage}
+
+                              </span>
+                            </div>
                           </div>
                         </td>
                       </tr>
@@ -816,9 +910,7 @@ export default function AdminTestResults() {
                 </div>
                 <button
                   onClick={() =>
-                    setCurrentPage((prev) =>
-                      Math.min(totalPages, prev + 1)
-                    )
+                    setCurrentPage((prev) => Math.min(totalPages, prev + 1))
                   }
                   disabled={currentPageSafe === totalPages}
                   className="btn btn-ghost btn-sm flex items-center gap-1 text-xs sm:text-sm"
@@ -840,10 +932,9 @@ export default function AdminTestResults() {
                 <h3 className="text-lg font-semibold neutral-text mb-2">
                   Submit Summary
                 </h3>
-             
+
                 <div className="space-y-3">
                   <div>
-                    
                     <textarea
                       rows={4}
                       value={reportSummary}
@@ -853,7 +944,7 @@ export default function AdminTestResults() {
                       disabled={savingSummary}
                     />
                   </div>
-                 
+
                   {summaryStatus && (
                     <p
                       className={`text-xs ${
@@ -889,8 +980,6 @@ export default function AdminTestResults() {
           )}
         </>
       )}
-
     </div>
   );
 }
-
