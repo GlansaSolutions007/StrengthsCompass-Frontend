@@ -230,7 +230,7 @@ export default function AdminLayout() {
         autoClose={3000}
       />
       {/* Sidebar */}
-      <aside className="w-64 bg-gray-800 flex flex-col flex-shrink-0 sticky top-0 h-screen overflow-y-auto hide-scrollbar">
+      <aside className="w-64 bg-gray-800 flex flex-col shrink-0 sticky top-0 h-screen overflow-y-auto hide-scrollbar">
         {/* Header */}
         <div className="p-0 m-0 bg-gray-800">
           <div className="flex items-center justify-center">
