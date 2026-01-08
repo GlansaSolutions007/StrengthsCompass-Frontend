@@ -40,8 +40,7 @@ export default function App() {
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/profile" element={<Profile />} />
       <Route path="/testlist" element={<TestList />} />
-      <Route path="/test" element={<Test />} />
-      <Route path="/test/:testId" element={<Test />} />
+      <Route path="/strengthcompass" element={<Test />} />
       <Route path="/language-selection" element={<LanguageSelection />} />
       <Route path="/admin" element={<AdminLoginPage />} />
       <Route path="/admin/login" element={<AdminLoginPage />} />

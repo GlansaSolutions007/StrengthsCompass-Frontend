@@ -311,8 +311,8 @@ export default function TestList() {
     try {
       // Call the take endpoint to initialize the test
       await apiClient.get(`/tests/${testId}/take`);
-      // Navigate to test page with testId
-      navigate(`/test/${testId}`);
+      // Navigate to test page with testId in state (not in URL)
+      navigate(`/strengthcompass`, { state: { testId } });
     } catch (err) {
       console.error("Error starting test:", err);
       setError(

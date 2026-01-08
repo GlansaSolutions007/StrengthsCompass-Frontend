@@ -1,13 +1,34 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { useNavigate, useParams } from "react-router-dom";
-import { HiCheck, HiChevronLeft, HiChevronRight, HiTranslate, HiChevronDown } from "react-icons/hi";
+import { useNavigate, useLocation } from "react-router-dom";
+import { HiCheck, HiChevronLeft, HiChevronRight, HiTranslate, HiChevronDown, HiMail, HiLockClosed, HiExclamationCircle, HiEye, HiEyeOff } from "react-icons/hi";
 import Navbar from "../components/Navbar";
 import AlertModal from "../components/AlertModal";
 import apiClient from "../config/api";
+import logoImage from "../../Images/Logo.png";
 
 export default function Test() {
   const navigate = useNavigate();
-  const { testId } = useParams();
+  const location = useLocation();
+  // Get testId from location state or localStorage (fallback for page refresh)
+  const [testId, setTestId] = useState(
+    location.state?.testId || localStorage.getItem("currentTestId") || null
+  );
+  
+  // Save testId to localStorage when it changes
+  useEffect(() => {
+    if (testId) {
+      localStorage.setItem("currentTestId", testId);
+    } else {
+      localStorage.removeItem("currentTestId");
+    }
+  }, [testId]);
+  
+  // Update testId from location state if available
+  useEffect(() => {
+    if (location.state?.testId) {
+      setTestId(location.state.testId);
+    }
+  }, [location.state]);
   const [questions, setQuestions] = useState([]);
   const [options, setOptions] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -24,6 +45,15 @@ export default function Test() {
   const [userAge, setUserAge] = useState(null);
   const [selectedLanguage, setSelectedLanguage] = useState(null);
   const [showLanguageDropdown, setShowLanguageDropdown] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [showLoginForm, setShowLoginForm] = useState(true); // true for login, false for register
+  const [loginEmail, setLoginEmail] = useState("");
+  const [loginPassword, setLoginPassword] = useState("");
+  const [loginErrors, setLoginErrors] = useState({});
+  const [loginTouched, setLoginTouched] = useState({});
+  const [loginError, setLoginError] = useState("");
+  const [isLoginLoading, setIsLoginLoading] = useState(false);
+  const [showLoginPassword, setShowLoginPassword] = useState(false);
   const itemsPerPage = 10;
 
   // Available languages for 13-17 age group
@@ -131,8 +161,51 @@ export default function Test() {
     }
   };
 
-  const fetchTestData = async () => {
-    if (!testId) {
+  // Fetch the first available test if no testId is provided
+  const fetchFirstTest = async () => {
+    try {
+      const response = await apiClient.get("/tests");
+      let allTests = [];
+      
+      if (response.data?.status && response.data.data) {
+        allTests = Array.isArray(response.data.data) ? response.data.data : [response.data.data];
+      } else if (Array.isArray(response.data)) {
+        allTests = response.data;
+      } else if (response.data?.data && Array.isArray(response.data.data)) {
+        allTests = response.data.data;
+      }
+
+      // Filter active tests
+      const activeTests = allTests.filter((test) => test.is_active !== false);
+      
+      if (activeTests.length > 0) {
+        // Get the first test
+        const firstTest = activeTests[0];
+        const firstTestId = firstTest.id;
+        
+        // Set the testId and fetch test data
+        setTestId(firstTestId);
+        localStorage.setItem("currentTestId", firstTestId);
+        
+        // Fetch the test data
+        await fetchTestData(firstTestId);
+      } else {
+        setError("No tests available. Please contact support.");
+        setLoading(false);
+      }
+    } catch (err) {
+      console.error("Error fetching first test:", err);
+      setError(
+        err.response?.data?.message ||
+          "Failed to load test. Please try again."
+      );
+      setLoading(false);
+    }
+  };
+
+  const fetchTestData = async (testIdToFetch = null) => {
+    const idToUse = testIdToFetch || testId;
+    if (!idToUse) {
       setError("Test ID is required. Please select a test from the test list.");
       setLoading(false);
       return;
@@ -141,7 +214,7 @@ export default function Test() {
     try {
       setLoading(true);
       setError(null);
-      const response = await apiClient.get(`/tests/${testId}/take`);
+      const response = await apiClient.get(`/tests/${idToUse}/take`);
 
       if (response.data?.status && response.data.data) {
         const testData = response.data.data;
@@ -223,9 +296,30 @@ export default function Test() {
 
   useEffect(() => {
     fetchOptions();
-    fetchTestData();
-    fetchUserId(); // Fetch user ID from API
-  }, [testId]);
+    if (isAuthenticated) {
+      fetchUserId(); // Fetch user ID from API
+    }
+  }, [isAuthenticated]);
+
+  // Fetch test data when authenticated
+  useEffect(() => {
+    if (isAuthenticated && testId) {
+      setLoading(true);
+      fetchTestData();
+    } else if (isAuthenticated && !testId) {
+      // If authenticated but no testId, check localStorage first
+      const storedTestId = localStorage.getItem("currentTestId");
+      if (storedTestId) {
+        setTestId(storedTestId);
+      } else {
+        // If no testId in localStorage, automatically fetch the first available test
+        setLoading(true);
+        fetchFirstTest();
+      }
+    } else if (!isAuthenticated) {
+      setLoading(false);
+    }
+  }, [testId, isAuthenticated]);
 
   // Get user age from localStorage
   useEffect(() => {
@@ -293,21 +387,32 @@ export default function Test() {
     }
   }, [loading, error, questions.length, testId, showConsentModal]);
 
+  // Check authentication status
   useEffect(() => {
     const adminToken = localStorage.getItem("adminToken");
-    if (adminToken) return;
+    if (adminToken) {
+      navigate("/admin/dashboard", { replace: true });
+      return;
+    }
 
     const token =
       localStorage.getItem("token") ||
       localStorage.getItem("userToken") ||
       localStorage.getItem("authToken");
 
-    if (!token) {
-      const targetPath = testId ? `/test/${testId}` : "/testlist";
-      sessionStorage.setItem("redirectAfterAuth", targetPath);
-      navigate("/login", { replace: true, state: { redirectTo: targetPath } });
+    if (token) {
+      setIsAuthenticated(true);
+      // Fetch user ID when authenticated
+      fetchUserId();
+      // If testId exists in localStorage, make sure it's set
+      const storedTestId = localStorage.getItem("currentTestId");
+      if (storedTestId && !testId) {
+        setTestId(storedTestId);
+      }
+    } else {
+      setIsAuthenticated(false);
     }
-  }, [navigate, testId]);
+  }, [navigate, fetchUserId, testId]);
 
   const handleAnswerSelect = (questionId, optionIndex) => {
     const updatedAnswers = { ...answers, [questionId]: optionIndex };
@@ -328,7 +433,7 @@ export default function Test() {
     [answers]
   );
 
-  const isAuthenticated = () => {
+  const checkAuthentication = () => {
     const token = localStorage.getItem("token") || 
                   localStorage.getItem("userToken") || 
                   localStorage.getItem("authToken");
@@ -441,10 +546,9 @@ export default function Test() {
     }
 
     // Check if user is authenticated first
-    if (!isAuthenticated()) {
-      const targetPath = testId ? `/test/${testId}` : "/testlist";
-      sessionStorage.setItem("redirectAfterAuth", targetPath);
-      navigate("/login", { state: { redirectTo: targetPath } });
+    if (!checkAuthentication()) {
+      setIsAuthenticated(false);
+      setSubmitError("Please login to submit the test.");
       return;
     }
 
@@ -466,7 +570,7 @@ export default function Test() {
     getUnansweredQuestions,
     questions,
     userId,
-    isAuthenticated,
+    checkAuthentication,
     testId,
     submitTestData,
     fetchUserId,
@@ -494,6 +598,284 @@ export default function Test() {
     setCurrentPage(page);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
+
+  // Login validation
+  const validateEmailOrUsername = (value) => {
+    if (!value) return "Email or Username is required";
+    if (value.length < 2) return "Email or Username must be at least 2 characters";
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (emailRegex.test(value)) {
+      return "";
+    } else {
+      if (value.length < 3) return "Username must be at least 3 characters";
+      if (!/^[a-zA-Z0-9_-]+$/.test(value)) return "Username can only contain letters, numbers, underscores, and dashes";
+      return "";
+    }
+  };
+
+  const validatePassword = (password) => {
+    if (!password) return "Password is required";
+    if (password.length < 8) return "Password must be at least 8 characters";
+    return "";
+  };
+
+  const handleLoginBlur = (field) => {
+    setLoginTouched({ ...loginTouched, [field]: true });
+    if (field === "email") {
+      setLoginErrors({ ...loginErrors, email: validateEmailOrUsername(loginEmail) });
+    } else if (field === "password") {
+      setLoginErrors({ ...loginErrors, password: validatePassword(loginPassword) });
+    }
+  };
+
+  const handleLoginChange = (field, value) => {
+    if (field === "email") {
+      setLoginEmail(value);
+      setLoginError("");
+      if (loginTouched.email) {
+        setLoginErrors({ ...loginErrors, email: validateEmailOrUsername(value) });
+      }
+    } else if (field === "password") {
+      setLoginPassword(value);
+      setLoginError("");
+      if (loginTouched.password) {
+        setLoginErrors({ ...loginErrors, password: validatePassword(value) });
+      }
+    }
+  };
+
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    setLoginError("");
+    setIsLoginLoading(true);
+    
+    const emailError = validateEmailOrUsername(loginEmail);
+    const passwordError = validatePassword(loginPassword);
+
+    if (emailError || passwordError) {
+      setLoginErrors({ email: emailError, password: passwordError });
+      setLoginTouched({ email: true, password: true });
+      setIsLoginLoading(false);
+      return;
+    }
+
+    try {
+      const response = await apiClient.post("/login", {
+        email: loginEmail,
+        password: loginPassword,
+      });
+
+      if (response.data?.status || response.status === 200) {
+        const user = response.data.data?.user;
+        const userRole = user?.role || user?.user_type || user?.type;
+        
+        if (userRole && (userRole.toLowerCase() === "admin" || userRole.toLowerCase() === "administrator")) {
+          setLoginError("Invalid credentials. This account has admin access. Please use the admin login page.");
+          setIsLoginLoading(false);
+          return;
+        }
+        
+        const userId = user?.id || user?.user_id;
+        if (user) {
+          localStorage.setItem("user", JSON.stringify(user));
+          localStorage.setItem("userId", userId);
+          localStorage.setItem("adminSelectedVariantId", response.data.data.user.age_group_id ? response.data.data.user.age_group_id : response.data.data.age_group_id);
+        }
+        if (response.data.data?.token) {
+          localStorage.setItem("token", response.data.data.token);
+          localStorage.setItem("adminSelectedVariantId", response.data.data.user.age_group_id ? response.data.data.user.age_group_id : response.data.data.age_group_id);
+        }
+        
+        // Set authenticated and reload user data
+        setIsAuthenticated(true);
+        setUserId(userId);
+        await fetchUserId();
+        
+        // Reload user age for language selection
+        const age = user.age ? parseInt(user.age) : null;
+        setUserAge(age);
+        
+        // Check for testId in current state or localStorage
+        const currentTestId = testId || localStorage.getItem("currentTestId");
+        
+        // Fetch test data if testId exists
+        if (currentTestId) {
+          // Ensure testId is set in state
+          if (!testId) {
+            setTestId(currentTestId);
+          }
+          // Fetch test data with the current testId
+          await fetchTestData(currentTestId);
+        } else {
+          // If no testId, automatically fetch the first available test
+          setLoading(true);
+          await fetchFirstTest();
+        }
+      } else {
+        setLoginError(response.data?.message || "Login failed. Please check your credentials.");
+      }
+    } catch (err) {
+      console.error("Login error:", err);
+      setLoginError(
+        err.response?.data?.message ||
+        err.response?.data?.error ||
+        "Login failed. Please try again."
+      );
+    } finally {
+      setIsLoginLoading(false);
+    }
+  };
+
+  // Show login screen if not authenticated
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen w-screen flex items-center justify-center p-4 relative overflow-hidden blue-bg-100">
+        <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl p-8 md:p-10 relative z-10">
+          <div className="text-center mb-8">
+            <div className="flex justify-center mb-4">
+              <img
+                src={logoImage}
+                alt="Logo"
+                className="h-16 w-auto object-contain"
+              />
+            </div>
+            <h2 className="text-3xl font-bold text-gray-800">
+              {showLoginForm ? "User Login" : "Create Account"}
+            </h2>
+          </div>
+
+          {showLoginForm ? (
+            <form onSubmit={handleLogin} noValidate className="space-y-4">
+              {loginError && (
+                <div className="warning-bg-light border warning-border-light warning-text px-3 py-2 rounded-md text-xs flex items-center gap-2">
+                  <HiExclamationCircle className="w-4 h-4" />
+                  {loginError}
+                </div>
+              )}
+
+              <div className="space-y-2">
+                <label className="block text-sm font-medium neutral-text-muted">
+                  Email or Username
+                </label>
+                <div
+                  className={`group flex w-full rounded-md overflow-hidden border transition-all focus-within:ring-2 focus-within:ring-secondary focus-within:border-secondary ${
+                    loginErrors.email && loginTouched.email
+                      ? "border-red-500"
+                      : "border-neutral-300"
+                  }`}
+                >
+                  <div className="flex items-center justify-center bg-primary-bg-light px-3 transition-all group-focus-within:bg-secondary-bg-light">
+                    <HiMail className="h-5 w-5 primary-text group-focus-within:secondary-text transition-colors" />
+                  </div>
+                  <input
+                    type="text"
+                    required
+                    value={loginEmail}
+                    onChange={(e) => handleLoginChange("email", e.target.value)}
+                    onBlur={() => handleLoginBlur("email")}
+                    placeholder="Enter email or username"
+                    className="flex-1 py-2 px-3 bg-white text-sm focus:outline-none focus:bg-secondary-bg-light transition-colors"
+                  />
+                </div>
+                {loginErrors.email && loginTouched.email && (
+                  <p className="danger-text text-xs mt-1 flex items-center gap-1">
+                    <HiExclamationCircle className="w-3 h-3" />
+                    {loginErrors.email}
+                  </p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <label className="block text-sm font-medium neutral-text-muted">
+                  Password
+                </label>
+                <div
+                  className={`group flex w-full rounded-md overflow-hidden border transition-all focus-within:ring-2 focus-within:ring-secondary focus-within:border-secondary ${
+                    loginErrors.password && loginTouched.password
+                      ? "border-red-500"
+                      : "border-neutral-300"
+                  }`}
+                >
+                  <div className="flex items-center justify-center bg-primary-bg-light px-3 transition-all group-focus-within:bg-secondary-bg-light">
+                    <HiLockClosed className="h-5 w-5 primary-text group-focus-within:secondary-text transition-colors" />
+                  </div>
+                  <input
+                    type={showLoginPassword ? "text" : "password"}
+                    required
+                    value={loginPassword}
+                    onChange={(e) => handleLoginChange("password", e.target.value)}
+                    onBlur={() => handleLoginBlur("password")}
+                    placeholder="Enter password"
+                    className="flex-1 py-2 px-3 bg-white text-sm focus:outline-none focus:bg-secondary-bg-light transition-colors"
+                  />
+                  <div
+                    onClick={() => setShowLoginPassword(!showLoginPassword)}
+                    className="flex items-center justify-center px-3 cursor-pointer"
+                    aria-label={showLoginPassword ? "Hide password" : "Show password"}
+                  >
+                    {showLoginPassword ? (
+                      <HiEyeOff className="h-5 w-5 text-gray-500 hover:text-gray-700 transition-colors" />
+                    ) : (
+                      <HiEye className="h-5 w-5 text-gray-500 hover:text-gray-700 transition-colors" />
+                    )}
+                  </div>
+                </div>
+                {loginErrors.password && loginTouched.password && (
+                  <p className="danger-text text-xs mt-1 flex items-center gap-1">
+                    <HiExclamationCircle className="w-3 h-3" />
+                    {loginErrors.password}
+                  </p>
+                )}
+              </div>
+
+              <button 
+                type="submit" 
+                disabled={isLoginLoading}
+                className="w-full py-3 px-4 rounded-lg yellow-bg-400 yellow-text-950 font-semibold shadow-lg hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isLoginLoading ? (
+                  <>
+                    <span className="spinner spinner-sm mr-2"></span>
+                    Signing In...
+                  </>
+                ) : (
+                  "Sign In"
+                )}
+              </button>
+            </form>
+          ) : (
+            <div className="text-center">
+              <p className="text-sm neutral-text-muted mb-4">
+                Registration is available on the main registration page.
+              </p>
+              <button
+                onClick={() => setShowLoginForm(true)}
+                className="btn btn-primary"
+              >
+                Back to Login
+              </button>
+            </div>
+          )}
+
+          <div className="mt-6 border-t neutral-border-light pt-4">
+            <p className="text-center text-xs neutral-text-muted">
+              {showLoginForm ? "New to Strengths Compass?" : "Already have an account?"}
+            </p>
+            <button
+              onClick={() => {
+                setShowLoginForm(!showLoginForm);
+                setLoginError("");
+                setLoginErrors({});
+              }}
+              className="mt-3 inline-flex items-center justify-center w-full btn btn-ghost"
+            >
+              {showLoginForm ? "Create an account" : "Sign in instead"}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (loading) {
     return (
