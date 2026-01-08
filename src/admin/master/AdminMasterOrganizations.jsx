@@ -10,6 +10,7 @@ import {
   HiEye,
   HiSearch,
   HiUpload,
+  HiDownload,
 } from "react-icons/hi";
 import AlertModal from "../../components/AlertModal";
 
@@ -407,6 +408,42 @@ export default function AdminMasterOrganizations() {
     setSelectedFile(null);
   };
 
+  const downloadSampleFile = async () => {
+    try {
+      // Try to fetch the file from the Files folder
+      const response = await fetch("/Files/Organization Upload.xlsx");
+      
+      if (!response.ok) {
+        // If direct path doesn't work, try alternative path
+        throw new Error("File not found at expected path");
+      }
+      
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "Organization Upload.xlsx";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("Error downloading sample file:", error);
+      // Fallback: try direct link approach
+      try {
+        const link = document.createElement("a");
+        link.href = "/Files/Organization Upload.xlsx";
+        link.download = "Organization Upload.xlsx";
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      } catch (fallbackError) {
+        console.error("Fallback download also failed:", fallbackError);
+        setError("Failed to download sample file. Please ensure the file exists in the Files folder.");
+      }
+    }
+  };
+
   return (
     <div className="neutral-text bg-white min-h-screen p-4 md:p-8">
             <AlertModal
@@ -735,21 +772,26 @@ export default function AdminMasterOrganizations() {
                 <h3 className="text-xl font-bold primary-text">
                   Import Users - {uploadModal.organizationName}
                 </h3>
-                <button
-                  onClick={closeUploadModal}
-                  className="text-neutral-text-muted hover:text-neutral-text transition-colors"
-                >
-                  <HiX className="w-6 h-6 text-red-600" />
-                </button>
               </div>
             </div>
 
             <div className="p-6">
               <div className="space-y-4">
                 <div>
-                  <label className="text-sm font-semibold neutral-text block mb-2">
-                    Select Excel File <span className="danger-text">*</span>
-                  </label>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-sm font-semibold neutral-text block">
+                      Select Excel File <span className="danger-text">*</span>
+                    </label>
+                    <button
+                      onClick={downloadSampleFile}
+                      disabled={uploadModal.loading}
+                      className="btn secondary-bg black-text hover:secondary-bg-dark shadow-md"
+                      title="Download sample file"
+                    >
+                      <HiDownload className="w-4 h-4 mr-1" />
+                      Download Sample
+                    </button>
+                  </div>
                   <input
                     type="file"
                     accept=".xlsx,.xls,.csv"

@@ -13,6 +13,7 @@ import StrengthsRadarChart from "../components/StrengthsRadarChart";
 import ConstructsRadarChart from "../components/ConstructsRadarChart";
 import TensionHeatmap from "../components/TensionHeatmap";
 import ConstructSynergyTensionMatrix from "../components/ConstructSynergyTensionMatrix";
+import ReportFooter, { addFooterToPDF, addFooterToEveryPage } from "../components/ReportFooter";
 
 export default function UserResults() {
   const { userId } = useParams();
@@ -631,8 +632,12 @@ export default function UserResults() {
 
       // Colors
       const primaryColor = [102, 126, 234]; // #667eea
+      const primaryBlue = [37, 99, 235]; // #2563eb - Primary Blue from globalStyles
+      const secondaryYellow = [234, 179, 8]; // #eab308 - Secondary Yellow from globalStyles
+      const purpleColor = [139, 92, 246]; // #8b5cf6 - Purple color for main headings
       const textColor = [51, 51, 51];
       const grayColor = [128, 128, 128];
+      const yellow50 = [254, 252, 232]; // #fefce8 - Light yellow background from globalStyles
 
       // Band colors (RGB)
       const getBandColorRGB = (band) => {
@@ -671,7 +676,7 @@ export default function UserResults() {
           const canvas = await html2canvas
             .default(element, {
               backgroundColor: "#ffffff",
-              scale: 2,
+              scale: 1, // Reduced from 2 to 1 for smaller file size
               logging: false,
               useCORS: true,
               allowTaint: true,
@@ -686,7 +691,8 @@ export default function UserResults() {
             return null;
           }
 
-          const imgData = canvas.toDataURL("image/png");
+          // Use JPEG with compression to reduce file size
+          const imgData = canvas.toDataURL("image/jpeg", 0.75); // 75% quality for smaller size
           const widthPx = canvas.width;
           const heightPx = canvas.height;
           const naturalWidthMm = pxToMm(widthPx);
@@ -731,14 +737,15 @@ export default function UserResults() {
             if (html2canvas) {
               const canvas = await html2canvas.default(matchingLight, {
                 backgroundColor: "#ffffff",
-                scale: 3, // Higher scale for better quality
+                scale: 1.5, // Reduced from 3 to 1.5 for smaller file size
                 logging: false,
                 width: matchingLight.offsetWidth,
                 height: matchingLight.offsetHeight,
                 useCORS: true,
               });
 
-              const imgData = canvas.toDataURL("image/png");
+              // Use JPEG with compression for smaller file size
+              const imgData = canvas.toDataURL("image/jpeg", 0.8); // 80% quality
 
               // Calculate size in mm (convert from pixels at 96 DPI)
               const imgWidth = (canvas.width / 96) * 25.4; // Convert pixels to mm
@@ -790,7 +797,11 @@ export default function UserResults() {
         return circleRadius * 2 + gap + doc.getTextWidth(bandText);
       };
 
-      let yPos = 20;
+      let yPos = 10; // Minimal top margin for full height usage
+
+      // Add light yellow background to first page
+      doc.setFillColor(yellow50[0], yellow50[1], yellow50[2]);
+      doc.rect(0, 0, 210, 297, "F");
 
       // Header with gradient effect
       doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
@@ -812,20 +823,29 @@ export default function UserResults() {
         { align: "center" }
       );
 
-      yPos = 60;
+      yPos = 50; // Start content after header
       doc.setTextColor(textColor[0], textColor[1], textColor[2]);
 
-      const leftColumn = 20;
+      const leftColumn = 5; // Minimal left margin for full width
+      const rightMargin = 5; // Minimal right margin for full width
+      const pageWidth = 210; // A4 page width in mm
       const pageHeight = 297; // A4 page height in mm
-      const bottomMargin = 30; // Space for footer
+      const contentWidth = pageWidth - leftColumn - rightMargin; // Full content width (200mm)
+      const bottomMargin = 55; // Space for footer (increased to accommodate full footer on every page)
       const maxY = pageHeight - bottomMargin;
+      const sectionSpacing = 12; // Spacing between sections
+      const itemSpacing = 8; // Spacing between items
+      const labelSpacing = 6; // Spacing after labels
       let currentY = yPos;
 
       // Helper function to check and add new page if needed
       const checkPageBreak = (requiredSpace = 10) => {
         if (currentY + requiredSpace > maxY) {
           doc.addPage();
-          currentY = 20;
+          // Add light yellow background to new page
+          doc.setFillColor(yellow50[0], yellow50[1], yellow50[2]);
+          doc.rect(0, 0, 210, 297, "F");
+          currentY = 10; // Minimal top margin for full height
         }
       };
 
@@ -835,17 +855,19 @@ export default function UserResults() {
         doc.setFontSize(16);
         doc.setFont(undefined, "bold");
         doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-        doc.text(title, 20, currentY);
+        doc.text(title, leftColumn, currentY);
         doc.setDrawColor(primaryColor[0], primaryColor[1], primaryColor[2]);
         doc.setLineWidth(0.5);
-        doc.line(20, currentY + 3, 190, currentY + 3);
-        currentY += 15;
+        doc.line(leftColumn, currentY + 3, leftColumn + contentWidth, currentY + 3);
+        currentY += 12; // Reduced from 15 for tighter spacing
         return currentY;
       };
 
       // Helper function to add text with automatic page breaks
       const addTextWithPageBreak = (text, x, maxWidth, fontSize = 10) => {
-        const lines = doc.splitTextToSize(text, maxWidth);
+        // Use full page width minus margins for text wrapping (200mm total)
+        const textWidth = contentWidth; // Full width: 200mm (210 - 5 - 5)
+        const lines = doc.splitTextToSize(text, textWidth);
         const lineHeight = fontSize * 0.4; // Line height in mm
 
         lines.forEach((line) => {
@@ -853,7 +875,7 @@ export default function UserResults() {
           doc.setFontSize(fontSize);
           doc.setFont(undefined, "normal");
           doc.setTextColor(textColor[0], textColor[1], textColor[2]);
-          doc.text(line, x, currentY);
+          doc.text(line, leftColumn, currentY, { maxWidth: textWidth }); // Use full width with maxWidth option
           currentY += lineHeight + 2;
         });
       };
@@ -867,54 +889,55 @@ export default function UserResults() {
 
       // Name
       checkPageBreak(10);
+      currentY += 2; // Top padding
       doc.setFont(undefined, "bold");
       doc.setTextColor(grayColor[0], grayColor[1], grayColor[2]);
       doc.setFontSize(10);
+      const nameLabelWidth = doc.getTextWidth("Name:");
       doc.text("Name:", leftColumn, currentY);
       doc.setFont(undefined, "normal");
       doc.setTextColor(textColor[0], textColor[1], textColor[2]);
-      doc.text(user?.name || "N/A", leftColumn + 25, currentY);
-      currentY += 10;
+      const nameValue = user?.name || "N/A";
+      const nameLines = doc.splitTextToSize(nameValue, contentWidth - nameLabelWidth - 5);
+      doc.text(nameLines, leftColumn + nameLabelWidth + 5, currentY, { maxWidth: contentWidth - nameLabelWidth - 5 });
+      currentY += nameLines.length > 1 ? nameLines.length * 6 : 8; // Adjust for multi-line
 
       // Email
       checkPageBreak(10);
       doc.setFont(undefined, "bold");
       doc.setTextColor(grayColor[0], grayColor[1], grayColor[2]);
+      const emailLabelWidth = doc.getTextWidth("Email:");
       doc.text("Email:", leftColumn, currentY);
       doc.setFont(undefined, "normal");
       doc.setTextColor(textColor[0], textColor[1], textColor[2]);
-      doc.text(user?.email || "N/A", leftColumn + 25, currentY);
-      currentY += 10;
+      const emailValue = user?.email || "N/A";
+      const emailLines = doc.splitTextToSize(emailValue, contentWidth - emailLabelWidth - 5);
+      doc.text(emailLines, leftColumn + emailLabelWidth + 5, currentY, { maxWidth: contentWidth - emailLabelWidth - 5 });
+      currentY += emailLines.length > 1 ? emailLines.length * 6 : 8; // Adjust for multi-line
 
       // Test Status
       checkPageBreak(10);
       doc.setFont(undefined, "bold");
       doc.setTextColor(grayColor[0], grayColor[1], grayColor[2]);
+      const statusLabelWidth = doc.getTextWidth("Test Status:");
       doc.text("Test Status:", leftColumn, currentY);
       doc.setFont(undefined, "normal");
       doc.setTextColor(textColor[0], textColor[1], textColor[2]);
-      doc.text(testResult.status || "N/A", leftColumn + 35, currentY);
-      currentY += 10;
-
-      // Total Score
-      checkPageBreak(10);
-      doc.setFont(undefined, "bold");
-      doc.setTextColor(grayColor[0], grayColor[1], grayColor[2]);
-      doc.text("Total Score:", leftColumn, currentY);
-      doc.setFont(undefined, "normal");
-      doc.setTextColor(textColor[0], textColor[1], textColor[2]);
-      doc.text(testResult.scores?.total_score || "N/A", leftColumn + 35, currentY);
-      currentY += 15;
+      const statusValue = testResult.status || "N/A";
+      const statusLines = doc.splitTextToSize(statusValue, contentWidth - statusLabelWidth - 5);
+      doc.text(statusLines, leftColumn + statusLabelWidth + 5, currentY, { maxWidth: contentWidth - statusLabelWidth - 5 });
+      currentY += statusLines.length > 1 ? statusLines.length * 6 : 10; // Adjust for multi-line
 
       // Report Summary (only if exists, matching web page)
       if (reportSummary && reportSummary.trim()) {
-        currentY += 10;
+        currentY += sectionSpacing;
         addSectionTitle("Report Summary", currentY);
+        currentY += 3; // Top padding
         doc.setFontSize(11);
         doc.setFont(undefined, "normal");
         doc.setTextColor(textColor[0], textColor[1], textColor[2]);
-        addTextWithPageBreak(reportSummary, leftColumn, 170, 11);
-        currentY += 5;
+        addTextWithPageBreak(reportSummary, leftColumn, contentWidth, 11);
+        currentY += 5; // Bottom spacing
       }
 
       // Cluster Scores (matching web page format)
@@ -922,7 +945,7 @@ export default function UserResults() {
         testResult?.cluster_scores &&
         Object.keys(testResult.cluster_scores).length > 0
       ) {
-        currentY += 10;
+        currentY += sectionSpacing;
         addSectionTitle("Cluster Scores", currentY);
 
         doc.setFontSize(11);
@@ -932,21 +955,22 @@ export default function UserResults() {
         for (const [clusterName, clusterData] of Object.entries(
           testResult.cluster_scores
         )) {
-          checkPageBreak(15); // Reserve space for cluster name
+          checkPageBreak(20); // Reserve space for cluster item
+          currentY += 3; // Top padding for each item
 
           // Cluster Name
           doc.setFontSize(12);
           doc.setFont(undefined, "bold");
-          doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+          doc.setTextColor(primaryBlue[0], primaryBlue[1], primaryBlue[2]);
           doc.text(clusterName, leftColumn, currentY);
-          currentY += 8;
+          currentY += itemSpacing;
 
           // Band with traffic light
           if (clusterData.category) {
             checkPageBreak(10);
-            doc.setFontSize(10);
+            doc.setFontSize(12);
             doc.setFont(undefined, "bold");
-            doc.setTextColor(grayColor[0], grayColor[1], grayColor[2]);
+            doc.setTextColor(secondaryYellow[0], secondaryYellow[1], secondaryYellow[2]);
             doc.text("Band:", leftColumn, currentY);
 
             // Capture traffic light from DOM (matching UI exactly)
@@ -957,47 +981,34 @@ export default function UserResults() {
               lightX,
               lightY
             );
-            currentY += 8;
-          }
-
-          // Score
-          if (clusterData.percentage !== undefined) {
-            checkPageBreak(7);
-            doc.setFontSize(10);
-            doc.setFont(undefined, "bold");
-            doc.setTextColor(grayColor[0], grayColor[1], grayColor[2]);
-            doc.text("Score:", leftColumn, currentY);
-            doc.setFont(undefined, "normal");
-            doc.setTextColor(textColor[0], textColor[1], textColor[2]);
-            doc.text(`${clusterData.percentage}%`, leftColumn + 20, currentY);
-            currentY += 7;
+            currentY += labelSpacing;
           }
 
           // Description
           if (clusterData.description) {
             checkPageBreak(10);
-            doc.setFontSize(10);
+            doc.setFontSize(12);
             doc.setFont(undefined, "bold");
             doc.setTextColor(grayColor[0], grayColor[1], grayColor[2]);
             doc.text("Description:", leftColumn, currentY);
-            currentY += 5;
-            addTextWithPageBreak(clusterData.description, leftColumn, 170, 10);
+            currentY += labelSpacing;
+            addTextWithPageBreak(clusterData.description, leftColumn, contentWidth, 10);
             currentY += 3;
           }
 
           // Tendency
           if (clusterData.behaviour) {
             checkPageBreak(10);
-            doc.setFontSize(10);
+            doc.setFontSize(12);
             doc.setFont(undefined, "bold");
             doc.setTextColor(grayColor[0], grayColor[1], grayColor[2]);
             doc.text("Tendency:", leftColumn, currentY);
-            currentY += 5;
-            addTextWithPageBreak(clusterData.behaviour, leftColumn, 170, 10);
-            currentY += 5;
+            currentY += labelSpacing;
+            addTextWithPageBreak(clusterData.behaviour, leftColumn, contentWidth, 10);
+            currentY += 3;
           }
 
-          currentY += 5;
+          currentY += 5; // Bottom spacing between items
         }
       }
 
@@ -1006,7 +1017,12 @@ export default function UserResults() {
         testResult?.construct_scores &&
         Object.keys(testResult.construct_scores).length > 0
       ) {
-        currentY += 10;
+        // Start Construct Scores on a new page
+        doc.addPage();
+        // Add light yellow background to new page
+        doc.setFillColor(yellow50[0], yellow50[1], yellow50[2]);
+        doc.rect(0, 0, 210, 297, "F");
+        currentY = 15;
         addSectionTitle("Construct Scores", currentY);
 
         doc.setFontSize(11);
@@ -1016,21 +1032,22 @@ export default function UserResults() {
         for (const [constructName, constructData] of Object.entries(
           testResult.construct_scores
         )) {
-          checkPageBreak(15); // Reserve space for construct name
+          checkPageBreak(20); // Reserve space for construct item
+          currentY += 3; // Top padding for each item
 
           // Construct Name
           doc.setFontSize(12);
           doc.setFont(undefined, "bold");
-          doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+          doc.setTextColor(primaryBlue[0], primaryBlue[1], primaryBlue[2]);
           doc.text(constructName, leftColumn, currentY);
-          currentY += 8;
+          currentY += itemSpacing;
 
           // Band with traffic light
           if (constructData.category) {
-            checkPageBreak(10);
-            doc.setFontSize(10);
+            checkPageBreak(8);
+            doc.setFontSize(12);
             doc.setFont(undefined, "bold");
-            doc.setTextColor(grayColor[0], grayColor[1], grayColor[2]);
+            doc.setTextColor(secondaryYellow[0], secondaryYellow[1], secondaryYellow[2]);
             doc.text("Band:", leftColumn, currentY);
 
             // Capture traffic light from DOM (matching UI exactly)
@@ -1041,34 +1058,21 @@ export default function UserResults() {
               lightX,
               lightY
             );
-            currentY += 8;
-          }
-
-          // Score
-          if (constructData.percentage !== undefined) {
-            checkPageBreak(7);
-            doc.setFontSize(10);
-            doc.setFont(undefined, "bold");
-            doc.setTextColor(grayColor[0], grayColor[1], grayColor[2]);
-            doc.text("Score:", leftColumn, currentY);
-            doc.setFont(undefined, "normal");
-            doc.setTextColor(textColor[0], textColor[1], textColor[2]);
-            doc.text(`${constructData.percentage}%`, leftColumn + 20, currentY);
-            currentY += 7;
+            currentY += labelSpacing;
           }
 
           // Description
           if (constructData.description) {
-            checkPageBreak(10);
-            doc.setFontSize(10);
+            checkPageBreak(8);
+            doc.setFontSize(12);
             doc.setFont(undefined, "bold");
             doc.setTextColor(grayColor[0], grayColor[1], grayColor[2]);
             doc.text("Description:", leftColumn, currentY);
-            currentY += 5;
+            currentY += labelSpacing;
             addTextWithPageBreak(
               constructData.description,
               leftColumn,
-              170,
+              contentWidth,
               10
             );
             currentY += 3;
@@ -1076,17 +1080,17 @@ export default function UserResults() {
 
           // Tendency
           if (constructData.behaviour) {
-            checkPageBreak(10);
-            doc.setFontSize(10);
+            checkPageBreak(8);
+            doc.setFontSize(12);
             doc.setFont(undefined, "bold");
             doc.setTextColor(grayColor[0], grayColor[1], grayColor[2]);
             doc.text("Tendency:", leftColumn, currentY);
-            currentY += 5;
-            addTextWithPageBreak(constructData.behaviour, leftColumn, 170, 10);
-            currentY += 5;
+            currentY += labelSpacing;
+            addTextWithPageBreak(constructData.behaviour, leftColumn, contentWidth, 10);
+            currentY += 3;
           }
 
-          currentY += 5;
+          currentY += 5; // Bottom spacing between items
         }
       }
 
@@ -1096,7 +1100,7 @@ export default function UserResults() {
           const radarSection = document.getElementById(
             "pdf-radar-chart-section"
           );
-          let radarCapture = await captureElementImage(radarSection, 160);
+          let radarCapture = await captureElementImage(radarSection, contentWidth);
 
           if (!radarCapture) {
             const fallbackSvg = document.querySelector(
@@ -1126,7 +1130,8 @@ export default function UserResults() {
               ctx.fillRect(0, 0, canvas.width, canvas.height);
               ctx.drawImage(img, 0, 0);
 
-              const imgData = canvas.toDataURL("image/png");
+              // Use JPEG with compression for smaller file size
+              const imgData = canvas.toDataURL("image/jpeg", 0.75); // 75% quality
               const imgWidth = 150;
               const imgHeight = 150;
               radarCapture = { imgData, imgWidth, imgHeight };
@@ -1136,7 +1141,10 @@ export default function UserResults() {
 
           if (radarCapture) {
             doc.addPage();
-            currentY = 25;
+            // Add light yellow background to new page
+            doc.setFillColor(yellow50[0], yellow50[1], yellow50[2]);
+            doc.rect(0, 0, 210, 297, "F");
+            currentY = 15;
 
             doc.setFontSize(16);
             doc.setFont(undefined, "bold");
@@ -1184,7 +1192,7 @@ export default function UserResults() {
           );
           let constructsRadarCapture = await captureElementImage(
             constructsRadarSection,
-            160
+            contentWidth
           );
 
           if (!constructsRadarCapture && constructsRadarSection) {
@@ -1215,7 +1223,8 @@ export default function UserResults() {
               ctx.fillRect(0, 0, canvas.width, canvas.height);
               ctx.drawImage(img, 0, 0);
 
-              const imgData = canvas.toDataURL("image/png");
+              // Use JPEG with compression for smaller file size
+              const imgData = canvas.toDataURL("image/jpeg", 0.75); // 75% quality
               const imgWidth = 150;
               const imgHeight = 150;
               constructsRadarCapture = { imgData, imgWidth, imgHeight };
@@ -1225,6 +1234,9 @@ export default function UserResults() {
 
           if (constructsRadarCapture) {
             doc.addPage();
+            // Add light yellow background to new page
+            doc.setFillColor(yellow50[0], yellow50[1], yellow50[2]);
+            doc.rect(0, 0, 210, 297, "F");
             currentY = 25;
 
             doc.setFontSize(16);
@@ -1272,10 +1284,13 @@ export default function UserResults() {
           const heatmapSection =
             document.getElementById("pdf-heatmap-section") ||
             document.querySelector("table.heat, .tension-heatmap table");
-          const heatmapCapture = await captureElementImage(heatmapSection, 180);
+          const heatmapCapture = await captureElementImage(heatmapSection, contentWidth);
 
           if (heatmapCapture) {
             doc.addPage();
+            // Add light yellow background to new page
+            doc.setFillColor(yellow50[0], yellow50[1], yellow50[2]);
+            doc.rect(0, 0, 210, 297, "F");
             currentY = 25;
 
             doc.setFontSize(16);
@@ -1329,12 +1344,15 @@ export default function UserResults() {
         if (constructMatrixSection) {
           const matrixCapture = await captureElementImage(
             constructMatrixSection,
-            180
+            contentWidth
           );
           console.log("Matrix capture result:", !!matrixCapture);
 
           if (matrixCapture) {
             doc.addPage();
+            // Add light yellow background to new page
+            doc.setFillColor(yellow50[0], yellow50[1], yellow50[2]);
+            doc.rect(0, 0, 210, 297, "F");
             currentY = 25;
 
             doc.setFontSize(16);
@@ -1385,135 +1403,12 @@ export default function UserResults() {
       }
 
       // Footer (matching web page format)
-      let pageCount = doc.internal.pages.length - 1;
-
-      // Add page numbers to all pages
-      for (let i = 1; i <= pageCount; i++) {
-        doc.setPage(i);
-        doc.setFontSize(8);
-        doc.setTextColor(grayColor[0], grayColor[1], grayColor[2]);
-        doc.text(`Page ${i} of ${pageCount}`, 105, 295, { align: "center" });
-      }
-
-      // Add disclaimer and footer info on last page
-      doc.setPage(pageCount);
-
-      // Check if we have enough space on current page (need ~60mm for disclaimer section)
-      let footerY = currentY;
-      if (footerY > pageHeight - 60) {
-        // Not enough space, add a new page
-        doc.addPage();
-        footerY = 20;
-        pageCount = doc.internal.pages.length - 1;
-        // Update page numbers
-        for (let i = 1; i <= pageCount; i++) {
-          doc.setPage(i);
-          doc.setFontSize(8);
-          doc.setTextColor(grayColor[0], grayColor[1], grayColor[2]);
-          doc.text(`Page ${i} of ${pageCount}`, 105, 295, { align: "center" });
-        }
-        doc.setPage(pageCount);
-      }
-
-      // Start from a consistent position for disclaimer section
-      footerY = Math.max(footerY, 20);
-      
-      // Add generation date at the very top (smaller, lighter gray)
-      doc.setFontSize(7);
-      doc.setFont(undefined, "normal");
-      doc.setTextColor(grayColor[0], grayColor[1], grayColor[2]);
-      doc.text(
-        `Generated on ${new Date(
-          testResult.created_at || Date.now()
-        ).toLocaleString()}`,
-        105,
-        footerY,
-        { align: "center" }
-      );
-      footerY += 8;
-      
-      // Add "Strengths Compass - Confidential Report" title (larger than date, smaller than Disclaimer heading, bold)
-      doc.setFontSize(11);
-      doc.setFont(undefined, "bold");
-      doc.setTextColor(textColor[0], textColor[1], textColor[2]);
-      doc.text("Strengths Compass - Confidential Report", 105, footerY, {
-        align: "center",
+      // Add footer to every page - includes full disclaimer, email, and page numbers
+      addFooterToEveryPage(doc, testResult.created_at, {
+        textColor,
+        grayColor,
+        pageHeight,
       });
-      footerY += 10;
-      
-      // Add Disclaimer heading (bold, centered, larger than title)
-      doc.setFontSize(12);
-      doc.setFont(undefined, "bold");
-      doc.setTextColor(textColor[0], textColor[1], textColor[2]);
-      doc.text("Disclaimer:", 105, footerY, { align: "center" });
-      footerY += 8;
-      
-      // Add Disclaimer text (left-aligned within a centered block, smaller, lighter gray)
-      doc.setFontSize(8);
-      doc.setFont(undefined, "normal");
-      doc.setTextColor(grayColor[0], grayColor[1], grayColor[2]);
-      const disclaimerText =
-        "You have consented and taken this assessment for personal development purposes only. " +
-        "You understand results are not diagnostic, medical, or clinical, and represent self reported tendencies. " +
-        "These results may be influenced by context, mood, and self perception. " +
-        "Use them as a starting point for reflection and coaching, not as a definitive judgment. " +
-        "For mental health or medical concerns, consult a qualified professional.";
-      
-      // Create a centered text block with left-aligned text inside
-      // The block should be narrower than the full page width
-      const textBlockWidth = 170; // Width of the centered text block in mm
-      const textBlockLeft = (210 - textBlockWidth) / 2; // Center the block on the page
-      
-      // Use splitTextToSize to break text into lines that fit the width
-      const disclaimerLines = doc.splitTextToSize(disclaimerText, textBlockWidth);
-      
-      disclaimerLines.forEach((line) => {
-        if (footerY > pageHeight - 20) {
-          // If we're running out of space, add a new page
-          doc.addPage();
-          footerY = 20;
-          pageCount = doc.internal.pages.length - 1;
-          // Update page numbers
-          for (let i = 1; i <= pageCount; i++) {
-            doc.setPage(i);
-            doc.setFontSize(8);
-            doc.setTextColor(grayColor[0], grayColor[1], grayColor[2]);
-            doc.text(`Page ${i} of ${pageCount}`, 105, 295, {
-              align: "center",
-            });
-          }
-          doc.setPage(pageCount);
-        }
-        
-        // Left-align each line by using the x position directly without align option
-        // This ensures proper left alignment within the centered block
-        doc.text(line.trim(), textBlockLeft, footerY);
-        footerY += 4.5;
-      });
-      
-      // Add email contact info at the bottom
-      footerY += 8;
-      doc.setFontSize(7);
-      doc.setFont(undefined, "normal");
-      doc.setTextColor(grayColor[0], grayColor[1], grayColor[2]);
-      
-      // Split the text to make email bold
-      const emailPrefix = "For any queries regarding the report, please send an email to: ";
-      const emailAddress = "guide@axiscompass.in";
-      
-      // Calculate the width of the prefix text
-      const prefixWidth = doc.getTextWidth(emailPrefix);
-      
-      // Calculate starting position to center the entire text
-      const fullTextWidth = doc.getTextWidth(emailPrefix + emailAddress);
-      const startX = (210 - fullTextWidth) / 2;
-      
-      // Draw the prefix text
-      doc.text(emailPrefix, startX, footerY);
-      
-      // Draw the email address in bold
-      doc.setFont(undefined, "bold");
-      doc.text(emailAddress, startX + prefixWidth, footerY);
 
       console.log("PDF generation completed, saving file...");
       const fileName = `Strengths-Compass-Test-Report-${
@@ -1779,12 +1674,6 @@ export default function UserResults() {
                               {result.status || "N/A"}
                             </div>
                           </div>
-                          <div className="test-report-info-item">
-                            <div className="test-report-info-label">Total Score</div>
-                            <div className="test-report-info-value">
-                              {result.scores?.total_score || "N/A"}
-                            </div>
-                          </div>
                         </div>
                       </div>
                     </div>
@@ -1828,16 +1717,6 @@ export default function UserResults() {
                                         <TrafficLight
                                           band={clusterData.category}
                                         />
-                                      </div>
-                                    )}
-                                    {clusterData.percentage && (
-                                      <div>
-                                        <span className="text-sm font-semibold text-gray-700">
-                                          Score:{" "}
-                                        </span>
-                                        <span className="text-sm font-semibold text-gray-700">
-                                          {clusterData.percentage}%
-                                        </span>
                                       </div>
                                     )}
                                     {clusterData.description && (
@@ -1896,16 +1775,6 @@ export default function UserResults() {
                                         <TrafficLight
                                           band={constructData.category}
                                         />
-                                      </div>
-                                    )}
-                                    {constructData.percentage && (
-                                      <div>
-                                        <span className="text-sm font-semibold text-gray-700">
-                                          Score:{" "}
-                                        </span>
-                                        <span className="text-sm font-bold text-gray-700">
-                                          {constructData.percentage}%
-                                        </span>
                                       </div>
                                     )}
                                     {constructData.description && (
@@ -2006,40 +1875,7 @@ export default function UserResults() {
                   </div> */}
 
                     {/* Footer */}
-                    <div className="test-report-footer">
-                      <p>
-                        Generated on{" "}
-                        {new Date(
-                          result.created_at || Date.now()
-                        ).toLocaleString()}
-                      </p>
-                      <p>Strengths Compass - Confidential Report</p>
-                      <p className="mt-4 font-bold">Disclaimer:</p>
-                      <p>
-                        You have consented and taken this assessment for
-                        personal development purposes only. You understand
-                        results are not diagnostic, medical, or clinical, and
-                        represent self-reported tendencies. These results may be
-                        influenced by context, mood, and self‑perception. Use
-                        them as a starting point for reflection and coaching,
-                        not as a definitive judgment. For mental health or
-                        medical concerns, consult a qualified professional.
-                      </p>
-
-                      <p className="mt-4">
-                        For any queries regarding the report, please send an
-                        email to:{" "}
-                        <a
-                          href="mailto:guide@axiscompass.in"
-                          style={{
-                            color: "#2563eb",
-                            textDecoration: "underline",
-                          }}
-                        >
-                          guide@axiscompass.in
-                        </a>
-                      </p>
-                    </div>
+                    <ReportFooter createdAt={result.created_at} />
                   </div>
                 </div>
               );
