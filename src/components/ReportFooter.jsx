@@ -10,9 +10,8 @@ export default function ReportFooter({ createdAt }) {
   const generatedDate = new Date(createdAt || Date.now()).toLocaleString();
 
   return (
-    <div className="test-report-footer">
-      <p>Generated on {generatedDate}</p>
-      <p>Strengths Compass - Confidential Report</p>
+    <div className="test-report-footer mb-2">
+  
       <p className="mt-4 font-bold">Disclaimer:</p>
       <p>
         You have consented and taken this assessment for personal development
@@ -221,7 +220,7 @@ export function addFooterToEveryPage(doc, createdAt, options = {}) {
     doc.setPage(i);
     
     // Start footer from bottom of page - compact version
-    let footerY = pageHeight - 45; // Reserve space for footer content
+    let footerY = pageHeight - 40; // Reserve space for footer content (reduced from 45)
     
     // Draw a subtle line above footer
     doc.setDrawColor(grayColor[0], grayColor[1], grayColor[2]);
@@ -235,7 +234,7 @@ export function addFooterToEveryPage(doc, createdAt, options = {}) {
     doc.text(`Generated on ${generatedDate}`, 105, footerY, {
       align: "center",
     });
-    footerY += 4;
+    footerY += 3; // Reduced from 4
 
     // Add "Strengths Compass - Confidential Report" title (bold)
     doc.setFontSize(8);
@@ -244,14 +243,14 @@ export function addFooterToEveryPage(doc, createdAt, options = {}) {
     doc.text("Strengths Compass - Confidential Report", 105, footerY, {
       align: "center",
     });
-    footerY += 5;
+    footerY += 4; // Reduced from 5
 
     // Add Disclaimer heading (bold, centered)
     doc.setFontSize(7);
     doc.setFont(undefined, "bold");
     doc.setTextColor(textColor[0], textColor[1], textColor[2]);
     doc.text("Disclaimer:", 105, footerY, { align: "center" });
-    footerY += 4;
+    footerY += 3; // Reduced from 4
 
     // Add Disclaimer text (compact, smaller font)
     doc.setFontSize(5.5);
@@ -269,18 +268,18 @@ export function addFooterToEveryPage(doc, createdAt, options = {}) {
     const disclaimerLines = doc.splitTextToSize(disclaimerText, textBlockWidth);
 
     disclaimerLines.forEach((line) => {
-      if (footerY > pageHeight - 12) {
+      if (footerY > pageHeight - 10) {
         // If running out of space, just add page number and skip rest
-        footerY = pageHeight - 8;
+        footerY = pageHeight - 6;
         return;
       }
       doc.text(line.trim(), textBlockLeft, footerY);
-      footerY += 3;
+      footerY += 2.5; // Reduced line spacing for more compact footer
     });
 
     // Add email contact info
-    if (footerY < pageHeight - 8) {
-      footerY += 2;
+    if (footerY < pageHeight - 6) {
+      footerY += 1.5; // Reduced spacing
       doc.setFontSize(5.5);
       doc.setFont(undefined, "normal");
       doc.setTextColor(grayColor[0], grayColor[1], grayColor[2]);
@@ -295,14 +294,16 @@ export function addFooterToEveryPage(doc, createdAt, options = {}) {
       doc.text(emailPrefix, startX, footerY);
       doc.setFont(undefined, "bold");
       doc.text(emailAddress, startX + prefixWidth, footerY);
-      footerY += 3;
+      footerY += 2; // Minimal spacing before page number
     }
 
-    // Add page number at the very bottom
+    // Add page number right after footer content (minimal spacing)
     doc.setFontSize(7);
     doc.setFont(undefined, "normal");
     doc.setTextColor(grayColor[0], grayColor[1], grayColor[2]);
-    doc.text(`Page ${i} of ${pageCount}`, 105, pageHeight - 3, {
+    // Place page number directly after footer content with minimal gap (1mm)
+    const pageNumberY = Math.min(footerY + 1, pageHeight - 2);
+    doc.text(`Page ${i} of ${pageCount}`, 105, pageNumberY, {
       align: "center",
     });
   }

@@ -826,12 +826,12 @@ export default function UserResults() {
       yPos = 50; // Start content after header
       doc.setTextColor(textColor[0], textColor[1], textColor[2]);
 
-      const leftColumn = 5; // Minimal left margin for full width
-      const rightMargin = 5; // Minimal right margin for full width
-      const pageWidth = 210; // A4 page width in mm
-      const pageHeight = 297; // A4 page height in mm
-      const contentWidth = pageWidth - leftColumn - rightMargin; // Full content width (200mm)
-      const bottomMargin = 55; // Space for footer (increased to accommodate full footer on every page)
+      const leftColumn = 15; // Equal left margin for full width usage
+      const rightMargin = 15; // Equal right margin for full width usage
+      const pageWidth = 265; // A4 page width in mm
+      const pageHeight = 310; // A4 page height in mm
+      const contentWidth = pageWidth - leftColumn - rightMargin; // Full content width (190mm) - maximum usage with equal margins
+      const bottomMargin = 45; // Space for footer (increased to accommodate full footer on every page)
       const maxY = pageHeight - bottomMargin;
       const sectionSpacing = 12; // Spacing between sections
       const itemSpacing = 8; // Spacing between items
@@ -858,15 +858,15 @@ export default function UserResults() {
         doc.text(title, leftColumn, currentY);
         doc.setDrawColor(primaryColor[0], primaryColor[1], primaryColor[2]);
         doc.setLineWidth(0.5);
-        doc.line(leftColumn, currentY + 3, leftColumn + contentWidth, currentY + 3);
+        doc.line(leftColumn, currentY + 3, pageWidth - rightMargin, currentY + 3);
         currentY += 12; // Reduced from 15 for tighter spacing
         return currentY;
       };
 
       // Helper function to add text with automatic page breaks
       const addTextWithPageBreak = (text, x, maxWidth, fontSize = 10) => {
-        // Use full page width minus margins for text wrapping (200mm total)
-        const textWidth = contentWidth; // Full width: 200mm (210 - 5 - 5)
+        // Use full page width minus margins for text wrapping (190mm total with equal 10mm margins)
+        const textWidth = contentWidth; // Full width: 190mm (210 - 10 - 10) - maximum usage
         const lines = doc.splitTextToSize(text, textWidth);
         const lineHeight = fontSize * 0.4; // Line height in mm
 
@@ -875,7 +875,8 @@ export default function UserResults() {
           doc.setFontSize(fontSize);
           doc.setFont(undefined, "normal");
           doc.setTextColor(textColor[0], textColor[1], textColor[2]);
-          doc.text(line, leftColumn, currentY, { maxWidth: textWidth }); // Use full width with maxWidth option
+          // Text is already split to fit textWidth, render without maxWidth to use full width
+          doc.text(line, leftColumn, currentY);
           currentY += lineHeight + 2;
         });
       };
@@ -898,8 +899,9 @@ export default function UserResults() {
       doc.setFont(undefined, "normal");
       doc.setTextColor(textColor[0], textColor[1], textColor[2]);
       const nameValue = user?.name || "N/A";
-      const nameLines = doc.splitTextToSize(nameValue, contentWidth - nameLabelWidth - 5);
-      doc.text(nameLines, leftColumn + nameLabelWidth + 5, currentY, { maxWidth: contentWidth - nameLabelWidth - 5 });
+      const nameTextWidth = contentWidth - nameLabelWidth - 5; // Available width for value
+      const nameLines = doc.splitTextToSize(nameValue, nameTextWidth);
+      doc.text(nameLines, leftColumn + nameLabelWidth + 5, currentY);
       currentY += nameLines.length > 1 ? nameLines.length * 6 : 8; // Adjust for multi-line
 
       // Email
@@ -911,8 +913,9 @@ export default function UserResults() {
       doc.setFont(undefined, "normal");
       doc.setTextColor(textColor[0], textColor[1], textColor[2]);
       const emailValue = user?.email || "N/A";
-      const emailLines = doc.splitTextToSize(emailValue, contentWidth - emailLabelWidth - 5);
-      doc.text(emailLines, leftColumn + emailLabelWidth + 5, currentY, { maxWidth: contentWidth - emailLabelWidth - 5 });
+      const emailTextWidth = contentWidth - emailLabelWidth - 5; // Available width for value
+      const emailLines = doc.splitTextToSize(emailValue, emailTextWidth);
+      doc.text(emailLines, leftColumn + emailLabelWidth + 5, currentY);
       currentY += emailLines.length > 1 ? emailLines.length * 6 : 8; // Adjust for multi-line
 
       // Test Status
@@ -924,8 +927,9 @@ export default function UserResults() {
       doc.setFont(undefined, "normal");
       doc.setTextColor(textColor[0], textColor[1], textColor[2]);
       const statusValue = testResult.status || "N/A";
-      const statusLines = doc.splitTextToSize(statusValue, contentWidth - statusLabelWidth - 5);
-      doc.text(statusLines, leftColumn + statusLabelWidth + 5, currentY, { maxWidth: contentWidth - statusLabelWidth - 5 });
+      const statusTextWidth = contentWidth - statusLabelWidth - 5; // Available width for value
+      const statusLines = doc.splitTextToSize(statusValue, statusTextWidth);
+      doc.text(statusLines, leftColumn + statusLabelWidth + 5, currentY);
       currentY += statusLines.length > 1 ? statusLines.length * 6 : 10; // Adjust for multi-line
 
       // Report Summary (only if exists, matching web page)
@@ -1094,8 +1098,8 @@ export default function UserResults() {
         }
       }
 
-      // Convert and add Strengths Radar Chart
-      if (radarChartData.length > 0) {
+      // Convert and add Strengths Radar Chart (matching UI condition)
+      if (testResult?.cluster_scores && Object.keys(testResult.cluster_scores).length > 0) {
         try {
           const radarSection = document.getElementById(
             "pdf-radar-chart-section"
