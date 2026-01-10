@@ -5,6 +5,7 @@ import {
   HiSearch,
   HiChevronLeft,
   HiChevronRight,
+  HiChevronDown,
   HiChartBar,
   HiEye,
   HiUser,
@@ -25,6 +26,9 @@ export default function AdminTestResults() {
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [dateError, setDateError] = useState("");
+  const [tests, setTests] = useState([]);
+  const [selectedTestId, setSelectedTestId] = useState("");
+  const [testsLoading, setTestsLoading] = useState(false);
   const [summaryModalOpen, setSummaryModalOpen] = useState(false);
   const [summaryTestResultId, setSummaryTestResultId] = useState(null);
   const [reportSummary, setReportSummary] = useState("");
@@ -32,6 +36,42 @@ export default function AdminTestResults() {
   const [savingSummary, setSavingSummary] = useState(false);
   const [summaryStatus, setSummaryStatus] = useState(null);
   const [exporting, setExporting] = useState(false);
+
+  const fetchTests = async () => {
+    try {
+      setTestsLoading(true);
+      const response = await apiClient.get("/tests");
+      if (response.data?.status && response.data.data) {
+        const testsData = Array.isArray(response.data.data)
+          ? response.data.data
+          : [response.data.data];
+        setTests(
+          testsData.map((t) => ({
+            id: t.id,
+            title: t.title || "N/A",
+          }))
+        );
+      } else if (Array.isArray(response.data)) {
+        setTests(
+          response.data.map((t) => ({
+            id: t.id,
+            title: t.title || "N/A",
+          }))
+        );
+      } else if (response.data?.data && Array.isArray(response.data.data)) {
+        setTests(
+          response.data.data.map((t) => ({
+            id: t.id,
+            title: t.title || "N/A",
+          }))
+        );
+      }
+    } catch (err) {
+      console.error("Error fetching tests:", err);
+    } finally {
+      setTestsLoading(false);
+    }
+  };
 
   const fetchResults = async () => {
     try {
@@ -45,6 +85,7 @@ export default function AdminTestResults() {
       const params = {};
       if (fromDate) params.from_date = fromDate;
       if (toDate) params.to_date = toDate;
+      if (selectedTestId) params.test_id = selectedTestId;
 
       const response = await apiClient.get("/test-results-comprehensive/all", {
         params,
@@ -222,9 +263,21 @@ export default function AdminTestResults() {
   };
 
   useEffect(() => {
+    fetchTests();
     fetchResults();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    // Refetch results when test filter changes (only if component is already loaded)
+    if (!loading && tests.length > 0) {
+      const timeoutId = setTimeout(() => {
+        fetchResults();
+      }, 300); // Debounce to avoid too many API calls
+      return () => clearTimeout(timeoutId);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedTestId]);
 
   const filteredResults = useMemo(() => {
     if (!searchTerm.trim()) return results;
@@ -470,6 +523,30 @@ export default function AdminTestResults() {
             <div className="flex items-center gap-2 sm:gap-3">
               <div className="flex flex-col flex-1 sm:flex-none">
                 <label className="text-xs neutral-text-muted mb-1">
+                  Test
+                </label>
+                <div className="relative">
+                  <select
+                    value={selectedTestId}
+                    onChange={(e) => {
+                      setSelectedTestId(e.target.value);
+                      setCurrentPage(1);
+                    }}
+                    className="input input-sm bg-white text-xs sm:text-sm pr-8 sm:pr-9 pl-2 sm:pl-3 w-full sm:w-auto focus:outline-none focus:ring-2 focus:ring-secondary focus:border-secondary appearance-none"
+                    disabled={testsLoading}
+                  >
+                    <option value="">All Tests</option>
+                    {tests.map((test) => (
+                      <option key={test.id} value={test.id}>
+                        {test.title}
+                      </option>
+                    ))}
+                  </select>
+                  <HiChevronDown className="w-3 h-3 sm:w-4 sm:h-4 text-blue-500 absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                </div>
+              </div>
+              <div className="flex flex-col flex-1 sm:flex-none">
+                <label className="text-xs neutral-text-muted mb-1">
                   From Date
                 </label>
                 <div className="relative">
@@ -570,12 +647,13 @@ export default function AdminTestResults() {
               >
                 Apply
               </button>
-              {(fromDate || toDate) && (
+              {(fromDate || toDate || selectedTestId) && (
                 <button
                   type="button"
                   onClick={() => {
                     setFromDate("");
                     setToDate("");
+                    setSelectedTestId("");
                     setDateError("");
                     setLoading(true);
                     setCurrentPage(1);
