@@ -90,21 +90,21 @@ export function addFooterToPDF(doc, createdAt, options = {}) {
   doc.setFontSize(7);
   doc.setFont(undefined, "normal");
   doc.setTextColor(grayColor[0], grayColor[1], grayColor[2]);
-  doc.text(
-    `Generated on ${new Date(createdAt || Date.now()).toLocaleString()}`,
-    105,
-    footerY,
-    { align: "center" }
-  );
+  // doc.text(
+  //   `Generated on ${new Date(createdAt || Date.now()).toLocaleString()}`,
+  //   105,
+  //   footerY,
+  //   { align: "center" }
+  // );
   footerY += 8;
 
   // Add "Strengths Compass - Confidential Report" title (larger than date, smaller than Disclaimer heading, bold)
   doc.setFontSize(11);
   doc.setFont(undefined, "bold");
   doc.setTextColor(textColor[0], textColor[1], textColor[2]);
-  doc.text("Strengths Compass - Confidential Report", 105, footerY, {
-    align: "center",
-  });
+  // doc.text("Strengths Compass - Confidential Report", 105, footerY, {
+  //   align: "center",
+  // });
   footerY += 10;
 
   // Add Disclaimer heading (bold, centered, larger than title)
@@ -231,18 +231,18 @@ export function addFooterToEveryPage(doc, createdAt, options = {}) {
     doc.setFontSize(6);
     doc.setFont(undefined, "normal");
     doc.setTextColor(grayColor[0], grayColor[1], grayColor[2]);
-    doc.text(`Generated on ${generatedDate}`, 105, footerY, {
-      align: "center",
-    });
+    // doc.text(`Generated on ${generatedDate}`, 105, footerY, {
+    //   align: "center",
+    // });
     footerY += 3; // Reduced from 4
 
     // Add "Strengths Compass - Confidential Report" title (bold)
     doc.setFontSize(8);
     doc.setFont(undefined, "bold");
     doc.setTextColor(textColor[0], textColor[1], textColor[2]);
-    doc.text("Strengths Compass - Confidential Report", 105, footerY, {
-      align: "center",
-    });
+    // doc.text("Strengths Compass - Confidential Report", 105, footerY, {
+    //   align: "center",
+    // });
     footerY += 4; // Reduced from 5
 
     // Add Disclaimer heading (bold, centered)
