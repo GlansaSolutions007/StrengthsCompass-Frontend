@@ -545,7 +545,7 @@ export default function RegisterPage() {
         message={registerError}
       />
 
-      <div className="w-full max-w-4xl card p-8 md:p-10 relative z-10 bg-white rounded-2xl shadow-2xl">
+      <div className="w-full max-w-4xl card p-4 sm:p-6 md:p-8 lg:p-10 relative z-10 bg-white rounded-2xl shadow-2xl">
         <div className="text-center mb-8">
           <div className="flex justify-center mb-4">
             <img
@@ -565,7 +565,7 @@ export default function RegisterPage() {
             </div>
           )}
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <InputField
               name="first_name"
               label="First Name"
@@ -861,8 +861,7 @@ export default function RegisterPage() {
             <button
               type="submit"
               disabled={isLoading}
-              className="py-3 px-4 rounded-lg yellow-bg-400 yellow-text-950 font-semibold shadow-lg hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-              style={{ width: "40%" }}
+              className="w-full sm:w-auto min-w-[200px] py-3 px-6 sm:px-8 rounded-lg yellow-bg-400 yellow-text-950 font-semibold shadow-lg hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isLoading ? (
                 <>

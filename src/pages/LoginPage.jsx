@@ -255,8 +255,8 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen w-screen flex items-center justify-center p-4 relative overflow-hidden blue-bg-100">
-      <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl p-8 md:p-10 relative z-10">
+    <div className="min-h-screen w-screen flex items-center justify-center p-4 sm:p-6 relative overflow-hidden blue-bg-100">
+      <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl p-6 sm:p-8 md:p-10 relative z-10">
         {(forgotModalOpen || forgotModalClosing) && (
           <div className="fixed inset-0 z-20 flex items-center justify-center p-4">
             <div

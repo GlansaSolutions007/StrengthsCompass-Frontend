@@ -7,6 +7,8 @@ import {
   HiOutlineUserCircle,
   HiChevronDown,
   HiTranslate,
+  HiMenu,
+  HiX,
 } from "react-icons/hi";
 import React, { useEffect, useState } from "react";
 import logo from "../../Images/Logo.png";
@@ -34,6 +36,7 @@ export default function AdminLayout() {
   const [variantError, setVariantError] = useState(null);
   const [variantSuccess, setVariantSuccess] = useState(null);
   const [testName, setTestName] = useState(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // Check authentication and separate admin/user routes
   useEffect(() => {
@@ -230,11 +233,22 @@ export default function AdminLayout() {
         message={variantSuccess || ""}
         autoClose={3000}
       />
+      
+      {/* Mobile Sidebar Overlay */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+      
       {/* Sidebar */}
-      <aside className="w-64 bg-gray-800 flex flex-col shrink-0 sticky top-0 h-screen overflow-y-auto hide-scrollbar">
+      <aside className={`fixed lg:sticky top-0 left-0 z-50 w-64 bg-gray-800 flex flex-col shrink-0 h-screen overflow-y-auto hide-scrollbar transform transition-transform duration-300 ease-in-out ${
+        sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
+      }`}>
         {/* Header */}
-        <div className="p-0 m-0 white-bg" style={{ height: '100px', minHeight: '100px' }}>
-          <div className="flex items-center justify-center h-full">
+        <div className="p-0 m-0 white-bg flex items-center justify-between" style={{ height: '100px', minHeight: '100px' }}>
+          <div className="flex items-center justify-center h-full flex-1">
             <div className="w-50 h-30 items-center justify-center overflow-hidden">
               <img 
                 src={logo} 
@@ -243,6 +257,14 @@ export default function AdminLayout() {
               />
             </div>
           </div>
+          {/* Close button for mobile */}
+          <button
+            onClick={() => setSidebarOpen(false)}
+            className="lg:hidden p-2 text-gray-300 hover:text-white mr-2"
+            aria-label="Close sidebar"
+          >
+            <HiX className="w-6 h-6" />
+          </button>
         </div>
 
         {/* Navigation */}
@@ -453,33 +475,43 @@ export default function AdminLayout() {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 flex flex-col min-h-screen">
+      <main className="flex-1 flex flex-col min-h-screen lg:ml-0">
         {/* Header */}
         <div className="sticky top-0 z-10 backdrop-blur-xl bg-white/70 shadow-sm border-b border-white/20">
-          <div className="px-6 py-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-2xl font-bold neutral-text">
-                  {testName || titleFromPath(location.pathname)}
-                </h1>
-                <p className="text-sm neutral-text-muted mt-1">
-                  {testName 
-                    ? "View complete test information"
-                    : `Manage your ${titleFromPath(location.pathname).toLowerCase()} settings`}
-                </p>
+          <div className="px-4 sm:px-6 py-3 sm:py-4">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
+              <div className="flex items-center gap-3 flex-1">
+                {/* Mobile Menu Button */}
+                <button
+                  onClick={() => setSidebarOpen(true)}
+                  className="lg:hidden p-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                  aria-label="Open sidebar"
+                >
+                  <HiMenu className="w-6 h-6" />
+                </button>
+                <div>
+                  <h1 className="text-xl sm:text-2xl font-bold neutral-text">
+                    {testName || titleFromPath(location.pathname)}
+                  </h1>
+                  <p className="text-xs sm:text-sm neutral-text-muted mt-1">
+                    {testName 
+                      ? "View complete test information"
+                      : `Manage your ${titleFromPath(location.pathname).toLowerCase()} settings`}
+                  </p>
+                </div>
               </div>
               {/* Variant (Age Group) Selector - Hidden on TestDetails page */}
               {!location.pathname.includes("/master/tests/") && (
-                <div className="flex items-center gap-3">
-                  <label className="text-sm font-semibold neutral-text whitespace-nowrap">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3 w-full sm:w-auto">
+                  <label className="text-xs sm:text-sm font-semibold neutral-text whitespace-nowrap">
                     Variant (Age Group):
                   </label>
-                  <div className="relative">
+                  <div className="relative w-full sm:w-auto">
                     <select
                       value={selectedVariant?.id || ""}
                       onChange={(e) => handleVariantChange(e.target.value)}
                       disabled={loadingVariant || ageGroups.length === 0}
-                      className="input pr-10 min-w-[200px] bg-white border border-neutral-300 focus:ring-2 focus:ring-secondary focus:border-secondary"
+                      className="input pr-10 w-full sm:min-w-[200px] bg-white border border-neutral-300 focus:ring-2 focus:ring-secondary focus:border-secondary text-sm"
                     >
                       {ageGroups.length === 0 ? (
                         <option value="">Loading...</option>
@@ -511,7 +543,7 @@ export default function AdminLayout() {
         
         {/* Content Area */}
         <div className="flex-1 bg-medium overflow-x-auto">
-          <div className="w-full max-w-7xl mx-auto p-6">
+          <div className="w-full max-w-7xl mx-auto p-4 sm:p-6">
             <Outlet />
           </div>
         </div>

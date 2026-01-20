@@ -5,6 +5,7 @@ import logoImage from "../../Images/Logo.png";
 
 export default function Navbar() {
   const [userIsSignedIn, setUserIsSignedIn] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // Check if user is authenticated
   const checkAuthentication = () => {
@@ -45,24 +46,24 @@ export default function Navbar() {
   }, []);
 
   return (
-    <header className="w-full px-6 md:px-12 py-4 bg-white border-b border-gray-200 shadow-sm sticky top-0 z-50">
+    <header className="w-full px-4 sm:px-6 md:px-12 py-3 sm:py-4 bg-white border-b border-gray-200 shadow-sm sticky top-0 z-50">
       <div className="max-w-7xl mx-auto flex items-center justify-between">
         {/* Logo Section */}
-        <Link to="/" className="flex items-center gap-3 group">
-          <div className="flex items-center white-bg p-[10px] rounded">
+        <Link to="/" className="flex items-center gap-2 sm:gap-3 group">
+          <div className="flex items-center white-bg p-2 sm:p-[10px] rounded">
             <img
               src={logoImage}
               alt="Psychometric logo"
-              className="h-10 w-auto object-contain drop-shadow-sm group-hover:scale-105 transition-transform duration-200"
+              className="h-8 sm:h-10 w-auto object-contain drop-shadow-sm group-hover:scale-105 transition-transform duration-200"
             />
           </div>
         </Link>
    
-        {/* Right Side - Navigation Links and Action Buttons */}
-        <div className="flex items-center gap-4">
+        {/* Desktop Navigation */}
+        <div className="hidden md:flex items-center gap-4">
           {/* Navigation Links - Only show if user is signed in */}
           {userIsSignedIn && (
-            <nav className="hidden md:flex items-center gap-1">
+            <nav className="flex items-center gap-1">
               <Link 
                 to="/testlist" 
                 className="flex items-center gap-2 px-4 py-2 rounded-lg text-gray-700 hover:text-primary-text hover:bg-primary-bg-light transition-all duration-200 font-medium"
@@ -73,14 +74,6 @@ export default function Navbar() {
               </Link>
             </nav>
           )}
-
-          {/* Sign In/Out Button */}
-          {/* <Link 
-            to="/reset-password" 
-            className="hidden sm:flex items-center gap-2 px-4 py-2 rounded-lg text-blue-600 hover:text-blue-800 hover:bg-blue-50 transition-all duration-200 font-medium"
-          >
-            Reset Password
-          </Link> */}
 
           {userIsSignedIn ? (
             <Link 
@@ -99,18 +92,61 @@ export default function Navbar() {
               Sign In
             </Link>
           )}
+        </div>
           
-          {/* Mobile Menu Button */}
-          <button 
-            className="md:hidden p-2 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors"
-            aria-label="Menu"
-          >
+        {/* Mobile Menu Button */}
+        <button 
+          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+          className="md:hidden p-2 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors"
+          aria-label="Menu"
+        >
+          {mobileMenuOpen ? (
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          ) : (
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
             </svg>
-          </button>
-        </div>
+          )}
+        </button>
       </div>
+
+      {/* Mobile Menu */}
+      {mobileMenuOpen && (
+        <div className="md:hidden border-t border-gray-200 bg-white">
+          <nav className="px-4 py-3 space-y-2">
+            {userIsSignedIn && (
+              <Link 
+                to="/testlist" 
+                onClick={() => setMobileMenuOpen(false)}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg text-gray-700 hover:text-primary-text hover:bg-primary-bg-light transition-all duration-200 font-medium"
+              >
+                <HiClipboardList className="w-5 h-5" />
+                <span>Tests</span>
+              </Link>
+            )}
+            {userIsSignedIn ? (
+              <Link 
+                to="/profile" 
+                onClick={() => setMobileMenuOpen(false)}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg text-gray-700 hover:text-primary-text hover:bg-primary-bg-light transition-all duration-200 font-medium"
+              >
+                <HiUserCircle className="w-5 h-5" />
+                <span>Profile</span>
+              </Link>
+            ) : (
+              <Link 
+                to="/login" 
+                onClick={() => setMobileMenuOpen(false)}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg text-gray-700 hover:text-primary-text hover:bg-primary-bg-light transition-all duration-200 font-medium"
+              >
+                Sign In
+              </Link>
+            )}
+          </nav>
+        </div>
+      )}
     </header>
   );
 }

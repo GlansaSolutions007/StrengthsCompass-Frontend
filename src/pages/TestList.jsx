@@ -359,7 +359,7 @@ export default function TestList() {
       />
       <Navbar />
 
-      <div className="w-full px-5 sm:px-8 lg:px-12 xl:px-16 py-10 min-h-[calc(100vh-200px)] flex flex-col justify-center items-center">
+      <div className="w-full px-4 sm:px-6 md:px-8 lg:px-12 xl:px-16 py-6 sm:py-8 md:py-10 min-h-[calc(100vh-200px)] flex flex-col justify-center items-center">
         
 
         {/* Filters */}
@@ -454,7 +454,7 @@ export default function TestList() {
                    {/* Gradient Top Bar */}
                    <div className="absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r from-blue-400 via-blue-500 to-blue-600" />
                    
-                   <div className="p-8 flex flex-col h-full gap-6">
+                   <div className="p-4 sm:p-6 md:p-8 flex flex-col h-full gap-4 sm:gap-6">
                      {/* Header Section */}
                      <div className="flex items-start justify-between gap-4">
                        <div className="flex-1">
@@ -498,7 +498,7 @@ export default function TestList() {
              </div>
            ) : (
              // Multiple tests - grid layout
-             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8 max-w-7xl w-full px-4 mx-auto">
+             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6 md:gap-8 max-w-7xl w-full px-4 mx-auto">
             {filteredTests.map((test) => (
               <article
                 key={test.id}
@@ -508,7 +508,7 @@ export default function TestList() {
                 {/* Gradient Top Bar */}
                 <div className="absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r from-blue-400 via-blue-500 to-blue-600" />
                 
-                <div className="p-8 flex flex-col h-full gap-6">
+                <div className="p-4 sm:p-6 md:p-8 flex flex-col h-full gap-4 sm:gap-6">
                   {/* Header Section */}
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex-1">
