@@ -13,7 +13,7 @@ import StrengthsRadarChart from "../components/StrengthsRadarChart";
 import ConstructsRadarChart from "../components/ConstructsRadarChart";
 import TensionHeatmap from "../components/TensionHeatmap";
 import ConstructSynergyTensionMatrix from "../components/ConstructSynergyTensionMatrix";
-import ReportFooter, { addFooterToPDF, addFooterToEveryPage } from "../components/ReportFooter";
+import ReportFooter from "../components/ReportFooter";
 
 export default function UserResults() {
   const { userId } = useParams();
@@ -325,6 +325,8 @@ export default function UserResults() {
       // Extract test result from data.test_result
       const testResultData = data?.test_result;
       if (testResultData) {
+        console.log("Test Result Data:", testResultData);
+        console.log("SDB Percentage from API:", testResultData.sdb_percentage);
         setTestResult(testResultData);
       }
 
@@ -576,9 +578,10 @@ export default function UserResults() {
       };
 
       const response = await apiClient.put(
-        `/test-results/${testResult.id}/report`,
+        `/test-results/${testResult.id}/report/pdf/mpdf`,
         payload
       );
+      console.log("Response:", response.data);
 
       if (response.data?.status || response.status === 200) {
         setSummaryStatus("Summary saved successfully");
@@ -615,821 +618,97 @@ export default function UserResults() {
 
   const generatePDF = async () => {
     try {
-      if (!testResult) {
-        alert("No test result available to generate PDF");
+      if (!testResult || !testResult.id) {
+        alert("No test result available");
         return;
       }
 
       setGeneratingPDF(true);
-      console.log("Starting PDF generation...");
-
-      // Dynamically import jsPDF
-      const jsPDFModule = await import("jspdf");
-      const jsPDF = jsPDFModule.default;
-      const doc = new jsPDF();
-
-      console.log("jsPDF loaded successfully");
-
-      // Colors
-      const primaryColor = [102, 126, 234]; // #667eea
-      const primaryBlue = [37, 99, 235]; // #2563eb - Primary Blue from globalStyles
-      const secondaryYellow = [234, 179, 8]; // #eab308 - Secondary Yellow from globalStyles
-      const purpleColor = [139, 92, 246]; // #8b5cf6 - Purple color for main headings
-      const textColor = [51, 51, 51];
-      const grayColor = [128, 128, 128];
-      const yellow50 = [254, 252, 232]; // #fefce8 - Light yellow background from globalStyles
-
-      // Band colors (RGB)
-      const getBandColorRGB = (band) => {
-        if (!band) return grayColor;
-        const bandLower = band.toLowerCase();
-        if (bandLower === "low") return [59, 130, 246]; // blue-500
-        if (bandLower === "medium") return [234, 179, 8]; // yellow-500
-        if (bandLower === "high") return [34, 197, 94]; // green-500
-        return grayColor;
+      
+      const testResultId = testResult.id;
+      console.log("Calling API endpoint:", `/test-results/${testResultId}/report/pdf/mpdf`);
+      
+      // Get the base URL from apiClient
+      const baseURL = apiClient.defaults.baseURL || '';
+      const fullUrl = `${baseURL}/test-results/${testResultId}/report/pdf/mpdf`;
+      
+      // Get auth token and age group ID
+      const token = localStorage.getItem("adminToken");
+      const variantId = localStorage.getItem("adminSelectedVariantId");
+      const headers = {
+        'Accept': 'application/pdf'
       };
-
-      const pxToMm = (px) => px * 0.264583;
-
-      const captureElementImage = async (element, maxWidth = 180) => {
-        try {
-          if (!element) {
-            console.warn("captureElementImage: element is null");
-            return null;
-          }
-
-          const html2canvas = await import("html2canvas").catch((err) => {
-            console.error("Failed to import html2canvas:", err);
-            return null;
-          });
-
-          if (!html2canvas) {
-            console.error("html2canvas module not available");
-            return null;
-          }
-
-          // Allow DOM to settle before capture
-          await new Promise((resolve) =>
-            requestAnimationFrame(() => resolve())
-          );
-
-          const canvas = await html2canvas
-            .default(element, {
-              backgroundColor: "#ffffff",
-              scale: 1, // Reduced from 2 to 1 for smaller file size
-              logging: false,
-              useCORS: true,
-              allowTaint: true,
-            })
-            .catch((err) => {
-              console.error("html2canvas capture failed:", err);
-              return null;
-            });
-
-          if (!canvas) {
-            console.error("Canvas creation failed");
-            return null;
-          }
-
-          // Use JPEG with compression to reduce file size
-          const imgData = canvas.toDataURL("image/jpeg", 0.75); // 75% quality for smaller size
-          const widthPx = canvas.width;
-          const heightPx = canvas.height;
-          const naturalWidthMm = pxToMm(widthPx);
-          const imgWidth = Math.min(maxWidth, naturalWidthMm || maxWidth);
-          const imgHeight = (heightPx / widthPx) * imgWidth;
-
-          return { imgData, imgWidth, imgHeight };
-        } catch (error) {
-          console.error("Error in captureElementImage:", error);
-          return null;
-        }
-      };
-
-      // Helper function to capture and add traffic light component from DOM
-      const addTrafficLightFromDOM = async (band, x, y) => {
-        try {
-          // Find all traffic light components - look for divs with specific structure
-          const allDivs = document.querySelectorAll("div");
-          let matchingLight = null;
-
-          // Find the one matching the band text
-          for (const div of allDivs) {
-            // Check if it has the traffic light structure: inline-flex, items-center, gap-2, rounded-lg, border-3
-            const classes = div.className || "";
-            if (
-              classes.includes("inline-flex") &&
-              classes.includes("items-center") &&
-              classes.includes("gap-2") &&
-              classes.includes("rounded-lg") &&
-              classes.includes("border-3")
-            ) {
-              const text = div.textContent?.trim().toUpperCase();
-              if (text && text.includes(band.toUpperCase())) {
-                matchingLight = div;
-                break;
-              }
-            }
-          }
-
-          if (matchingLight) {
-            const html2canvas = await import("html2canvas").catch(() => null);
-            if (html2canvas) {
-              const canvas = await html2canvas.default(matchingLight, {
-                backgroundColor: "#ffffff",
-                scale: 1.5, // Reduced from 3 to 1.5 for smaller file size
-                logging: false,
-                width: matchingLight.offsetWidth,
-                height: matchingLight.offsetHeight,
-                useCORS: true,
-              });
-
-              // Use JPEG with compression for smaller file size
-              const imgData = canvas.toDataURL("image/jpeg", 0.8); // 80% quality
-
-              // Calculate size in mm (convert from pixels at 96 DPI)
-              const imgWidth = (canvas.width / 96) * 25.4; // Convert pixels to mm
-              const imgHeight = (canvas.height / 96) * 25.4;
-
-              // Scale to reasonable size (max 25mm width)
-              const maxWidth = 25;
-              let finalWidth = imgWidth;
-              let finalHeight = imgHeight;
-
-              if (imgWidth > maxWidth) {
-                const scale = maxWidth / imgWidth;
-                finalWidth = maxWidth;
-                finalHeight = imgHeight * scale;
-              }
-
-              // Add image centered vertically
-              doc.addImage(
-                imgData,
-                "PNG",
-                x,
-                y - finalHeight / 2,
-                finalWidth,
-                finalHeight
-              );
-              return finalWidth;
-            }
-          }
-        } catch (err) {
-          console.error("Error capturing traffic light:", err);
-        }
-
-        // Fallback: draw simple version if capture fails
-        const color = getBandColorRGB(band);
-        const bandText = band ? band.toUpperCase() : "N/A";
-        const circleRadius = 1.5; // 3mm radius
-        const gap = 2;
-
-        // Draw circle
-        doc.setFillColor(color[0], color[1], color[2]);
-        doc.circle(x + circleRadius, y, circleRadius, "F");
-
-        // Draw text
-        doc.setFontSize(10);
-        doc.setFont(undefined, "bold");
-        doc.setTextColor(textColor[0], textColor[1], textColor[2]);
-        doc.text(bandText, x + circleRadius * 2 + gap, y);
-
-        return circleRadius * 2 + gap + doc.getTextWidth(bandText);
-      };
-
-      let yPos = 10; // Minimal top margin for full height usage
-
-      // Add light yellow background to first page
-      doc.setFillColor(yellow50[0], yellow50[1], yellow50[2]);
-      doc.rect(0, 0, 210, 297, "F");
-
-      // Header with gradient effect
-      doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-      doc.rect(0, 0, 210, 50, "F");
-      doc.setTextColor(255, 255, 255);
-      doc.setFontSize(24);
-      doc.setFont(undefined, "bold");
-      doc.text(testResult.test?.title || "Strengths Compass", 105, 25, {
-        align: "center",
-      });
-      doc.setFontSize(12);
-      doc.setFont(undefined, "normal");
-      doc.text(
-        `Test Report - ${
-          testResult.test?.title || "Strengths Compass Assessment"
-        }`,
-        105,
-        35,
-        { align: "center" }
-      );
-
-      yPos = 50; // Start content after header
-      doc.setTextColor(textColor[0], textColor[1], textColor[2]);
-
-      const leftColumn = 15; // Equal left margin for full width usage
-      const rightMargin = 15; // Equal right margin for full width usage
-      const pageWidth = 265; // A4 page width in mm
-      const pageHeight = 310; // A4 page height in mm
-      const contentWidth = pageWidth - leftColumn - rightMargin; // Full content width (190mm) - maximum usage with equal margins
-      const bottomMargin = 45; // Space for footer (increased to accommodate full footer on every page)
-      const maxY = pageHeight - bottomMargin;
-      const sectionSpacing = 12; // Spacing between sections
-      const itemSpacing = 8; // Spacing between items
-      const labelSpacing = 6; // Spacing after labels
-      let currentY = yPos;
-
-      // Helper function to check and add new page if needed
-      const checkPageBreak = (requiredSpace = 10) => {
-        if (currentY + requiredSpace > maxY) {
-          doc.addPage();
-          // Add light yellow background to new page
-          doc.setFillColor(yellow50[0], yellow50[1], yellow50[2]);
-          doc.rect(0, 0, 210, 297, "F");
-          currentY = 10; // Minimal top margin for full height
-        }
-      };
-
-      const addSectionTitle = (title, y) => {
-        checkPageBreak(20); // Reserve space for title
-        currentY = y;
-        doc.setFontSize(16);
-        doc.setFont(undefined, "bold");
-        doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-        doc.text(title, leftColumn, currentY);
-        doc.setDrawColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-        doc.setLineWidth(0.5);
-        doc.line(leftColumn, currentY + 3, pageWidth - rightMargin, currentY + 3);
-        currentY += 12; // Reduced from 15 for tighter spacing
-        return currentY;
-      };
-
-      // Helper function to add text with automatic page breaks
-      const addTextWithPageBreak = (text, x, maxWidth, fontSize = 10) => {
-        // Use full page width minus margins for text wrapping (190mm total with equal 10mm margins)
-        const textWidth = contentWidth; // Full width: 190mm (210 - 10 - 10) - maximum usage
-        const lines = doc.splitTextToSize(text, textWidth);
-        const lineHeight = fontSize * 0.4; // Line height in mm
-
-        lines.forEach((line) => {
-          checkPageBreak(lineHeight + 2);
-          doc.setFontSize(fontSize);
-          doc.setFont(undefined, "normal");
-          doc.setTextColor(textColor[0], textColor[1], textColor[2]);
-          // Text is already split to fit textWidth, render without maxWidth to use full width
-          doc.text(line, leftColumn, currentY);
-          currentY += lineHeight + 2;
-        });
-      };
-
-      // User Information Section - Only Name, Email, and Test Status (matching web page)
-      addSectionTitle("User Information", currentY);
-
-      doc.setFontSize(11);
-      doc.setFont(undefined, "normal");
-      doc.setTextColor(textColor[0], textColor[1], textColor[2]);
-
-      // Name
-      checkPageBreak(10);
-      currentY += 2; // Top padding
-      doc.setFont(undefined, "bold");
-      doc.setTextColor(grayColor[0], grayColor[1], grayColor[2]);
-      doc.setFontSize(10);
-      const nameLabelWidth = doc.getTextWidth("Name:");
-      doc.text("Name:", leftColumn, currentY);
-      doc.setFont(undefined, "normal");
-      doc.setTextColor(textColor[0], textColor[1], textColor[2]);
-      const nameValue = user?.name || "N/A";
-      const nameTextWidth = contentWidth - nameLabelWidth - 5; // Available width for value
-      const nameLines = doc.splitTextToSize(nameValue, nameTextWidth);
-      doc.text(nameLines, leftColumn + nameLabelWidth + 5, currentY);
-      currentY += nameLines.length > 1 ? nameLines.length * 6 : 8; // Adjust for multi-line
-
-      // Email
-      checkPageBreak(10);
-      doc.setFont(undefined, "bold");
-      doc.setTextColor(grayColor[0], grayColor[1], grayColor[2]);
-      const emailLabelWidth = doc.getTextWidth("Email:");
-      doc.text("Email:", leftColumn, currentY);
-      doc.setFont(undefined, "normal");
-      doc.setTextColor(textColor[0], textColor[1], textColor[2]);
-      const emailValue = user?.email || "N/A";
-      const emailTextWidth = contentWidth - emailLabelWidth - 5; // Available width for value
-      const emailLines = doc.splitTextToSize(emailValue, emailTextWidth);
-      doc.text(emailLines, leftColumn + emailLabelWidth + 5, currentY);
-      currentY += emailLines.length > 1 ? emailLines.length * 6 : 8; // Adjust for multi-line
-
-      // Test Status
-      checkPageBreak(10);
-      doc.setFont(undefined, "bold");
-      doc.setTextColor(grayColor[0], grayColor[1], grayColor[2]);
-      const statusLabelWidth = doc.getTextWidth("Test Status:");
-      doc.text("Test Status:", leftColumn, currentY);
-      doc.setFont(undefined, "normal");
-      doc.setTextColor(textColor[0], textColor[1], textColor[2]);
-      const statusValue = testResult.status || "N/A";
-      const statusTextWidth = contentWidth - statusLabelWidth - 5; // Available width for value
-      const statusLines = doc.splitTextToSize(statusValue, statusTextWidth);
-      doc.text(statusLines, leftColumn + statusLabelWidth + 5, currentY);
-      currentY += statusLines.length > 1 ? statusLines.length * 6 : 10; // Adjust for multi-line
-
-      // Report Summary (only if exists, matching web page)
-      if (reportSummary && reportSummary.trim()) {
-        currentY += sectionSpacing;
-        addSectionTitle("Report Summary", currentY);
-        currentY += 3; // Top padding
-        doc.setFontSize(11);
-        doc.setFont(undefined, "normal");
-        doc.setTextColor(textColor[0], textColor[1], textColor[2]);
-        addTextWithPageBreak(reportSummary, leftColumn, contentWidth, 11);
-        currentY += 5; // Bottom spacing
+      
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
       }
-
-      // Cluster Scores (matching web page format)
-      if (
-        testResult?.cluster_scores &&
-        Object.keys(testResult.cluster_scores).length > 0
-      ) {
-        currentY += sectionSpacing;
-        addSectionTitle("Cluster Scores", currentY);
-
-        doc.setFontSize(11);
-        doc.setFont(undefined, "normal");
-        doc.setTextColor(textColor[0], textColor[1], textColor[2]);
-
-        for (const [clusterName, clusterData] of Object.entries(
-          testResult.cluster_scores
-        )) {
-          checkPageBreak(20); // Reserve space for cluster item
-          currentY += 3; // Top padding for each item
-
-          // Cluster Name
-          doc.setFontSize(12);
-          doc.setFont(undefined, "bold");
-          doc.setTextColor(primaryBlue[0], primaryBlue[1], primaryBlue[2]);
-          doc.text(clusterName, leftColumn, currentY);
-          currentY += itemSpacing;
-
-          // Band with traffic light
-          if (clusterData.category) {
-            checkPageBreak(10);
-            doc.setFontSize(12);
-            doc.setFont(undefined, "bold");
-            doc.setTextColor(secondaryYellow[0], secondaryYellow[1], secondaryYellow[2]);
-            doc.text("Band:", leftColumn, currentY);
-
-            // Capture traffic light from DOM (matching UI exactly)
-            const lightX = leftColumn + 20;
-            const lightY = currentY;
-            const lightWidth = await addTrafficLightFromDOM(
-              clusterData.category,
-              lightX,
-              lightY
-            );
-            currentY += labelSpacing;
-          }
-
-          // Description
-          if (clusterData.description) {
-            checkPageBreak(10);
-            doc.setFontSize(12);
-            doc.setFont(undefined, "bold");
-            doc.setTextColor(grayColor[0], grayColor[1], grayColor[2]);
-            doc.text("Description:", leftColumn, currentY);
-            currentY += labelSpacing;
-            addTextWithPageBreak(clusterData.description, leftColumn, contentWidth, 10);
-            currentY += 3;
-          }
-
-          // Tendency
-          if (clusterData.behaviour) {
-            checkPageBreak(10);
-            doc.setFontSize(12);
-            doc.setFont(undefined, "bold");
-            doc.setTextColor(grayColor[0], grayColor[1], grayColor[2]);
-            doc.text("Tendency:", leftColumn, currentY);
-            currentY += labelSpacing;
-            addTextWithPageBreak(clusterData.behaviour, leftColumn, contentWidth, 10);
-            currentY += 3;
-          }
-
-          currentY += 5; // Bottom spacing between items
-        }
+      
+      if (variantId) {
+        headers['X-Age-Group-Id'] = variantId.toString();
       }
-
-      // Construct Scores (matching web page format)
-      if (
-        testResult?.construct_scores &&
-        Object.keys(testResult.construct_scores).length > 0
-      ) {
-        // Start Construct Scores on a new page
-        doc.addPage();
-        // Add light yellow background to new page
-        doc.setFillColor(yellow50[0], yellow50[1], yellow50[2]);
-        doc.rect(0, 0, 210, 297, "F");
-        currentY = 15;
-        addSectionTitle("Construct Scores", currentY);
-
-        doc.setFontSize(11);
-        doc.setFont(undefined, "normal");
-        doc.setTextColor(textColor[0], textColor[1], textColor[2]);
-
-        for (const [constructName, constructData] of Object.entries(
-          testResult.construct_scores
-        )) {
-          checkPageBreak(20); // Reserve space for construct item
-          currentY += 3; // Top padding for each item
-
-          // Construct Name
-          doc.setFontSize(12);
-          doc.setFont(undefined, "bold");
-          doc.setTextColor(primaryBlue[0], primaryBlue[1], primaryBlue[2]);
-          doc.text(constructName, leftColumn, currentY);
-          currentY += itemSpacing;
-
-          // Band with traffic light
-          if (constructData.category) {
-            checkPageBreak(8);
-            doc.setFontSize(12);
-            doc.setFont(undefined, "bold");
-            doc.setTextColor(secondaryYellow[0], secondaryYellow[1], secondaryYellow[2]);
-            doc.text("Band:", leftColumn, currentY);
-
-            // Capture traffic light from DOM (matching UI exactly)
-            const lightX = leftColumn + 20;
-            const lightY = currentY;
-            const lightWidth = await addTrafficLightFromDOM(
-              constructData.category,
-              lightX,
-              lightY
-            );
-            currentY += labelSpacing;
-          }
-
-          // Description
-          if (constructData.description) {
-            checkPageBreak(8);
-            doc.setFontSize(12);
-            doc.setFont(undefined, "bold");
-            doc.setTextColor(grayColor[0], grayColor[1], grayColor[2]);
-            doc.text("Description:", leftColumn, currentY);
-            currentY += labelSpacing;
-            addTextWithPageBreak(
-              constructData.description,
-              leftColumn,
-              contentWidth,
-              10
-            );
-            currentY += 3;
-          }
-
-          // Tendency
-          if (constructData.behaviour) {
-            checkPageBreak(8);
-            doc.setFontSize(12);
-            doc.setFont(undefined, "bold");
-            doc.setTextColor(grayColor[0], grayColor[1], grayColor[2]);
-            doc.text("Tendency:", leftColumn, currentY);
-            currentY += labelSpacing;
-            addTextWithPageBreak(constructData.behaviour, leftColumn, contentWidth, 10);
-            currentY += 3;
-          }
-
-          currentY += 5; // Bottom spacing between items
-        }
-      }
-
-      // Convert and add Strengths Radar Chart (matching UI condition)
-      if (testResult?.cluster_scores && Object.keys(testResult.cluster_scores).length > 0) {
-        try {
-          const radarSection = document.getElementById(
-            "pdf-radar-chart-section"
-          );
-          let radarCapture = await captureElementImage(radarSection, contentWidth);
-
-          if (!radarCapture) {
-            const fallbackSvg = document.querySelector(
-              'svg.strengths-radar-chart, svg[viewBox*="500"]'
-            );
-            if (fallbackSvg) {
-              const svgData = new XMLSerializer().serializeToString(
-                fallbackSvg
-              );
-              const svgBlob = new Blob([svgData], {
-                type: "image/svg+xml;charset=utf-8",
-              });
-              const url = URL.createObjectURL(svgBlob);
-
-              const img = new Image();
-              await new Promise((resolve, reject) => {
-                img.onload = resolve;
-                img.onerror = reject;
-                img.src = url;
-              });
-
-              const canvas = document.createElement("canvas");
-              canvas.width = 500;
-              canvas.height = 500;
-              const ctx = canvas.getContext("2d");
-              ctx.fillStyle = "white";
-              ctx.fillRect(0, 0, canvas.width, canvas.height);
-              ctx.drawImage(img, 0, 0);
-
-              // Use JPEG with compression for smaller file size
-              const imgData = canvas.toDataURL("image/jpeg", 0.75); // 75% quality
-              const imgWidth = 150;
-              const imgHeight = 150;
-              radarCapture = { imgData, imgWidth, imgHeight };
-              URL.revokeObjectURL(url);
-            }
-          }
-
-          if (radarCapture) {
-            doc.addPage();
-            // Add light yellow background to new page
-            doc.setFillColor(yellow50[0], yellow50[1], yellow50[2]);
-            doc.rect(0, 0, 210, 297, "F");
-            currentY = 15;
-
-            doc.setFontSize(16);
-            doc.setFont(undefined, "bold");
-            doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-            doc.text("Strengths Radar Chart", 105, currentY, {
-              align: "center",
-            });
-            currentY += 15;
-
-            const pageWidth = 210;
-            const centerX = (pageWidth - radarCapture.imgWidth) / 2;
-            const availableHeight = pageHeight - currentY - bottomMargin;
-            const centerY =
-              currentY +
-              Math.max(0, (availableHeight - radarCapture.imgHeight) / 2);
-            const imageY =
-              centerY + radarCapture.imgHeight > pageHeight - bottomMargin
-                ? currentY
-                : centerY;
-
-            doc.addImage(
-              radarCapture.imgData,
-              "PNG",
-              centerX,
-              imageY,
-              radarCapture.imgWidth,
-              radarCapture.imgHeight
-            );
-
-            currentY = pageHeight - bottomMargin;
-          }
-        } catch (err) {
-          console.error("Error adding radar chart to PDF:", err);
-        }
-      }
-
-      // Convert and add Constructs Radar Chart
-      if (
-        testResult?.construct_scores &&
-        Object.keys(testResult.construct_scores).length > 0
-      ) {
-        try {
-          const constructsRadarSection = document.getElementById(
-            "pdf-constructs-radar-chart-section"
-          );
-          let constructsRadarCapture = await captureElementImage(
-            constructsRadarSection,
-            contentWidth
-          );
-
-          if (!constructsRadarCapture && constructsRadarSection) {
-            const fallbackSvg = constructsRadarSection.querySelector(
-              'svg[viewBox*="500"], svg.constructs-radar-chart'
-            );
-            if (fallbackSvg) {
-              const svgData = new XMLSerializer().serializeToString(
-                fallbackSvg
-              );
-              const svgBlob = new Blob([svgData], {
-                type: "image/svg+xml;charset=utf-8",
-              });
-              const url = URL.createObjectURL(svgBlob);
-
-              const img = new Image();
-              await new Promise((resolve, reject) => {
-                img.onload = resolve;
-                img.onerror = reject;
-                img.src = url;
-              });
-
-              const canvas = document.createElement("canvas");
-              canvas.width = 500;
-              canvas.height = 500;
-              const ctx = canvas.getContext("2d");
-              ctx.fillStyle = "white";
-              ctx.fillRect(0, 0, canvas.width, canvas.height);
-              ctx.drawImage(img, 0, 0);
-
-              // Use JPEG with compression for smaller file size
-              const imgData = canvas.toDataURL("image/jpeg", 0.75); // 75% quality
-              const imgWidth = 150;
-              const imgHeight = 150;
-              constructsRadarCapture = { imgData, imgWidth, imgHeight };
-              URL.revokeObjectURL(url);
-            }
-          }
-
-          if (constructsRadarCapture) {
-            doc.addPage();
-            // Add light yellow background to new page
-            doc.setFillColor(yellow50[0], yellow50[1], yellow50[2]);
-            doc.rect(0, 0, 210, 297, "F");
-            currentY = 25;
-
-            doc.setFontSize(16);
-            doc.setFont(undefined, "bold");
-            doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-            doc.text("Constructs Radar Chart", 105, currentY, {
-              align: "center",
-            });
-            currentY += 15;
-
-            const pageWidth = 210;
-            const centerX = (pageWidth - constructsRadarCapture.imgWidth) / 2;
-            const availableHeight = pageHeight - currentY - bottomMargin;
-            const centerY =
-              currentY +
-              Math.max(
-                0,
-                (availableHeight - constructsRadarCapture.imgHeight) / 2
-              );
-            const imageY =
-              centerY + constructsRadarCapture.imgHeight >
-              pageHeight - bottomMargin
-                ? currentY
-                : centerY;
-
-            doc.addImage(
-              constructsRadarCapture.imgData,
-              "PNG",
-              centerX,
-              imageY,
-              constructsRadarCapture.imgWidth,
-              constructsRadarCapture.imgHeight
-            );
-
-            currentY = pageHeight - bottomMargin;
-          }
-        } catch (err) {
-          console.error("Error adding constructs radar chart to PDF:", err);
-        }
-      }
-
-      // Convert and add Heatmap
-      if (clusterInsights.length > 0) {
-        try {
-          const heatmapSection =
-            document.getElementById("pdf-heatmap-section") ||
-            document.querySelector("table.heat, .tension-heatmap table");
-          const heatmapCapture = await captureElementImage(heatmapSection, contentWidth);
-
-          if (heatmapCapture) {
-            doc.addPage();
-            // Add light yellow background to new page
-            doc.setFillColor(yellow50[0], yellow50[1], yellow50[2]);
-            doc.rect(0, 0, 210, 297, "F");
-            currentY = 25;
-
-            doc.setFontSize(16);
-            doc.setFont(undefined, "bold");
-            doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-            doc.text("Tension / Synergy Heatmap", 105, currentY, {
-              align: "center",
-            });
-            currentY += 15;
-
-            const pageWidth = 210;
-            const centerX = (pageWidth - heatmapCapture.imgWidth) / 2;
-            const availableHeight = pageHeight - currentY - bottomMargin;
-            const centerY =
-              currentY +
-              Math.max(0, (availableHeight - heatmapCapture.imgHeight) / 2);
-            const imageY =
-              centerY + heatmapCapture.imgHeight > pageHeight - bottomMargin
-                ? currentY
-                : centerY;
-
-            doc.addImage(
-              heatmapCapture.imgData,
-              "PNG",
-              centerX,
-              imageY,
-              heatmapCapture.imgWidth,
-              heatmapCapture.imgHeight
-            );
-
-            currentY = pageHeight - bottomMargin;
-          }
-        } catch (err) {
-          console.error("Error adding heatmap to PDF:", err);
-        }
-      }
-
-      // Convert and add Construct Synergy-Tension Matrix
-      try {
-        console.log(
-          "Attempting to capture Construct Synergy-Tension Matrix..."
-        );
-        // Wait a bit for the matrix to fully render
-        await new Promise((resolve) => setTimeout(resolve, 500));
-
-        const constructMatrixSection = document.getElementById(
-          "pdf-construct-matrix-section"
-        );
-        console.log("Matrix section found:", !!constructMatrixSection);
-
-        if (constructMatrixSection) {
-          const matrixCapture = await captureElementImage(
-            constructMatrixSection,
-            contentWidth
-          );
-          console.log("Matrix capture result:", !!matrixCapture);
-
-          if (matrixCapture) {
-            doc.addPage();
-            // Add light yellow background to new page
-            doc.setFillColor(yellow50[0], yellow50[1], yellow50[2]);
-            doc.rect(0, 0, 210, 297, "F");
-            currentY = 25;
-
-            doc.setFontSize(16);
-            doc.setFont(undefined, "bold");
-            doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-            doc.text(
-              "Strengths Compass: 18x18 Construct Synergy-Tension Matrix",
-              105,
-              currentY,
-              { align: "center" }
-            );
-            currentY += 15;
-
-            const pageWidth = 210;
-            const centerX = (pageWidth - matrixCapture.imgWidth) / 2;
-            const availableHeight = pageHeight - currentY - bottomMargin;
-            const centerY =
-              currentY +
-              Math.max(0, (availableHeight - matrixCapture.imgHeight) / 2);
-            const imageY =
-              centerY + matrixCapture.imgHeight > pageHeight - bottomMargin
-                ? currentY
-                : centerY;
-
-            doc.addImage(
-              matrixCapture.imgData,
-              "PNG",
-              centerX,
-              imageY,
-              matrixCapture.imgWidth,
-              matrixCapture.imgHeight
-            );
-
-            currentY = pageHeight - bottomMargin;
-            console.log("Construct Synergy-Tension Matrix added successfully");
-          } else {
-            console.warn("Matrix capture returned null");
-          }
-        } else {
-          console.warn("Construct matrix section not found in DOM");
-        }
-      } catch (err) {
-        console.error(
-          "Error adding Construct Synergy-Tension Matrix to PDF:",
-          err
-        );
-        // Continue with PDF generation even if this section fails
-      }
-
-      // Footer (matching web page format)
-      // Add footer to every page - includes full disclaimer, email, and page numbers
-      addFooterToEveryPage(doc, testResult.created_at, {
-        textColor,
-        grayColor,
-        pageHeight,
+      
+      // Try fetching directly with fetch API for better blob handling
+      const response = await fetch(fullUrl, {
+        method: 'GET',
+        headers: headers,
       });
 
-      console.log("PDF generation completed, saving file...");
-      const fileName = `Strengths-Compass-Test-Report-${
+      console.log("Fetch Response:", response);
+      console.log("Response status:", response.status);
+      console.log("Response headers:", response.headers);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        let errorData;
+        try {
+          errorData = JSON.parse(errorText);
+        } catch (e) {
+          errorData = { message: errorText || `HTTP ${response.status}` };
+        }
+        throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      // Get content type from response headers
+      const contentType = response.headers.get('content-type') || 'application/pdf';
+      console.log("Content type:", contentType);
+
+      // Get the blob
+      const blob = await response.blob();
+      console.log("Blob size:", blob.size, "bytes");
+      console.log("Blob type:", blob.type);
+
+      if (blob.size === 0) {
+        throw new Error("Received empty file from server");
+      }
+
+      // Create a blob URL and trigger download
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `Strengths-Compass-Test-Report-${
         user?.name?.replace(/\s+/g, "_") || "User"
       }_${Date.now()}.pdf`;
-      doc.save(fileName);
-      console.log("PDF saved successfully:", fileName);
+      link.style.display = 'none';
+      document.body.appendChild(link);
+      
+      // Trigger download
+      link.click();
+      
+      // Clean up after a short delay
+      setTimeout(() => {
+        if (document.body.contains(link)) {
+          document.body.removeChild(link);
+        }
+        window.URL.revokeObjectURL(url);
+      }, 100);
+      
       setGeneratingPDF(false);
     } catch (error) {
-      console.error("Error generating PDF:", error);
-      console.error("Error stack:", error.stack);
+      console.error("Error downloading PDF:", error);
       setGeneratingPDF(false);
-      alert(
-        `Error generating PDF: ${
-          error.message || "Unknown error"
-        }. Please check the console for details.`
-      );
+      
+      const errorMessage = error.message || "Failed to download PDF. Please check the console for details.";
+      alert(`Error downloading PDF: ${errorMessage}`);
     }
   };
 
@@ -1693,7 +972,115 @@ export default function UserResults() {
                       </div>
                     )}
 
-                    {/* Cluster Scores */}
+                    {/* STRENGTHS TO LEVERAGE and EMERGING CAPABILITIES sections */}
+                    {result.cluster_scores &&
+                      Object.keys(result.cluster_scores).length > 0 && (() => {
+                        // Separate clusters by band
+                        const highBandClusters = [];
+                        const lowMediumBandClusters = [];
+
+                        Object.entries(result.cluster_scores).forEach(
+                          ([clusterName, clusterData]) => {
+                            const band = clusterData.category?.toLowerCase() || "";
+                            if (band === "high") {
+                              highBandClusters.push({ name: clusterName, data: clusterData });
+                            } else if (band === "low" || band === "medium") {
+                              lowMediumBandClusters.push({ name: clusterName, data: clusterData });
+                            }
+                          }
+                        );
+
+                        return (
+                          <>
+                            {/* STRENGTHS TO LEVERAGE Section */}
+                            {highBandClusters.length > 0 && (
+                              <div className="test-report-section mb-6">
+                                <h3 className="text-2xl font-bold mb-4" style={{ color: 'var(--color-secondary)' }}>
+                                  STRENGTHS TO LEVERAGE
+                                </h3>
+                                <div className="space-y-6">
+                                  {highBandClusters.map(({ name, data }) => (
+                                    <div
+                                      key={name}
+                                      className="border-l-4 border-blue-500 pl-4 py-2"
+                                    >
+                                      <h4 className="text-lg font-bold text-blue-600 mb-2">
+                                        {name}
+                                      </h4>
+                                      {data.behaviour && (
+                                        <div className="mt-2">
+                                          {/* <span className="text-sm font-semibold text-gray-700">
+                                            Tendency:{" "}
+                                          </span> */}
+                                          <p className="text-sm text-gray-700 mt-1">
+                                            {data.behaviour}
+                                          </p>
+                                        </div>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* EMERGING CAPABILITIES & DEVELOPMENT PRIORITIES Section */}
+                            {lowMediumBandClusters.length > 0 && (
+                              <div className="test-report-section mb-6">
+                                <h3 className="text-2xl font-bold mb-4" style={{ color: 'var(--color-secondary)' }}>
+                                  EMERGING CAPABILITIES & DEVELOPMENT PRIORITIES
+                                </h3>
+                                <div className="space-y-6">
+                                  {lowMediumBandClusters.map(({ name, data }) => (
+                                    <div
+                                      key={name}
+                                      className="border-l-4 border-blue-500 pl-4 py-2"
+                                    >
+                                      <h4 className="text-lg font-bold text-blue-600 mb-2">
+                                        {name}
+                                      </h4>
+                                      {data.behaviour && (
+                                        <div className="mt-2">
+                                          {/* <span className="text-sm font-semibold text-gray-700">
+                                            Tendency:{" "}
+                                          </span> */}
+                                          <p className="text-sm text-gray-700 mt-1">
+                                            {data.behaviour}
+                                          </p>
+                                        </div>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
+                            {(() => {
+                              const sdbPercentage = result?.sdb_percentage || testResult?.sdb_percentage;
+                              console.log("Checking Guidance - SDB Percentage:", sdbPercentage, "Result:", result, "TestResult:", testResult);
+                              return sdbPercentage && Number(sdbPercentage) >= 90;
+                            })() && (
+                              <div className="test-report-section mb-6">
+                                <div 
+                                  className="rounded-lg p-4 border-l-4"
+                                  style={{
+                                    backgroundColor: '#fee2e2', 
+                                    borderLeftColor: '#dc2626',
+                                    borderLeftWidth: '4px'
+                                  }}
+                                >
+                                  <p className="font-bold mb-2" style={{ color: '#dc2626' }}>
+                                    Guidance:
+                                  </p>
+                                  <p className="font-bold text-sm text-gray-700">
+                                    "This profile may benefit from further exploration to distinguish between current strengths and aspirational qualities. A follow-up conversation with a coach can help personalize these insights."
+                                  </p>
+                                </div>
+                              </div>
+                            )}
+                          </>
+                        );
+                      })()}
+
                     {result.cluster_scores &&
                       Object.keys(result.cluster_scores).length > 0 && (
                         <div className="test-report-section">

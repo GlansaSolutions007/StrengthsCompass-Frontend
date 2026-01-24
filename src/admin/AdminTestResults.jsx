@@ -22,7 +22,7 @@ export default function AdminTestResults() {
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
+  const [itemsPerPage, setItemsPerPage] = useState(10);
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [dateError, setDateError] = useState("");
@@ -36,6 +36,10 @@ export default function AdminTestResults() {
   const [savingSummary, setSavingSummary] = useState(false);
   const [summaryStatus, setSummaryStatus] = useState(null);
   const [exporting, setExporting] = useState(false);
+  const [selectedUsers, setSelectedUsers] = useState([]);
+  const [generatingSummaryReport, setGeneratingSummaryReport] = useState(false);
+  const [generatingFullReport, setGeneratingFullReport] = useState(false);
+  const [successModal, setSuccessModal] = useState({ isOpen: false, message: "", title: "" });
 
   const fetchTests = async () => {
     try {
@@ -300,18 +304,169 @@ export default function AdminTestResults() {
     });
   }, [results, searchTerm]);
 
-  const totalPages = Math.ceil(filteredResults.length / itemsPerPage) || 1;
+  const itemsPerPageValue = itemsPerPage === "all" ? filteredResults.length : itemsPerPage;
+  const totalPages = itemsPerPage === "all" ? 1 : Math.ceil(filteredResults.length / itemsPerPageValue) || 1;
   const currentPageSafe = Math.min(currentPage, totalPages);
-  const paginatedResults = filteredResults.slice(
-    (currentPageSafe - 1) * itemsPerPage,
-    currentPageSafe * itemsPerPage
-  );
+  const paginatedResults = itemsPerPage === "all" 
+    ? filteredResults 
+    : filteredResults.slice(
+        (currentPageSafe - 1) * itemsPerPageValue,
+        currentPageSafe * itemsPerPageValue
+      );
 
   const formatDate = (value) => {
     if (!value || value === "N/A") return "N/A";
     const date = new Date(value);
     if (Number.isNaN(date.getTime())) return "N/A";
     return date.toLocaleString();
+  };
+
+  // Checkbox selection handlers
+  const handleSelectAll = (e) => {
+    if (e.target.checked) {
+      const allIds = paginatedResults.map((result) => result.id);
+      setSelectedUsers((prev) => [...new Set([...prev, ...allIds])]);
+    } else {
+      const paginatedIds = paginatedResults.map((result) => result.id);
+      setSelectedUsers((prev) => prev.filter((id) => !paginatedIds.includes(id)));
+    }
+  };
+
+  const handleSelectUser = (userId) => {
+    setSelectedUsers((prev) =>
+      prev.includes(userId)
+        ? prev.filter((id) => id !== userId)
+        : [...prev, userId]
+    );
+  };
+
+  const isAllSelected = paginatedResults.length > 0 && paginatedResults.every((result) => selectedUsers.includes(result.id));
+  const isIndeterminate = paginatedResults.some((result) => selectedUsers.includes(result.id)) && !isAllSelected;
+
+  const handleSummaryReport = async () => {
+    try {
+      if (selectedUsers.length === 0) {
+        setError("Please select at least one user to generate the summary report.");
+        return;
+      }
+
+      const token = localStorage.getItem("adminToken");
+      if (!token) {
+        setError("Authentication required. Please login.");
+        return;
+      }
+
+      setGeneratingSummaryReport(true);
+      setError(null);
+
+      const payload = {
+        pdf_type: "short",
+        test_result_ids: selectedUsers,
+      };
+
+      const response = await apiClient.post(
+        "/reports/pdf/bulk-email",
+        payload
+      );
+
+      // Check if response is a blob (PDF) or JSON (email confirmation)
+      if (response.data instanceof Blob) {
+        // Handle PDF download
+        const blob = new Blob([response.data], {
+          type: "application/pdf",
+        });
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+        link.download = `Summary-Reports-${timestamp}.pdf`;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.URL.revokeObjectURL(url);
+      } else {
+        // Handle JSON response (likely email confirmation)
+        const message = response.data?.message || "Summary reports have been sent successfully.";
+        setError(null);
+        setSuccessModal({
+          isOpen: true,
+          message: message,
+          title: "Summary Report Generated"
+        });
+      }
+    } catch (err) {
+      console.error("Error generating summary report:", err);
+      setError(
+        err.response?.data?.message ||
+          err.message ||
+          "Failed to generate summary report. Please try again."
+      );
+    } finally {
+      setGeneratingSummaryReport(false);
+    }
+  };
+
+  const handleFullReport = async () => {
+    try {
+      if (selectedUsers.length === 0) {
+        setError("Please select at least one user to generate the full report.");
+        return;
+      }
+
+      const token = localStorage.getItem("adminToken");
+      if (!token) {
+        setError("Authentication required. Please login.");
+        return;
+      }
+
+      setGeneratingFullReport(true);
+      setError(null);
+
+      const payload = {
+        pdf_type: "full",
+        test_result_ids: selectedUsers,
+      };
+
+      const response = await apiClient.post(
+        "/reports/pdf/bulk-email",
+        payload
+      );
+
+      // Check if response is a blob (PDF) or JSON (email confirmation)
+      if (response.data instanceof Blob) {
+        // Handle PDF download
+        const blob = new Blob([response.data], {
+          type: "application/pdf",
+        });
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+        link.download = `Full-Reports-${timestamp}.pdf`;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.URL.revokeObjectURL(url);
+      } else {
+        // Handle JSON response (likely email confirmation)
+        const message = response.data?.message || "Full reports have been sent successfully.";
+        setError(null);
+        setSuccessModal({
+          isOpen: true,
+          message: message,
+          title: "Full Report Generated"
+        });
+      }
+    } catch (err) {
+      console.error("Error generating full report:", err);
+      setError(
+        err.response?.data?.message ||
+          err.message ||
+          "Failed to generate full report. Please try again."
+      );
+    } finally {
+      setGeneratingFullReport(false);
+    }
   };
 
   const handleExportExcel = async () => {
@@ -452,6 +607,14 @@ export default function AdminTestResults() {
         message={error || ""}
       />
 
+      <AlertModal
+        isOpen={successModal.isOpen}
+        onClose={() => setSuccessModal({ isOpen: false, message: "", title: "" })}
+        type="success"
+        title={successModal.title}
+        message={successModal.message}
+      />
+
       <div className="mb-4 md:mb-6 flex flex-col gap-3 md:gap-4">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
           <div className="w-full sm:w-auto">
@@ -463,12 +626,57 @@ export default function AdminTestResults() {
               Overview of user assessments and performance categories.
             </p>
           </div>
+
+
+
+          <button
+            onClick={handleSummaryReport}
+            disabled={generatingSummaryReport || selectedUsers.length === 0}
+            className="btn btn-secondary text-sm w-full sm:w-[220px] disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {generatingSummaryReport ? (
+              <>
+                <span className="spinner spinner-sm"></span>
+                <span className="hidden sm:inline">Generating...</span>
+                <span className="sm:hidden">Generating...</span>
+              </>
+            ) : (
+              <>
+                <span className="hidden sm:inline">
+                  Summary Report {selectedUsers.length > 0 && `(${selectedUsers.length})`}
+                </span>
+                <span className="sm:hidden">Download</span>
+              </>
+            )}
+          </button>
+
+          <button
+            onClick={handleFullReport}
+            disabled={generatingFullReport || selectedUsers.length === 0}
+            className="btn btn-secondary text-sm w-full sm:w-[220px] disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {generatingFullReport ? (
+              <>
+                <span className="spinner spinner-sm"></span>
+                <span className="hidden sm:inline">Generating...</span>
+                <span className="sm:hidden">Generating...</span>
+              </>
+            ) : (
+              <>
+                <span className="hidden sm:inline">
+                  Full Report {selectedUsers.length > 0 && `(${selectedUsers.length})`}
+                </span>
+                <span className="sm:hidden">Download</span>
+              </>
+            )}
+          </button>
+
           <button
             onClick={handleExportExcel}
             disabled={exporting}
             // className="btn bg-green-600 hover:bg-green-700 text-white shadow-md flex items-center gap-2 w-full sm:w-auto text-sm sm:text-base disabled:opacity-50 disabled:cursor-not-allowed"
 
-            className="btn btn-secondary text-sm"
+            className="btn btn-primary text-sm w-full sm:w-[220px]"
           >
             {exporting ? (
               <>
@@ -480,7 +688,7 @@ export default function AdminTestResults() {
               <>
                 <HiDownload className="w-4 h-4 sm:w-5 sm:h-5" />
                 <span className="hidden sm:inline">
-                  Download All Test Results
+                  All Test Results
                 </span>
                 <span className="sm:hidden">Download</span>
               </>
@@ -488,41 +696,56 @@ export default function AdminTestResults() {
           </button>
         </div>
 
-        <div className="flex flex-col lg:flex-row gap-3 items-start lg:items-center justify-between">
-          <div className="flex-1 w-full lg:max-w-md">
-            <div className="group flex w-full rounded-md overflow-hidden border border-neutral-300 transition-all focus-within:ring-2 focus-within:ring-secondary focus-within:border-secondary">
-              <div className="flex items-center justify-center bg-primary-bg-light px-2 sm:px-3 transition-all group-focus-within:bg-secondary-bg-light">
-                <HiSearch className="h-4 w-4 sm:h-5 sm:w-5 primary-text group-focus-within:secondary-text transition-colors" />
+        {/* Filters Card */}
+        <div className="bg-white rounded-lg border border-neutral-200 shadow-sm p-4 mb-4">
+          <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-end">
+            {/* Total Users Count - Aligned with inputs */}
+            <div className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-50 to-blue-100 border border-blue-300 rounded-lg shadow-sm h-9 self-end lg:self-auto">
+              <div className="p-1 bg-blue-500 rounded-full">
+                <HiUser className="w-3.5 h-3.5 text-white" />
               </div>
-              <input
-                type="text"
-                value={searchTerm}
-                onChange={(e) => {
-                  setSearchTerm(e.target.value);
-                  setCurrentPage(1);
-                }}
-                placeholder="Search by name, email, test..."
-                className="flex-1 py-2 px-2 sm:px-3 bg-white text-xs sm:text-sm focus:outline-none focus:bg-secondary-bg-light transition-colors"
-              />
-              {searchTerm && (
-                <button
-                  onClick={() => {
-                    setSearchTerm("");
+              <div className="flex items-baseline gap-1.5">
+                <span className="text-xs text-blue-700 font-medium">Total Users:</span>
+                <span className="text-base font-bold text-blue-900">{filteredResults.length}</span>
+              </div>
+            </div>
+
+            {/* Search Bar */}
+            <div className="flex-1 w-full lg:max-w-md">
+              <div className="group flex w-full rounded-md overflow-hidden border border-neutral-300 transition-all focus-within:ring-2 focus-within:ring-secondary focus-within:border-secondary h-9">
+                <div className="flex items-center justify-center bg-primary-bg-light px-3 transition-all group-focus-within:bg-secondary-bg-light">
+                  <HiSearch className="h-4 w-4 primary-text group-focus-within:secondary-text transition-colors" />
+                </div>
+                <input
+                  type="text"
+                  value={searchTerm}
+                  onChange={(e) => {
+                    setSearchTerm(e.target.value);
                     setCurrentPage(1);
                   }}
-                  className="flex items-center justify-center px-2 sm:px-3 hover:bg-secondary-bg-light transition-colors"
-                  title="Clear search"
-                >
-                  <HiX className="w-4 h-4 neutral-text-muted" />
-                </button>
-              )}
+                  placeholder="Search by name, email, test..."
+                  className="flex-1 py-2 px-3 bg-white text-xs sm:text-sm focus:outline-none focus:bg-secondary-bg-light transition-colors h-full"
+                />
+                {searchTerm && (
+                  <button
+                    onClick={() => {
+                      setSearchTerm("");
+                      setCurrentPage(1);
+                    }}
+                    className="flex items-center justify-center px-3 hover:bg-secondary-bg-light transition-colors h-full"
+                    title="Clear search"
+                  >
+                    <HiX className="w-4 h-4 neutral-text-muted" />
+                  </button>
+                )}
+              </div>
             </div>
-          </div>
 
-          <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-end gap-2 sm:gap-3 w-full lg:w-auto">
-            <div className="flex items-center gap-2 sm:gap-3">
-              <div className="flex flex-col flex-1 sm:flex-none">
-                <label className="text-xs neutral-text-muted mb-1">
+            {/* Filter Controls - All aligned at bottom */}
+            <div className="flex flex-col sm:flex-row gap-3 flex-1 lg:flex-nowrap">
+              {/* Test Dropdown */}
+              <div className="flex flex-col min-w-[160px]">
+                <label className="text-xs font-medium neutral-text-muted mb-1.5">
                   Test
                 </label>
                 <div className="relative">
@@ -532,7 +755,7 @@ export default function AdminTestResults() {
                       setSelectedTestId(e.target.value);
                       setCurrentPage(1);
                     }}
-                    className="input input-sm bg-white text-xs sm:text-sm pr-8 sm:pr-9 pl-2 sm:pl-3 w-full sm:w-auto focus:outline-none focus:ring-2 focus:ring-secondary focus:border-secondary appearance-none"
+                    className="input input-sm bg-white text-xs sm:text-sm pr-8 pl-3 w-full h-9 focus:outline-none focus:ring-2 focus:ring-secondary focus:border-secondary appearance-none border-neutral-300"
                     disabled={testsLoading}
                   >
                     <option value="">All Tests</option>
@@ -542,11 +765,13 @@ export default function AdminTestResults() {
                       </option>
                     ))}
                   </select>
-                  <HiChevronDown className="w-3 h-3 sm:w-4 sm:h-4 text-blue-500 absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <HiChevronDown className="w-4 h-4 text-blue-500 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
                 </div>
               </div>
-              <div className="flex flex-col flex-1 sm:flex-none">
-                <label className="text-xs neutral-text-muted mb-1">
+
+              {/* From Date */}
+              <div className="flex flex-col min-w-[150px]">
+                <label className="text-xs font-medium neutral-text-muted mb-1.5">
                   From Date
                 </label>
                 <div className="relative">
@@ -559,7 +784,6 @@ export default function AdminTestResults() {
                       setFromDate(selectedDate);
                       setDateError("");
 
-                      // Validate: To Date should not be before From Date
                       if (
                         toDate &&
                         selectedDate &&
@@ -570,15 +794,17 @@ export default function AdminTestResults() {
                         setDateError("");
                       }
                     }}
-                    className={`input input-sm bg-white text-xs sm:text-sm pr-8 sm:pr-9 pl-2 sm:pl-3 w-full sm:w-auto ${
+                    className={`input input-sm bg-white text-xs sm:text-sm pr-8 pl-3 w-full h-9 border-neutral-300 ${
                       dateError ? "border-red-300 focus:border-red-500" : ""
                     }`}
                   />
-                  <HiCalendar className="w-3 h-3 sm:w-4 sm:h-4 text-blue-500 absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <HiCalendar className="w-4 h-4 text-blue-500 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
                 </div>
               </div>
-              <div className="flex flex-col flex-1 sm:flex-none">
-                <label className="text-xs neutral-text-muted mb-1">
+
+              {/* To Date */}
+              <div className="flex flex-col min-w-[150px]">
+                <label className="text-xs font-medium neutral-text-muted mb-1.5">
                   To Date
                 </label>
                 <div className="relative">
@@ -592,7 +818,6 @@ export default function AdminTestResults() {
                       setToDate(selectedDate);
                       setDateError("");
 
-                      // Validate: To Date should not be before From Date
                       if (
                         fromDate &&
                         selectedDate &&
@@ -603,69 +828,72 @@ export default function AdminTestResults() {
                         setDateError("");
                       }
                     }}
-                    className={`input input-sm bg-white text-xs sm:text-sm pr-8 sm:pr-9 pl-2 sm:pl-3 w-full sm:w-auto ${
+                    className={`input input-sm bg-white text-xs sm:text-sm pr-8 pl-3 w-full h-9 border-neutral-300 ${
                       dateError ? "border-red-300 focus:border-red-500" : ""
                     }`}
                   />
-                  <HiCalendar className="w-3 h-3 sm:w-4 sm:h-4 text-blue-500 absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <HiCalendar className="w-4 h-4 text-blue-500 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
                 </div>
               </div>
-            </div>
-            {dateError && (
-              <div className="w-full text-xs text-red-600 mt-1">
-                {dateError}
-              </div>
-            )}
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  // Validate dates before applying
-                  if (
-                    fromDate &&
-                    toDate &&
-                    new Date(fromDate) > new Date(toDate)
-                  ) {
-                    setDateError("From Date cannot be after To Date");
-                    return;
-                  }
-                  if (fromDate && new Date(fromDate) > new Date()) {
-                    setDateError("From Date cannot be in the future");
-                    return;
-                  }
-                  if (toDate && new Date(toDate) > new Date()) {
-                    setDateError("To Date cannot be in the future");
-                    return;
-                  }
-                  setDateError("");
-                  setLoading(true);
-                  setCurrentPage(1);
-                  fetchResults();
-                }}
-                className="btn btn-sm secondary-bg black-text hover:secondary-bg-dark shadow-md flex-1 sm:flex-none"
-                disabled={!!dateError}
-              >
-                Apply
-              </button>
-              {(fromDate || toDate || selectedTestId) && (
+
+              {/* Action Buttons */}
+              <div className="flex items-end gap-2">
                 <button
                   type="button"
                   onClick={() => {
-                    setFromDate("");
-                    setToDate("");
-                    setSelectedTestId("");
+                    if (
+                      fromDate &&
+                      toDate &&
+                      new Date(fromDate) > new Date(toDate)
+                    ) {
+                      setDateError("From Date cannot be after To Date");
+                      return;
+                    }
+                    if (fromDate && new Date(fromDate) > new Date()) {
+                      setDateError("From Date cannot be in the future");
+                      return;
+                    }
+                    if (toDate && new Date(toDate) > new Date()) {
+                      setDateError("To Date cannot be in the future");
+                      return;
+                    }
                     setDateError("");
                     setLoading(true);
                     setCurrentPage(1);
                     fetchResults();
                   }}
-                  className="btn btn-ghost btn-sm flex-1 sm:flex-none"
+                  className="btn btn-sm secondary-bg black-text hover:secondary-bg-dark shadow-md whitespace-nowrap h-9 px-4 font-medium"
+                  disabled={!!dateError}
                 >
-                  Clear
+                  Apply
                 </button>
-              )}
+                {(fromDate || toDate || selectedTestId) && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFromDate("");
+                      setToDate("");
+                      setSelectedTestId("");
+                      setDateError("");
+                      setLoading(true);
+                      setCurrentPage(1);
+                      fetchResults();
+                    }}
+                    className="btn btn-ghost btn-sm whitespace-nowrap h-9 px-4"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
             </div>
           </div>
+
+          {/* Date Error Message */}
+          {dateError && (
+            <div className="mt-3 text-xs text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2">
+              {dateError}
+            </div>
+          )}
         </div>
       </div>
 
@@ -700,11 +928,50 @@ export default function AdminTestResults() {
               <table className="table min-w-full">
                 <thead>
                   <tr className="bg-medium border-b border-neutral-border-light">
-                    <th className="font-semibold text-xs sm:text-sm py-2 sm:py-3 px-2 sm:px-4 text-left neutral-text-muted sticky left-0 bg-medium z-[5]">
+                    <th className="font-semibold text-xs sm:text-sm py-2 sm:py-3 px-2 sm:px-4 text-center neutral-text-muted sticky left-0 bg-medium z-[5] w-14 sm:w-auto">
+                      <div className="flex items-center justify-center gap-1.5 px-2 py-1">
+                        <input
+                          type="checkbox"
+                          checked={isAllSelected}
+                          ref={(input) => {
+                            if (input) input.indeterminate = isIndeterminate;
+                          }}
+                          onChange={handleSelectAll}
+                          className="w-4 h-4 text-blue-600 bg-white border-gray-400 rounded focus:ring-blue-500 focus:ring-2 cursor-pointer hover:border-blue-500 transition-colors"
+                          title={isAllSelected ? "Deselect all" : "Select all"}
+                        />
+                        {/* <span className="text-xs font-medium hidden sm:inline">Select All</span> */}
+                      </div>
+                    </th>
+                    <th className="font-semibold text-xs sm:text-sm py-2 sm:py-3 px-2 sm:px-4 text-left neutral-text-muted sticky left-[56px] sm:left-[64px] bg-medium z-[5]">
                       #
                     </th>
-                    <th className="font-semibold text-xs sm:text-sm py-2 sm:py-3 px-2 sm:px-4 text-left neutral-text-muted sticky left-[40px] sm:left-[50px] bg-medium z-[5] min-w-[150px] sm:min-w-[200px]">
-                      User
+                    <th className="font-semibold text-xs sm:text-sm py-2 sm:py-3 px-2 sm:px-4 text-left neutral-text-muted sticky left-[96px] sm:left-[114px] bg-medium z-[5] min-w-[150px] sm:min-w-[200px]">
+                      <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1.5">
+                          {/* <span className="text-xs neutral-text-muted whitespace-nowrap hidden sm:inline">
+                            Show:
+                          </span> */}
+                          <div className="relative">
+                            <select
+                              value={itemsPerPage}
+                              onChange={(e) => {
+                                const value = e.target.value === "all" ? "all" : parseInt(e.target.value);
+                                setItemsPerPage(value);
+                                setCurrentPage(1);
+                              }}
+                              className="input input-sm bg-white text-xs pr-5 pl-2 h-7 sm:h-8 focus:outline-none focus:ring-2 focus:ring-secondary focus:border-secondary appearance-none border-neutral-300"
+                            >
+                              <option value={10}>10</option>
+                              <option value={50}>50</option>
+                              <option value={100}>100</option>
+                              <option value="all">All</option>
+                            </select>
+                            <HiChevronDown className="w-3 h-3 text-blue-500 absolute right-1 top-1/2 -translate-y-1/2 pointer-events-none" />
+                          </div>
+                        </div>
+                        <span>User</span>
+                      </div>
                     </th>
 
                     {/* <th className="font-semibold text-sm py-3 px-4 text-center neutral-text-muted min-w-[100px]">
@@ -737,7 +1004,9 @@ export default function AdminTestResults() {
                 <tbody>
                   {paginatedResults.map((result, index) => {
                     const rowNumber =
-                      (currentPageSafe - 1) * itemsPerPage + index + 1;
+                      itemsPerPage === "all"
+                        ? index + 1
+                        : (currentPageSafe - 1) * itemsPerPageValue + index + 1;
                     const isEven = index % 2 === 0;
                     return (
                       <tr
@@ -747,7 +1016,21 @@ export default function AdminTestResults() {
                         } hover:bg-gray-100 transition-colors`}
                       >
                         <td
-                          className={`py-2 sm:py-3 px-2 sm:px-4 neutral-text-muted sticky left-0 z-[4] transition-colors text-xs sm:text-sm ${
+                          className={`py-2 sm:py-3 px-2 sm:px-4 text-center sticky left-0 z-[4] transition-colors ${
+                            isEven
+                              ? "bg-white group-hover:bg-gray-100"
+                              : "bg-gray-50 group-hover:bg-gray-100"
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={selectedUsers.includes(result.id)}
+                            onChange={() => handleSelectUser(result.id)}
+                            className="w-4 h-4 text-blue-600 bg-white border-gray-400 rounded focus:ring-blue-500 focus:ring-2 cursor-pointer hover:border-blue-500 transition-colors"
+                          />
+                        </td>
+                        <td
+                          className={`py-2 sm:py-3 px-2 sm:px-4 neutral-text-muted sticky left-[56px] sm:left-[64px] z-[4] transition-colors text-xs sm:text-sm ${
                             isEven
                               ? "bg-white group-hover:bg-gray-100"
                               : "bg-gray-50 group-hover:bg-gray-100"
@@ -756,7 +1039,7 @@ export default function AdminTestResults() {
                           {rowNumber}
                         </td>
                         <td
-                          className={`py-2 sm:py-3 px-2 sm:px-4 sticky left-[40px] sm:left-[50px] z-[4] transition-colors ${
+                          className={`py-2 sm:py-3 px-2 sm:px-4 sticky left-[96px] sm:left-[114px] z-[4] transition-colors ${
                             isEven
                               ? "bg-white group-hover:bg-gray-100"
                               : "bg-gray-50 group-hover:bg-gray-100"
@@ -952,19 +1235,23 @@ export default function AdminTestResults() {
             </div>
           </div>
 
-          {filteredResults.length > itemsPerPage && (
+          {filteredResults.length > 0 && (
             <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mt-4 pt-4 border-t border-neutral-border-light">
               <div className="text-xs sm:text-sm neutral-text-muted text-center sm:text-left">
                 Showing{" "}
                 <span className="font-medium neutral-text">
-                  {(currentPageSafe - 1) * itemsPerPage + 1}
+                  {itemsPerPage === "all" 
+                    ? 1 
+                    : (currentPageSafe - 1) * itemsPerPageValue + 1}
                 </span>{" "}
                 to{" "}
                 <span className="font-medium neutral-text">
-                  {Math.min(
-                    currentPageSafe * itemsPerPage,
-                    filteredResults.length
-                  )}
+                  {itemsPerPage === "all"
+                    ? filteredResults.length
+                    : Math.min(
+                        currentPageSafe * itemsPerPageValue,
+                        filteredResults.length
+                      )}
                 </span>{" "}
                 of{" "}
                 <span className="font-medium neutral-text">
@@ -972,31 +1259,33 @@ export default function AdminTestResults() {
                 </span>{" "}
                 results
               </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() =>
-                    setCurrentPage((prev) => Math.max(1, prev - 1))
-                  }
-                  disabled={currentPageSafe === 1}
-                  className="btn btn-ghost btn-sm flex items-center gap-1 text-xs sm:text-sm"
-                >
-                  <HiChevronLeft className="w-3 h-3 sm:w-4 sm:h-4" />
-                  <span className="hidden sm:inline">Prev</span>
-                </button>
-                <div className="text-xs sm:text-sm font-medium">
-                  Page {currentPageSafe} of {totalPages}
+              {itemsPerPage !== "all" && filteredResults.length > itemsPerPageValue && (
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() =>
+                      setCurrentPage((prev) => Math.max(1, prev - 1))
+                    }
+                    disabled={currentPageSafe === 1}
+                    className="btn btn-ghost btn-sm flex items-center gap-1 text-xs sm:text-sm"
+                  >
+                    <HiChevronLeft className="w-3 h-3 sm:w-4 sm:h-4" />
+                    <span className="hidden sm:inline">Prev</span>
+                  </button>
+                  <div className="text-xs sm:text-sm font-medium">
+                    Page {currentPageSafe} of {totalPages}
+                  </div>
+                  <button
+                    onClick={() =>
+                      setCurrentPage((prev) => Math.min(totalPages, prev + 1))
+                    }
+                    disabled={currentPageSafe === totalPages}
+                    className="btn btn-ghost btn-sm flex items-center gap-1 text-xs sm:text-sm"
+                  >
+                    <span className="hidden sm:inline">Next</span>
+                    <HiChevronRight className="w-3 h-3 sm:w-4 sm:h-4" />
+                  </button>
                 </div>
-                <button
-                  onClick={() =>
-                    setCurrentPage((prev) => Math.min(totalPages, prev + 1))
-                  }
-                  disabled={currentPageSafe === totalPages}
-                  className="btn btn-ghost btn-sm flex items-center gap-1 text-xs sm:text-sm"
-                >
-                  <span className="hidden sm:inline">Next</span>
-                  <HiChevronRight className="w-3 h-3 sm:w-4 sm:h-4" />
-                </button>
-              </div>
+              )}
             </div>
           )}
 
@@ -1061,3 +1350,4 @@ export default function AdminTestResults() {
     </div>
   );
 }
+

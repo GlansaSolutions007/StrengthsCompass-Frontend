@@ -1064,7 +1064,7 @@ export default function Test() {
                 
               </thead>
               <tbody>
-                {currentQuestions.map((question, qIndex) => {
+                {currentQuestions.map((question) => {
                   const selectedAnswer = answers[question.id];
 
                   return (
@@ -1074,6 +1074,15 @@ export default function Test() {
                           <p className="font-semibold neutral-text text-base md:text-lg flex items-center gap-2">
                             <span className="secondary-text text-2xl font-bold">•</span>
                             <span>{question.question_text}</span>
+                            <span>
+                              {question?.translations?.find(t => t.language_code === "te")?.translated_text}
+                              {/* నేను ప్రజలతో నిజాయితీగా, నిజాయితీగా ఉంటాను. */}
+                            </span>
+
+                            <span>
+                              {console.log("question.translations", question?.translations?.find(t => t.language_code === "te")?.translated_text)}
+                            </span>
+
                           </p>
                         </td>
                       </tr>

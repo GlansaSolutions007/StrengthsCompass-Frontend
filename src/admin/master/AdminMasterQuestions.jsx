@@ -78,6 +78,11 @@ export default function AdminMasterQuestions() {
   const [showLanguageUploadModal, setShowLanguageUploadModal] = useState(false);
   const [isClosingLanguageUpload, setIsClosingLanguageUpload] = useState(false);
   const [languageUploadFile, setLanguageUploadFile] = useState(null);
+  const [languageEditModal, setLanguageEditModal] = useState({
+    isOpen: false,
+    question: null,
+  });
+  const [isClosingLanguageEdit, setIsClosingLanguageEdit] = useState(false);
 
   const fetchClusters = async () => {
     try {
@@ -173,6 +178,7 @@ export default function AdminMasterQuestions() {
             category: q.category || "",
             order_no: q.order_no || q.orderNo || 0,
             construct_id: q.construct_id || q.constructId,
+            translations: q.translations || [],
           }))
         );
         setError(null);
@@ -1709,7 +1715,7 @@ export default function AdminMasterQuestions() {
                             const formData = new FormData();
                             formData.append("file", languageUploadFile);
 
-                            const response = await apiClient.post("/questions/language-bulk-upload", formData, {
+                            const response = await apiClient.post("/questions/import-translations", formData, {
                               headers: {
                                 "Content-Type": "multipart/form-data",
                               },
@@ -1761,7 +1767,7 @@ export default function AdminMasterQuestions() {
                 </div>
 
                 {/* Download Section */}
-                <div className="bg-white p-6 rounded-lg border border-neutral-border-light">
+                {/* <div className="bg-white p-6 rounded-lg border border-neutral-border-light">
                   <h4 className="text-sm font-semibold neutral-text mb-2 flex items-center gap-2">
                     <HiDownload className="w-5 h-5" />
                     Download Template
@@ -1812,7 +1818,7 @@ export default function AdminMasterQuestions() {
                       </>
                     )}
                   </button>
-                </div>
+                </div> */}
 
                 <div className="flex justify-end gap-3 pt-4 border-t border-neutral-border-light">
                   <button
