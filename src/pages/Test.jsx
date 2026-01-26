@@ -4,6 +4,7 @@ import { HiCheck, HiChevronLeft, HiChevronRight, HiTranslate, HiChevronDown, HiM
 import Navbar from "../components/Navbar";
 import AlertModal from "../components/AlertModal";
 import apiClient from "../config/api";
+import axios from "axios";
 import logoImage from "../../Images/Logo.png";
 
 export default function Test() {
@@ -56,7 +57,7 @@ export default function Test() {
   const [showLoginPassword, setShowLoginPassword] = useState(false);
   const itemsPerPage = 10;
 
-  // Available languages for 13-17 age group
+  // Available languages for all age groups
   const languages = [
     { id: 1, name: "Telugu", code: "te" },
     { id: 2, name: "Hindi", code: "hi" },
@@ -214,74 +215,149 @@ export default function Test() {
     try {
       setLoading(true);
       setError(null);
-      const response = await apiClient.get(`/tests/${idToUse}/take`);
+      
+      // Fetch test data and questions in parallel
+      // Test endpoint gives us test metadata and question IDs
+      // Questions endpoint gives us questions with translations
+      // IMPORTANT: Use direct axios for /questions to bypass age_group_id filter
+      // so translations are available for ALL users, not just specific age groups
+      const API_BASE_URL = "https://strengthscompass.axiscompass.in/v1/api";
+      const userToken = localStorage.getItem("token") || 
+                       localStorage.getItem("userToken") || 
+                       localStorage.getItem("authToken");
+      
+      const questionsHeaders = {
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+      };
+      
+      if (userToken) {
+        questionsHeaders.Authorization = `Bearer ${userToken}`;
+      }
+      
+      const [testResponse, questionsResponse] = await Promise.all([
+        apiClient.get(`/tests/${idToUse}/take`),
+        axios.get(`${API_BASE_URL}/questions`, { headers: questionsHeaders })
+      ]);
 
-      if (response.data?.status && response.data.data) {
-        const testData = response.data.data;
-        const extractedName =
+      // Extract test name from test response
+      let extractedName = "Assessment Test";
+      if (testResponse.data?.status && testResponse.data.data) {
+        const testData = testResponse.data.data;
+        extractedName =
           testData.title ||
           testData.name ||
           testData.test_name ||
           testData.testName ||
           testData?.test?.title ||
           testData?.test?.name ||
-          response.data?.data?.test?.title ||
-          response.data?.data?.test?.name;
-        setTestName(extractedName || "Assessment Test");
-        
-        // Extract questions from test data
-        if (testData.questions && Array.isArray(testData.questions)) {
-          setQuestions(
-            testData.questions.map((q) => ({
-              id: q.id,
-              question_text: q.question_text || q.questionText || q.question || "",
-              category: q.category || "",
-              order_no: q.order_no || q.orderNo || 0,
-            }))
-          );
-        } else if (testData.data?.questions) {
-          setQuestions(
-            testData.data.questions.map((q) => ({
-              id: q.id,
-              question_text: q.question_text || q.questionText || q.question || "",
-              category: q.category || "",
-              order_no: q.order_no || q.orderNo || 0,
-            }))
-          );
-        } else if (Array.isArray(testData)) {
-          // If testData is directly an array of questions
-          setQuestions(
-            testData.map((q) => ({
-              id: q.id,
-              question_text: q.question_text || q.questionText || q.question || "",
-              category: q.category || "",
-              order_no: q.order_no || q.orderNo || 0,
-            }))
-          );
-        }
-      } else if (response.data?.data) {
-        // Handle case where data is directly in response.data.data
-        const testData = response.data.data;
-        const extractedName =
+          testResponse.data?.data?.test?.title ||
+          testResponse.data?.data?.test?.name ||
+          "Assessment Test";
+      } else if (testResponse.data?.data) {
+        const testData = testResponse.data.data;
+        extractedName =
           testData.title ||
           testData.name ||
           testData.test_name ||
           testData.testName ||
           testData?.test?.title ||
-          testData?.test?.name;
-        setTestName(extractedName || "Assessment Test");
-        if (Array.isArray(testData)) {
-          setQuestions(
-            testData.map((q) => ({
-              id: q.id,
-              question_text: q.question_text || q.questionText || q.question || "",
-              category: q.category || "",
-              order_no: q.order_no || q.orderNo || 0,
-            }))
-          );
+          testData?.test?.name ||
+          "Assessment Test";
+      }
+      setTestName(extractedName);
+
+      // Extract question IDs from test response
+      let testQuestionIds = [];
+      if (testResponse.data?.status && testResponse.data.data) {
+        const testData = testResponse.data.data;
+        if (testData.questions && Array.isArray(testData.questions)) {
+          testQuestionIds = testData.questions.map((q) => q.id);
+        } else if (testData.data?.questions && Array.isArray(testData.data.questions)) {
+          testQuestionIds = testData.data.questions.map((q) => q.id);
         }
+      } else if (testResponse.data?.data) {
+        const testData = testResponse.data.data;
+        if (Array.isArray(testData)) {
+          testQuestionIds = testData.map((q) => q.id);
+        } else if (testData.questions && Array.isArray(testData.questions)) {
+          testQuestionIds = testData.questions.map((q) => q.id);
+        }
+      }
+
+      // Extract questions with translations from /questions endpoint
+      let allQuestions = [];
+      if (questionsResponse.data?.status && questionsResponse.data.data) {
+        allQuestions = Array.isArray(questionsResponse.data.data) 
+          ? questionsResponse.data.data 
+          : [questionsResponse.data.data];
+      } else if (Array.isArray(questionsResponse.data)) {
+        allQuestions = questionsResponse.data;
+      } else if (questionsResponse.data?.data && Array.isArray(questionsResponse.data.data)) {
+        allQuestions = questionsResponse.data.data;
+      }
+
+      // If we have question IDs from test, filter questions; otherwise use all questions
+      let finalQuestions = [];
+      if (testQuestionIds.length > 0) {
+        // Create a map for quick lookup
+        const questionsMap = new Map();
+        allQuestions.forEach((q) => {
+          questionsMap.set(q.id, q);
+        });
+
+        // Filter and map questions in the order they appear in the test
+        finalQuestions = testQuestionIds
+          .map((id) => questionsMap.get(id))
+          .filter((q) => q !== undefined)
+          .map((q) => ({
+            id: q.id,
+            question_text: q.question_text || q.questionText || q.question || "",
+            category: q.category || "",
+            order_no: q.order_no || q.orderNo || 0,
+            translations: q.translations || [],
+          }));
       } else {
-        setError("Failed to load test data");
+        // If no question IDs from test, use questions from test response as fallback
+        // but try to enrich with translations from /questions endpoint
+        let testQuestions = [];
+        if (testResponse.data?.status && testResponse.data.data) {
+          const testData = testResponse.data.data;
+          if (testData.questions && Array.isArray(testData.questions)) {
+            testQuestions = testData.questions;
+          } else if (testData.data?.questions && Array.isArray(testData.data.questions)) {
+            testQuestions = testData.data.questions;
+          }
+        } else if (testResponse.data?.data) {
+          const testData = testResponse.data.data;
+          if (Array.isArray(testData)) {
+            testQuestions = testData;
+          }
+        }
+
+        // Create a map of questions with translations
+        const questionsMap = new Map();
+        allQuestions.forEach((q) => {
+          questionsMap.set(q.id, q);
+        });
+
+        // Merge test questions with translations from /questions endpoint
+        finalQuestions = testQuestions.map((q) => {
+          const enrichedQuestion = questionsMap.get(q.id) || q;
+          return {
+            id: q.id,
+            question_text: enrichedQuestion.question_text || q.question_text || q.questionText || q.question || "",
+            category: q.category || "",
+            order_no: q.order_no || q.orderNo || 0,
+            translations: enrichedQuestion.translations || q.translations || [],
+          };
+        });
+      }
+
+      if (finalQuestions.length > 0) {
+        setQuestions(finalQuestions);
+      } else {
+        setError("No questions found for this test");
       }
     } catch (err) {
       console.error("Error fetching test data:", err);
@@ -335,18 +411,8 @@ export default function Test() {
     }
   }, []);
 
-  // Load saved language from localStorage
-  useEffect(() => {
-    const savedLanguage = localStorage.getItem("selectedLanguage");
-    if (savedLanguage) {
-      try {
-        const language = JSON.parse(savedLanguage);
-        setSelectedLanguage(language);
-      } catch (err) {
-        console.error("Error parsing saved language:", err);
-      }
-    }
-  }, []);
+  // Don't auto-load saved language - English is default
+  // Language selection persists during session but defaults to English on new page load
 
   // Load saved answers from localStorage when questions are loaded
   useEffect(() => {
@@ -364,15 +430,117 @@ export default function Test() {
     }
   }, [loading, questions.length, testId]);
 
-  // Check if user is in 13-17 age group
+  // Language selection is available only for age group 13-17
   const isEligibleForLanguageSelection = userAge !== null && userAge >= 13 && userAge <= 17;
+
+  // Reset language selection if user is not eligible
+  useEffect(() => {
+    if (!isEligibleForLanguageSelection && selectedLanguage) {
+      setSelectedLanguage(null);
+      localStorage.removeItem("selectedLanguage");
+    }
+  }, [isEligibleForLanguageSelection, selectedLanguage]);
 
   const handleLanguageSelect = (language) => {
     setSelectedLanguage(language);
     setShowLanguageDropdown(false);
     // Save selected language to localStorage
-    localStorage.setItem("selectedLanguage", JSON.stringify(language));
+    if (language) {
+      localStorage.setItem("selectedLanguage", JSON.stringify(language));
+    } else {
+      localStorage.removeItem("selectedLanguage");
+    }
   };
+
+  const handleEnglishSelect = () => {
+    setSelectedLanguage(null);
+    setShowLanguageDropdown(false);
+    localStorage.removeItem("selectedLanguage");
+  };
+
+  // Helper function to get translated text for a question
+  const getQuestionText = useCallback((question) => {
+    // If no language is selected, show English by default
+    if (!selectedLanguage) {
+      return {
+        text: question.question_text || "",
+        hasTranslation: false,
+      };
+    }
+
+    // If no translations available, show English
+    if (!question.translations || !Array.isArray(question.translations) || question.translations.length === 0) {
+      return {
+        text: question.question_text || "",
+        hasTranslation: false,
+      };
+    }
+
+    // Normalize language codes for matching
+    // Handle common variations: "hi", "hin", "hindi", "HI", etc.
+    const normalizeCode = (code) => {
+      if (!code) return "";
+      const normalized = code.toLowerCase().trim();
+      // Map common variations
+      const codeMap = {
+        "hin": "hi",
+        "hindi": "hi",
+        "tel": "te",
+        "telugu": "te",
+        "tam": "ta",
+        "tamil": "ta",
+        "kan": "kn",
+        "kannada": "kn",
+        "mal": "ml",
+        "malayalam": "ml",
+      };
+      return codeMap[normalized] || normalized;
+    };
+
+    const selectedCode = normalizeCode(selectedLanguage.code);
+
+    // Find translation matching the selected language code
+    const translation = question.translations.find(
+      (t) => {
+        if (!t || !selectedLanguage.code) return false;
+        
+        const tCode = normalizeCode(t.language_code);
+        const codeMatch = tCode === selectedCode;
+        const hasText = t.translated_text && typeof t.translated_text === 'string' && t.translated_text.trim() !== "";
+        const isActive = t.is_active !== false;
+        
+        // Debug log for Hindi specifically
+        if (selectedLanguage.code === "hi" || selectedLanguage.name === "Hindi") {
+          console.log("Hindi Translation Check:", {
+            questionId: question.id,
+            selectedCode,
+            tCode,
+            language_code: t.language_code,
+            codeMatch,
+            hasText,
+            isActive,
+            translated_text: t.translated_text?.substring(0, 50) + "..."
+          });
+        }
+        
+        return codeMatch && hasText && isActive;
+      }
+    );
+
+    // If translation found, return it
+    if (translation && translation.translated_text) {
+      return {
+        text: translation.translated_text.trim(),
+        hasTranslation: true,
+      };
+    }
+
+    // No translation found for selected language - show English with warning
+    return {
+      text: question.question_text || "",
+      hasTranslation: false,
+    };
+  }, [selectedLanguage]);
 
   // Show consent modal after test data is loaded
   useEffect(() => {
@@ -1000,7 +1168,7 @@ export default function Test() {
 
       {!showConsentModal && (
       <div className="w-full px-4 sm:px-6 lg:px-8 py-8">
-        {/* Language Dropdown - Only for 13-17 age group */}
+        {/* Language Dropdown - Available only for age group 13-17 */}
         {isEligibleForLanguageSelection && (
           <div className="mb-6 flex justify-end">
             <div className="relative">
@@ -1010,39 +1178,12 @@ export default function Test() {
               >
                 <HiTranslate className="w-5 h-5 text-gray-500" />
                 <span className="text-sm font-medium text-gray-500">
-                  {selectedLanguage ? selectedLanguage.name : "Select Language"}
+                  {selectedLanguage ? selectedLanguage.name : "English"}
                 </span>
                 <HiChevronDown className="w-4 h-4 text-gray-500" />
               </button>
               
-              {showLanguageDropdown && (
-                <>
-                  <div
-                    className="fixed inset-0 z-10"
-                    onClick={() => setShowLanguageDropdown(false)}
-                  ></div>
-                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-yellow-300 z-20">
-                    <div className="py-2">
-                      {languages.map((language) => (
-                        <button
-                          key={language.id}
-                          onClick={() => handleLanguageSelect(language)}
-                          className={`w-full text-left px-4 py-2 text-sm transition-colors flex items-center justify-between bg-white ${
-                            selectedLanguage?.id === language.id
-                              ? "text-yellow-600"
-                              : "text-white hover:bg-yellow-50"
-                          }`}
-                        >
-                          <span>{language.name}</span>
-                          {selectedLanguage?.id === language.id && (
-                            <HiCheck className="w-4 h-4 text-yellow-600" />
-                          )}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </>
-              )}
+             
             </div>
           </div>
         )}
@@ -1066,24 +1207,34 @@ export default function Test() {
               <tbody>
                 {currentQuestions.map((question) => {
                   const selectedAnswer = answers[question.id];
+                  const questionData = getQuestionText(question);
+                  
+                  // Debug: Log first question to verify translations
+                  if (question.id === currentQuestions[0]?.id && selectedLanguage) {
+                    console.log("Debug - Question:", question.id);
+                    console.log("Debug - Selected Language:", selectedLanguage);
+                    console.log("Debug - Question Translations:", question.translations);
+                    console.log("Debug - Question Data:", questionData);
+                  }
 
                   return (
                     <React.Fragment key={question.id}>
                       <tr className="border-b neutral-border-light">
                         <td className="py-4 px-4 md:px-6">
-                          <p className="font-semibold neutral-text text-base md:text-lg flex items-center gap-2">
-                            <span className="secondary-text text-2xl font-bold">•</span>
-                            <span>{question.question_text}</span>
-                            <span>
-                              {question?.translations?.find(t => t.language_code === "te")?.translated_text}
-                              {/* నేను ప్రజలతో నిజాయితీగా, నిజాయితీగా ఉంటాను. */}
-                            </span>
-
-                            <span>
-                              {console.log("question.translations", question?.translations?.find(t => t.language_code === "te")?.translated_text)}
-                            </span>
-
-                          </p>
+                          <div className="flex items-start gap-2">
+                            <span className="secondary-text text-2xl font-bold mt-1">•</span>
+                            <div className="flex-1">
+                              <p className="font-semibold neutral-text text-base md:text-lg">
+                                {questionData.text}
+                              </p>
+                              {selectedLanguage && !questionData.hasTranslation && (
+                                <span className="inline-flex items-center gap-1 mt-1 px-2 py-1 bg-yellow-100 text-yellow-700 rounded text-xs font-medium">
+                                  <HiExclamationCircle className="w-3 h-3" />
+                                  No translation available
+                                </span>
+                              )}
+                            </div>
+                          </div>
                         </td>
                       </tr>
                       <tr>

@@ -626,11 +626,11 @@ export default function UserResults() {
       setGeneratingPDF(true);
       
       const testResultId = testResult.id;
-      console.log("Calling API endpoint:", `/test-results/${testResultId}/report/pdf/mpdf`);
+      console.log("Calling API endpoint:", `test-results/${testResultId}/report/pdf/mpdf`);
       
       // Get the base URL from apiClient
       const baseURL = apiClient.defaults.baseURL || '';
-      const fullUrl = `${baseURL}/test-results/${testResultId}/report/pdf/mpdf`;
+      const fullUrl = `${baseURL}test-results/${testResultId}/report/pdf/mpdf`;
       
       // Get auth token and age group ID
       const token = localStorage.getItem("adminToken");

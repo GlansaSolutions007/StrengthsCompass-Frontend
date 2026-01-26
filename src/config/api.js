@@ -8,24 +8,24 @@ import axios from "axios";
 // export const API_BASE_URL = "https://api.glansadesigns.com/strengthscompass/api";
 // export const API_BASE_URL = "https://api.glansa.in/strengthscompass/api/";
 // export const API_BASE_URL = "https://strengthscompass.axiscompass.in/v1/api";
-// export const API_BASE_URL = "https://api.axiscompass.co/api/";
+export const API_BASE_URL = "https://api.axiscompass.co/api/";
 // export const API_BASE_URL = "http://127.0.0.1:8000/api/";
 
-const getApiBaseUrl = () => {
-  const currentUrl = window.location.origin;
+// const getApiBaseUrl = () => {
+//   const currentUrl = window.location.origin;
 
-  if (currentUrl === "https://assessments.axiscompass.co") {
-    return "https://api.axiscompass.co/api/";
-  }
+//   if (currentUrl === "https://assessments.axiscompass.co") {
+//     return "https://api.axiscompass.co/api/";
+//   }
 
-  if (currentUrl === "https://strengthscompass.axiscompass.in") {
-    return "https://strengthscompass.axiscompass.in/v1/api";
-  }
+//   if (currentUrl === "https://strengthscompass.axiscompass.in") {
+//     return "https://strengthscompass.axiscompass.in/v1/api";
+//   }
 
-  return "https://strengthscompass.axiscompass.in/v1/api";
-};
+//   return "https://assessments.axiscompass.co";
+// };
 
-export const API_BASE_URL = getApiBaseUrl();
+// export const API_BASE_URL = getApiBaseUrl();
 
 
 

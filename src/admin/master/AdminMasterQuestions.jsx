@@ -53,6 +53,7 @@ export default function AdminMasterQuestions() {
     delete: false,
     bulkUpload: false,
     bulkAssign: false,
+    translationUpdate: false,
   });
   const [bulkUploadFile, setBulkUploadFile] = useState(null);
   const [generalBulkUploadFile, setGeneralBulkUploadFile] = useState(null);
@@ -81,8 +82,15 @@ export default function AdminMasterQuestions() {
   const [languageEditModal, setLanguageEditModal] = useState({
     isOpen: false,
     question: null,
+    translations: [],
   });
   const [isClosingLanguageEdit, setIsClosingLanguageEdit] = useState(false);
+  const [editingTranslation, setEditingTranslation] = useState(null);
+  const [editingTranslationText, setEditingTranslationText] = useState("");
+  const [noTranslationAlert, setNoTranslationAlert] = useState({
+    isOpen: false,
+    message: "",
+  });
 
   const fetchClusters = async () => {
     try {
@@ -604,6 +612,119 @@ export default function AdminMasterQuestions() {
     }, 220);
   };
 
+  const handleLanguageEdit = (item) => {
+    // Check if translations exist and have translated_text
+    const translations = item.translations || [];
+    const translationsWithText = translations.filter(
+      (t) => t.translated_text && t.translated_text.trim() !== ""
+    );
+
+    if (translationsWithText.length === 0) {
+      // Show alert if no translation available
+      setNoTranslationAlert({
+        isOpen: true,
+        message: "No language translation available for this question.",
+      });
+      return;
+    }
+
+    // Open modal with all translations
+    setLanguageEditModal({
+      isOpen: true,
+      question: item,
+      translations: translationsWithText,
+    });
+    setEditingTranslation(null);
+    setEditingTranslationText("");
+  };
+
+  const handleStartEditTranslation = (translation) => {
+    setEditingTranslation(translation);
+    setEditingTranslationText(translation.translated_text || "");
+  };
+
+  const handleCancelEditTranslation = () => {
+    setEditingTranslation(null);
+    setEditingTranslationText("");
+  };
+
+  const closeLanguageEditModal = () => {
+    setIsClosingLanguageEdit(true);
+    setTimeout(() => {
+      setIsClosingLanguageEdit(false);
+      setLanguageEditModal({ isOpen: false, question: null, translations: [] });
+      setEditingTranslation(null);
+      setEditingTranslationText("");
+    }, 220);
+  };
+
+  const handleSaveTranslation = async () => {
+    if (!editingTranslation || !editingTranslationText.trim()) {
+      setError("Translation text cannot be empty.");
+      return;
+    }
+
+    setActionLoading({ ...actionLoading, translationUpdate: true });
+    try {
+      const translationId = editingTranslation.id;
+      const response = await apiClient.put(
+        `/question-translations/${translationId}`,
+        {
+          translated_text: editingTranslationText.trim(),
+          is_active: editingTranslation.is_active !== undefined 
+            ? editingTranslation.is_active 
+            : true,
+        }
+      );
+
+      if (response.data?.status) {
+        setSuccess("Translation updated successfully!");
+        // Update the local state
+        setItems((prevItems) =>
+          prevItems.map((item) => {
+            if (item.id === languageEditModal.question.id) {
+              return {
+                ...item,
+                translations: item.translations.map((t) =>
+                  t.id === translationId
+                    ? { ...t, translated_text: editingTranslationText.trim() }
+                    : t
+                ),
+              };
+            }
+            return item;
+          })
+        );
+        // Update the modal state with the new translation
+        setLanguageEditModal((prev) => ({
+          ...prev,
+          translations: prev.translations.map((t) =>
+            t.id === translationId
+              ? { ...t, translated_text: editingTranslationText.trim() }
+              : t
+          ),
+        }));
+        handleCancelEditTranslation();
+      } else {
+        setError(response.data?.message || "Failed to update translation.");
+      }
+    } catch (err) {
+      console.error("Error updating translation:", err);
+      if (err.response?.status === 401) {
+        localStorage.removeItem("adminToken");
+        localStorage.removeItem("adminUser");
+        navigate("/admin/login");
+      } else {
+        setError(
+          err.response?.data?.message ||
+            "Failed to update translation. Please try again."
+        );
+      }
+    } finally {
+      setActionLoading({ ...actionLoading, translationUpdate: false });
+    }
+  };
+
   const handleEdit = (item) => {
     const construct = constructs.find(
       (c) =>
@@ -847,6 +968,13 @@ export default function AdminMasterQuestions() {
           </button>
         </div>
       </AlertModal>
+      <AlertModal
+        isOpen={noTranslationAlert.isOpen}
+        onClose={() => setNoTranslationAlert({ isOpen: false, message: "" })}
+        type="info"
+        title="No Translation Available"
+        message={noTranslationAlert.message}
+      />
 
       {/* View Modal */}
       {(viewModal.isOpen || isClosingView) && viewModal.question && (
@@ -933,6 +1061,234 @@ export default function AdminMasterQuestions() {
                     <HiPencil className="w-4 h-4 mr-2" /> Edit
                   </button>
                 </div>
+              </div>
+            </div>
+          </div>
+          <style>{`
+            @keyframes modal-out {
+              from {
+                opacity: 1;
+                transform: scale(1) translateY(0);
+              }
+              to {
+                opacity: 0;
+                transform: scale(0.95) translateY(-10px);
+              }
+            }
+            @keyframes backdrop-out {
+              from {
+                opacity: 1;
+              }
+              to {
+                opacity: 0;
+              }
+            }
+            .animate-modal-out {
+              animation: modal-out 220ms ease-in forwards;
+            }
+            .animate-backdrop-out {
+              animation: backdrop-out 220ms ease-in forwards;
+            }
+          `}</style>
+        </div>
+      )}
+
+      {/* Language Edit Modal */}
+      {(languageEditModal.isOpen || isClosingLanguageEdit) && languageEditModal.question && languageEditModal.translations && languageEditModal.translations.length > 0 && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 overflow-y-auto"
+          style={{ zIndex: 1000 }}
+        >
+          <div
+            className={`absolute inset-0 overlay ${
+              isClosingLanguageEdit ? "animate-backdrop-out" : "animate-backdrop-in"
+            }`}
+            style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}
+            onClick={closeLanguageEditModal}
+          />
+          <div 
+            className={`relative rounded-xl max-w-5xl w-full shadow-2xl overflow-hidden my-8 ${
+              isClosingLanguageEdit ? "animate-modal-out" : "animate-modal-in"
+            }`}
+            style={{ backgroundColor: '#ffffff' }}
+          >
+            {/* Header */}
+            <div className="p-5 bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-white rounded-lg shadow-sm">
+                    <HiTranslate className="w-6 h-6 text-indigo-600" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-bold text-gray-800">
+                      Edit Translations
+                    </h3>
+                    <p className="text-sm text-gray-600 mt-0.5">
+                      {languageEditModal.translations.length} language{languageEditModal.translations.length !== 1 ? 's' : ''} available
+                    </p>
+                  </div>
+                </div>
+                {/* <button
+                  onClick={closeLanguageEditModal}
+                  className="p-2 hover:bg-white/60 rounded-lg transition-colors text-gray-600 hover:text-gray-800"
+                  title="Close"
+                >
+                  <HiX className="w-5 h-5" />
+                </button> */}
+              </div>
+            </div>
+
+            <div className="bg-white max-h-[75vh] overflow-y-auto">
+              <div className="p-6 space-y-6">
+                {/* Original Question Section */}
+                <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl p-5 border border-gray-200">
+                  <div className="flex items-start gap-3">
+                    <div className="p-2 bg-white rounded-lg shadow-sm flex-shrink-0">
+                      <HiCollection className="w-5 h-5 text-gray-600" />
+                    </div>
+                    <div className="flex-1">
+                      <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+                        Original Question
+                      </label>
+                      <p className="text-base text-gray-800 leading-relaxed">
+                        {languageEditModal.question.question_text || "N/A"}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Translations List */}
+                <div>
+                  <div className="flex items-center justify-between mb-4">
+                    <h4 className="text-lg font-semibold text-gray-800">
+                      Translations
+                    </h4>
+                    <span className="px-3 py-1 bg-indigo-100 text-indigo-700 rounded-full text-sm font-medium">
+                      {languageEditModal.translations.length} {languageEditModal.translations.length === 1 ? 'Translation' : 'Translations'}
+                    </span>
+                  </div>
+                  
+                  <div className="space-y-3">
+                    {languageEditModal.translations.map((translation, index) => {
+                      const isEditing = editingTranslation && editingTranslation.id === translation.id;
+                      return (
+                        <div
+                          key={translation.id}
+                          className={`rounded-xl border-2 transition-all duration-200 ${
+                            isEditing 
+                              ? 'border-indigo-400 bg-indigo-50/30 shadow-md' 
+                              : 'border-gray-200 bg-white hover:border-gray-300 hover:shadow-sm'
+                          }`}
+                        >
+                          <div className="p-5">
+                            {/* Translation Header */}
+                            <div className="flex items-start justify-between mb-4">
+                              <div className="flex items-center gap-3 flex-1">
+                                <div className={`p-2 rounded-lg ${
+                                  isEditing ? 'bg-indigo-100' : 'bg-gray-100'
+                                }`}>
+                                  <span className="text-lg font-bold text-gray-700">
+                                    {index + 1}
+                                  </span>
+                                </div>
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <h5 className="text-base font-semibold text-gray-800">
+                                      {translation.language_name || "N/A"}
+                                    </h5>
+                                    <span className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded text-xs font-mono">
+                                      {translation.language_code || "N/A"}
+                                    </span>
+                                    {translation.is_active !== undefined && (
+                                      <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                        translation.is_active 
+                                          ? "bg-green-100 text-green-700 border border-green-200" 
+                                          : "bg-gray-100 text-gray-600 border border-gray-200"
+                                      }`}>
+                                        {translation.is_active ? "✓ Active" : "Inactive"}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                              {!isEditing && (
+                                <button
+                                  onClick={() => handleStartEditTranslation(translation)}
+                                className="btn secondary-bg black-text hover:secondary-bg-dark shadow-md"
+                                  title="Edit Translation"
+                                >
+                                  <HiPencil className="w-4 h-4" />
+                                  Edit
+                                </button>
+                              )}
+                            </div>
+
+                            {/* Translation Content */}
+                            {isEditing ? (
+                              <div className="space-y-4 bg-white rounded-lg p-4 border border-indigo-200">
+                                <div>
+                                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                    Translated Text <span className="text-red-500">*</span>
+                                  </label>
+                                  <textarea
+                                    value={editingTranslationText}
+                                    onChange={(e) => setEditingTranslationText(e.target.value)}
+                                    className="w-full p-4 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 resize-y min-h-[120px] text-gray-800 placeholder-gray-400 transition-all"
+                                    placeholder="Enter translated text..."
+                                    rows={4}
+                                  />
+                                </div>
+                                <div className="flex justify-end gap-3 pt-2 border-t border-gray-200">
+                                  <button
+                                    onClick={handleCancelEditTranslation}
+                                    disabled={actionLoading.translationUpdate}
+className="btn btn-primary text-sm"
+>
+                                    Cancel
+                                  </button>
+                                  <button
+                                    onClick={handleSaveTranslation}
+                                    disabled={actionLoading.translationUpdate || !editingTranslationText.trim()}
+                                  className="btn btn-accent shadow-md"
+                                  >
+                                    {actionLoading.translationUpdate ? (
+                                      <>
+                                        <span className="spinner spinner-sm"></span>
+                                        Saving...
+                                      </>
+                                    ) : (
+                                      <>
+                                        <HiCheck className="w-4 h-4" />
+                                        Save Changes
+                                      </>
+                                    )}
+                                  </button>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                                <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">
+                                  {translation.translated_text || (
+                                    <span className="text-gray-400 italic">No translation text available</span>
+                                  )}
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex justify-end">
+                <button
+                  onClick={closeLanguageEditModal}
+                  className="btn btn-primary text-sm"
+                >
+                  Close
+                </button>
               </div>
             </div>
           </div>
@@ -2414,6 +2770,16 @@ export default function AdminMasterQuestions() {
                         </td>
                         <td className="py-3 px-4">
                           <div className="flex items-center justify-end gap-2">
+
+                              <button
+                              onClick={() => handleLanguageEdit(item)}
+                              className="btn-edit"
+                              title="Edit Translation"
+                            >
+                              <HiTranslate />
+                              
+                            </button>
+                            
                             <button
                               onClick={() => {
                                 setViewModal({
