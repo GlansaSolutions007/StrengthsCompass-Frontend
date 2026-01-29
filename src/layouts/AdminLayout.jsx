@@ -502,7 +502,7 @@ export default function AdminLayout() {
               </div>
               {/* Variant (Age Group) Selector - Hidden on TestDetails page */}
               {!location.pathname.includes("/master/tests/") && (
-                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3 w-full sm:w-auto">
+                <div className="flex flex-col sm:flex-row mr-10 items-start sm:items-center gap-2 sm:gap-3 w-full sm:w-auto">
                   <label className="text-xs sm:text-sm font-semibold neutral-text whitespace-nowrap">
                     Variant (Age Group):
                   </label>
