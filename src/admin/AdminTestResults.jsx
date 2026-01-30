@@ -40,6 +40,7 @@ export default function AdminTestResults() {
   const [generatingSummaryReport, setGeneratingSummaryReport] = useState(false);
   const [generatingFullReport, setGeneratingFullReport] = useState(false);
   const [successModal, setSuccessModal] = useState({ isOpen: false, message: "", title: "" });
+  const [pdfDownloading, setPdfDownloading] = useState(false);
 
   const fetchTests = async () => {
     try {
@@ -480,9 +481,29 @@ export default function AdminTestResults() {
       setExporting(true);
       setError(null);
 
+      // Build query params: age_group_id, test_id, from_date, to_date, user_ids (optional)
+      const ageGroupId = localStorage.getItem("adminSelectedVariantId");
+      const params = {};
+      if (ageGroupId) params.age_group_id = ageGroupId;
+      if (selectedTestId) params.test_id = selectedTestId;
+      if (fromDate) params.from_date = fromDate;
+      if (toDate) params.to_date = toDate;
+
+      // If specific users selected via checkbox, pass their user IDs; otherwise export all (no user_ids)
+      if (selectedUsers.length > 0) {
+        const userIds = filteredResults
+          .filter((r) => selectedUsers.includes(r.id))
+          .map((r) => r.userId)
+          .filter((id) => id != null);
+        if (userIds.length > 0) {
+          params.user_ids = userIds.join(",");
+        }
+      }
+
       const response = await apiClient.get(
         "/test-results-comprehensive/export",
         {
+          params,
           responseType: "blob",
         }
       );
@@ -508,6 +529,57 @@ export default function AdminTestResults() {
       );
     } finally {
       setExporting(false);
+    }
+  };
+
+  const handleBulkDownloadPdf = async () => {
+    try {
+      const token = localStorage.getItem("adminToken");
+      if (!token) {
+        setError("Authentication required. Please login.");
+        return;
+      }
+      setPdfDownloading(true);
+      setError(null);
+
+      const params = { type: "full" };
+      if (fromDate) params.from_date = fromDate;
+      if (toDate) params.to_date = toDate;
+      if (selectedUsers.length > 0) {
+        const userIds = filteredResults
+          .filter((r) => selectedUsers.includes(r.id))
+          .map((r) => r.userId)
+          .filter((id) => id != null);
+        if (userIds.length > 0) params.user_ids = userIds.join(",");
+      }
+
+      const response = await apiClient.get("/reports/pdf/bulk-download", {
+        params,
+        responseType: "blob",
+      });
+
+      const blob = new Blob([response.data], {
+        type: response.data.type || "application/pdf",
+      });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+      const ext = response.data.type?.includes("zip") ? "zip" : "pdf";
+      link.download = `Strengths-Compass-Results-${timestamp}.${ext}`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("Error bulk PDF download:", err);
+      setError(
+        err.response?.data?.message ||
+          err.message ||
+          "Failed to download results. Please try again."
+      );
+    } finally {
+      setPdfDownloading(false);
     }
   };
 
@@ -698,8 +770,6 @@ export default function AdminTestResults() {
           <button
             onClick={handleExportExcel}
             disabled={exporting}
-            // className="btn bg-green-600 hover:bg-green-700 text-white shadow-md flex items-center gap-2 w-full sm:w-auto text-sm sm:text-base disabled:opacity-50 disabled:cursor-not-allowed"
-
             className="btn btn-primary text-sm w-full sm:min-w-[210px]"
           >
             {exporting ? (
@@ -715,6 +785,24 @@ export default function AdminTestResults() {
                   All Test Results
                 </span>
                 <span className="sm:hidden">Download</span>
+              </>
+            )}
+          </button>
+
+          <button
+            onClick={handleBulkDownloadPdf}
+            disabled={pdfDownloading}
+            className="btn btn-secondary text-sm w-full sm:min-w-[160px] disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {pdfDownloading ? (
+              <>
+                <span className="spinner spinner-sm"></span>
+                <span>Downloading...</span>
+              </>
+            ) : (
+              <>
+                <HiDownload className="w-4 h-4 sm:w-5 sm:h-5" />
+                <span>Results</span>
               </>
             )}
           </button>
