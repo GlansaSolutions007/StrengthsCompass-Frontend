@@ -36,6 +36,7 @@ export default function AdminTestResults() {
   const [savingSummary, setSavingSummary] = useState(false);
   const [summaryStatus, setSummaryStatus] = useState(null);
   const [exporting, setExporting] = useState(false);
+  const [exportingSummary, setExportingSummary] = useState(false);
   const [selectedUsers, setSelectedUsers] = useState([]);
   const [generatingSummaryReport, setGeneratingSummaryReport] = useState(false);
   const [generatingFullReport, setGeneratingFullReport] = useState(false);
@@ -204,7 +205,7 @@ export default function AdminTestResults() {
 
         return {
           id: item.test_result_id || item.id || index + 1,
-          userId: item.user?.id || null,
+          userId: item.user_id ?? item.user?.id ?? null,
           userName:
             item.user?.name ||
             `${item.user?.first_name || ""} ${
@@ -470,6 +471,28 @@ export default function AdminTestResults() {
     }
   };
 
+  // Build export query params: date filter when set; selected rows → pass their user IDs (else download all). Match by id with loose equality.
+  const buildExportParams = (extra = {}) => {
+    const ageGroupId = localStorage.getItem("adminSelectedVariantId");
+    const params = { ...extra };
+    if (ageGroupId) params.age_group_id = ageGroupId;
+    if (selectedTestId) params.test_id = selectedTestId;
+    if (fromDate) params.from_date = fromDate;
+    if (toDate) params.to_date = toDate;
+    if (selectedUsers.length > 0) {
+      const selectedIdSet = new Set(selectedUsers.map((s) => (typeof s === "number" ? s : Number(s) || s)));
+      const selectedRows = filteredResults.filter((r) =>
+        selectedIdSet.has(Number(r.id)) || selectedIdSet.has(r.id) || selectedUsers.includes(r.id)
+      );
+      const userIds = selectedRows
+        .map((r) => r.userId)
+        .filter((id) => id != null && id !== "");
+      const uniqueUserIds = [...new Set(userIds.map(String))];
+      if (uniqueUserIds.length > 0) params.user_ids = uniqueUserIds.join(",");
+    }
+    return params;
+  };
+
   const handleExportExcel = async () => {
     try {
       const token = localStorage.getItem("adminToken");
@@ -481,29 +504,10 @@ export default function AdminTestResults() {
       setExporting(true);
       setError(null);
 
-      // Build query params: age_group_id, test_id, from_date, to_date, user_ids (optional)
-      const ageGroupId = localStorage.getItem("adminSelectedVariantId");
-      const params = {};
-      if (ageGroupId) params.age_group_id = ageGroupId;
-      if (selectedTestId) params.test_id = selectedTestId;
-      if (fromDate) params.from_date = fromDate;
-      if (toDate) params.to_date = toDate;
-
-      // If specific users selected via checkbox, pass their user IDs; otherwise export all (no user_ids)
-      if (selectedUsers.length > 0) {
-        const userIds = filteredResults
-          .filter((r) => selectedUsers.includes(r.id))
-          .map((r) => r.userId)
-          .filter((id) => id != null);
-        if (userIds.length > 0) {
-          params.user_ids = userIds.join(",");
-        }
-      }
-
       const response = await apiClient.get(
         "/test-results-comprehensive/export",
         {
-          params,
+          params: buildExportParams(),
           responseType: "blob",
         }
       );
@@ -529,6 +533,52 @@ export default function AdminTestResults() {
       );
     } finally {
       setExporting(false);
+    }
+  };
+
+  const handleExportSummary = async () => {
+    try {
+      const token = localStorage.getItem("adminToken");
+      if (!token) {
+        setError("Authentication required. Please login.");
+        return;
+      }
+
+      setExportingSummary(true);
+      setError(null);
+
+      const response = await apiClient.get(
+        "/test-results-comprehensive/export",
+        {
+          params: buildExportParams({ export_type: "summary" }),
+          responseType: "blob",
+        }
+      );
+
+      const blob = new Blob([response.data], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+      link.download = `Strengths-Compass-Summary-${timestamp}.xlsx`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("Error exporting summary:", err);
+      const is404 = err.response?.status === 404;
+      setError(
+        is404
+          ? "Export summary is not available (404). The server may not have this endpoint yet."
+          : err.response?.data?.message ||
+            err.message ||
+            "Failed to download summary. Please try again."
+      );
+    } finally {
+      setExportingSummary(false);
     }
   };
 
@@ -687,41 +737,12 @@ export default function AdminTestResults() {
         message={successModal.message}
       />
 
-      {/* Fixed bar: transparent like layout header, no top shadow, below layout bar */}
-      <div className="fixed top-23 left-0 right-0 lg:left-64 z-[100] backdrop-blur-xl bg-white/70 border-b border-white/20 py-3 px-4 sm:px-6 md:px-8 md:py-4">
-        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-3">
+      {/* Fixed bar: transparent like layout header, shadow below, below layout bar */}
+      <div className="fixed top-23 left-0 right-0 lg:left-64 z-[100] backdrop-blur-xl bg-white/70 border-b border-white/20 shadow-md py-3 px-4 sm:px-6 md:px-8 md:py-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-around sm:gap-3">
          
 
-          {/* Search Bar - full width on mobile */}
-          <div className="w-full sm:flex-1 sm:min-w-0 sm:max-w-md">
-            <div className="group flex w-full rounded-md overflow-hidden border border-neutral-300 transition-all focus-within:ring-2 focus-within:ring-secondary focus-within:border-secondary h-9">
-                <div className="flex items-center justify-center bg-primary-bg-light px-3 transition-all group-focus-within:bg-secondary-bg-light">
-                  <HiSearch className="h-4 w-4 primary-text group-focus-within:secondary-text transition-colors" />
-                </div>
-                <input
-                  type="text"
-                  value={searchTerm}
-                  onChange={(e) => {
-                    setSearchTerm(e.target.value);
-                    setCurrentPage(1);
-                  }}
-                  placeholder="Search by name, email, test..."
-                  className="flex-1 py-2 px-3 bg-white text-xs sm:text-sm focus:outline-none focus:bg-secondary-bg-light transition-colors h-full"
-                />
-                {searchTerm && (
-                  <button
-                    onClick={() => {
-                      setSearchTerm("");
-                      setCurrentPage(1);
-                    }}
-                    className="flex items-center justify-center px-3 hover:bg-secondary-bg-light transition-colors h-full"
-                    title="Clear search"
-                  >
-                    <HiX className="w-4 h-4 neutral-text-muted" />
-                  </button>
-                )}
-              </div>
-            </div>
+        
 
           {/* Report buttons - wrap on small screens */}
           <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 shrink-0 w-full sm:w-auto">
@@ -782,7 +803,7 @@ export default function AdminTestResults() {
               <>
                 <HiDownload className="w-4 h-4 sm:w-5 sm:h-5" />
                 <span className="hidden sm:inline">
-                  All Test Results
+                  Excel Results
                 </span>
                 <span className="sm:hidden">Download</span>
               </>
@@ -790,9 +811,31 @@ export default function AdminTestResults() {
           </button>
 
           <button
+            onClick={handleExportSummary}
+            disabled={exportingSummary}
+            className="btn btn-primary text-sm w-full sm:min-w-[210px]"
+          >
+            {exportingSummary ? (
+              <>
+                <span className="spinner spinner-sm"></span>
+                <span className="hidden sm:inline">Downloading...</span>
+                <span className="sm:hidden">Downloading...</span>
+              </>
+            ) : (
+              <>
+                <HiDownload className="w-4 h-4 sm:w-5 sm:h-5" />
+                <span className="hidden sm:inline">
+                  Export Summary
+                </span>
+                <span className="sm:hidden">Summary</span>
+              </>
+            )}
+          </button>
+
+          <button
             onClick={handleBulkDownloadPdf}
             disabled={pdfDownloading}
-            className="btn btn-secondary text-sm w-full sm:min-w-[160px] disabled:opacity-50 disabled:cursor-not-allowed"
+            className="btn btn-secondary text-sm w-full sm:min-w-[220px] disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {pdfDownloading ? (
               <>
@@ -819,7 +862,7 @@ export default function AdminTestResults() {
             {/* Row 1: Total Users + Filter row (stack on mobile, inline on lg) */}
             <div className="flex flex-col lg:flex-row lg:items-end gap-4 lg:gap-6 justify-between">
               {/* Total Users Count */}
-              <div className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-blue-50 to-blue-100 border border-blue-300 rounded-lg shadow-sm h-10 w-fit shrink-0">
+              <div className="flex items-center gap-2 px-4 py-2.5  border border-blue-300 rounded-lg shadow-sm h-10 w-fit shrink-0">
                 <div className="p-1 bg-blue-500 rounded-full">
                   <HiUser className="w-3.5 h-3.5 text-white" />
                 </div>
@@ -828,6 +871,37 @@ export default function AdminTestResults() {
                   <span className="text-base font-bold text-blue-900">{filteredResults.length}</span>
                 </div>
               </div>
+
+                {/* Search Bar - full width on mobile */}
+          <div className="w-full sm:flex-1 sm:min-w-0 sm:max-w-md">
+            <div className="group flex w-full rounded-md overflow-hidden border border-neutral-300 transition-all focus-within:ring-2 focus-within:ring-secondary focus-within:border-secondary h-9">
+                <div className="flex items-center justify-center bg-primary-bg-light px-3 transition-all group-focus-within:bg-secondary-bg-light">
+                  <HiSearch className="h-4 w-4 primary-text group-focus-within:secondary-text transition-colors" />
+                </div>
+                <input
+                  type="text"
+                  value={searchTerm}
+                  onChange={(e) => {
+                    setSearchTerm(e.target.value);
+                    setCurrentPage(1);
+                  }}
+                  placeholder="Search by name, email, test..."
+                  className="flex-1 py-2 px-3 bg-white text-xs sm:text-sm focus:outline-none focus:bg-secondary-bg-light transition-colors h-full"
+                />
+                {searchTerm && (
+                  <button
+                    onClick={() => {
+                      setSearchTerm("");
+                      setCurrentPage(1);
+                    }}
+                    className="flex items-center justify-center px-3 hover:bg-secondary-bg-light transition-colors h-full"
+                    title="Clear search"
+                  >
+                    <HiX className="w-4 h-4 neutral-text-muted" />
+                  </button>
+                )}
+              </div>
+            </div>
 
               {/* Filter Controls - wrap on small screens, single row on lg */}
               <div className="flex flex-col sm:flex-row flex-wrap gap-3 min-w-0 lg:flex-nowrap lg:items-end">

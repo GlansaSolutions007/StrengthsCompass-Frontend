@@ -242,12 +242,12 @@ export default function AdminLayout() {
         />
       )}
       
-      {/* Sidebar */}
-      <aside className={`fixed lg:sticky top-0 left-0 z-50 w-64 bg-gray-800 flex flex-col shrink-0 h-screen overflow-y-auto hide-scrollbar transform transition-transform duration-300 ease-in-out ${
+      {/* Sidebar: logo sticky at top, only nav content scrolls */}
+      <aside className={`fixed lg:sticky top-0 left-0 z-50 w-64 bg-gray-800 flex flex-col shrink-0 h-screen transform transition-transform duration-300 ease-in-out ${
         sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
       }`}>
-        {/* Header */}
-        <div className="p-0 m-0 white-bg flex items-center justify-between" style={{ height: '100px', minHeight: '100px' }}>
+        {/* Logo header - sticky at top, does not scroll */}
+        <div className="shrink-0 p-0 m-0 white-bg flex items-center justify-between" style={{ height: '100px', minHeight: '100px' }}>
           <div className="flex items-center justify-center h-full flex-1">
             <div className="w-50 h-30 items-center justify-center overflow-hidden">
               <img 
@@ -267,8 +267,8 @@ export default function AdminLayout() {
           </button>
         </div>
 
-        {/* Navigation */}
-        <nav className="flex-1 p-4 space-y-1.5">
+        {/* Navigation - scrollable area only */}
+        <nav className="flex-1 min-h-0 overflow-y-auto hide-scrollbar p-4 space-y-1.5">
           {items.map((item) => {
             const active = isRouteActive(item.to, {
               exact: item.exact,
@@ -466,8 +466,8 @@ export default function AdminLayout() {
           </NavLink>
         </nav>
 
-        {/* Footer */}
-        <div className="p-4 bg-gray-800">
+        {/* Footer - sticky at bottom of sidebar */}
+        <div className="shrink-0 p-4 bg-gray-800">
           <div className="text-xs text-gray-400 text-center">
             © {new Date().getFullYear()} Strengths Compass
           </div>

@@ -755,49 +755,54 @@ export default function UserResults() {
         message={error || ""}
       />
 
-      {/* Header */}
-      <div className="mb-6 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={handleBackNavigation}
-            className="btn bg-blue-600 hover:bg-blue-700 text-white shadow-md  btn-secondary"
-          >
-            <HiArrowLeft className="w-5 h-5 mr-2" /> {backLabel}
-          </button>
-          <div>
-            <h1 className="text-2xl font-bold neutral-text">Test Results</h1>
-            {user && (
-              <p className="text-xs neutral-text-muted mt-1">
-                Results for:{" "}
-                <span className="font-medium primary-text">{user.name}</span> (
-                {user.email})
-              </p>
-            )}
+      {/* Sticky header: same as AdminTestResults */}
+      <div className="fixed top-23 left-0 right-0 lg:left-64 z-[100] backdrop-blur-xl bg-white/70 border-b border-white/20 shadow-md py-3 px-4 sm:px-6 md:px-8 md:py-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={handleBackNavigation}
+              className="btn bg-blue-600 hover:bg-blue-700 text-white shadow-md btn-secondary"
+            >
+              <HiArrowLeft className="w-5 h-5 mr-2" /> {backLabel}
+            </button>
+            <div>
+              <h1 className="text-2xl font-bold neutral-text">Test Results</h1>
+              {user && (
+                <p className="text-xs neutral-text-muted mt-1">
+                  Results for:{" "}
+                  <span className="font-medium primary-text">{user.name}</span> (
+                  {user.email})
+                </p>
+              )}
+            </div>
           </div>
+          {user && (
+            <button
+              onClick={generatePDF}
+              disabled={generatingPDF}
+              className="btn btn-secondary text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {generatingPDF ? (
+                <>
+                  <span className="spinner spinner-sm"></span>
+                  Generating PDF...
+                </>
+              ) : (
+                <>
+                  <HiDownload className="w-5 h-5" />
+                  Download User Details PDF
+                </>
+              )}
+            </button>
+          )}
         </div>
-        {user && (
-          <button
-            onClick={generatePDF}
-            disabled={generatingPDF}
-            className="btn btn-secondary text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {generatingPDF ? (
-              <>
-                <span className="spinner spinner-sm"></span>
-                Generating PDF...
-              </>
-            ) : (
-              <>
-                <HiDownload className="w-5 h-5" />
-                Download User Details PDF
-              </>
-            )}
-          </button>
-        )}
       </div>
 
+      {/* Spacer so content is not hidden under the sticky header */}
+      <div className="h-20 md:h-10" aria-hidden="true" />
+
       {/* Test Results */}
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-4xl mt-10 mx-auto">
         {!testResult ? (
           <div className="bg-white rounded-lg border border-neutral-border-light shadow-sm p-12">
             <div className="flex flex-col items-center justify-center">
