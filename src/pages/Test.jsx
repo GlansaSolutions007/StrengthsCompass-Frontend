@@ -1031,14 +1031,10 @@ export default function Test() {
               {showLoginForm ? "New to Strengths Compass?" : "Already have an account?"}
             </p>
             <button
-              onClick={() => {
-                setShowLoginForm(!showLoginForm);
-                setLoginError("");
-                setLoginErrors({});
-              }}
+              onClick={() => navigate("/register")}
               className="mt-3 inline-flex items-center justify-center w-full btn btn-ghost"
             >
-              {showLoginForm ? "Create an account" : "Sign in instead"}
+              Create an account
             </button>
           </div>
         </div>
