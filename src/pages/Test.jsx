@@ -722,6 +722,7 @@ export default function Test() {
 
     // User is authenticated, fetch user ID from API
     let currentUserId = userId;
+    console.log("currentUserId -------------------", currentUserId);
     if (!currentUserId) {
       currentUserId = await fetchUserId();
     }
