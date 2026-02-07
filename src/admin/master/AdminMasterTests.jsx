@@ -222,7 +222,9 @@ export default function AdminMasterTests() {
         });
 
         setQuestions(
-          filteredQuestions.map((q) => ({
+          filteredQuestions
+           .filter(q => q.is_active === 1)
+          .map((q) => ({
             id: q.id,
             question_text: q.question_text || q.questionText || "",
             category: q.category || "",

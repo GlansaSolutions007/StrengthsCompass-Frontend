@@ -32,6 +32,7 @@ export default function AdminMasterQuestions() {
   const [editingData, setEditingData] = useState({
     question_text: "",
     category: "",
+    is_active: true,
   });
   const [loading, setLoading] = useState(true);
   const [clustersLoading, setClustersLoading] = useState(true);
@@ -183,6 +184,7 @@ export default function AdminMasterQuestions() {
             question_text: q.question_text || q.questionText || "",
             category: q.category || "",
             construct_id: q.construct_id || q.constructId,
+            is_active: q.is_active === 1 || q.is_active === true,
             translations: q.translations || [],
           }))
         );
@@ -479,6 +481,7 @@ export default function AdminMasterQuestions() {
               newQuestion.question_text || newQuestion.questionText || "",
             category: newQuestion.category || "",
             construct_id: newQuestion.construct_id || newQuestion.constructId,
+            is_active: newQuestion.is_active === 1 || newQuestion.is_active === true,
           },
         ]);
         resetForm();
@@ -530,6 +533,21 @@ export default function AdminMasterQuestions() {
 
       if (response.data?.status && response.data.data) {
         const updatedQuestion = response.data.data;
+        const currentItem = items.find((i) => i.id === id);
+        const userWantsActive = editingData.is_active;
+        const statusChanged = currentItem && userWantsActive !== currentItem.is_active;
+
+        if (statusChanged) {
+          try {
+            await apiClient.patch(`/questions/${id}/toggle-active`);
+          } catch {
+            // PATCH failed; still update UI to user's choice
+          }
+        }
+
+        const responseActive = updatedQuestion.is_active === 1 || updatedQuestion.is_active === true;
+        const finalActive = statusChanged ? userWantsActive : (responseActive ?? userWantsActive);
+
         setItems(
           items.map((item) =>
             item.id === id
@@ -542,6 +560,7 @@ export default function AdminMasterQuestions() {
                   category: updatedQuestion.category || "",
                   construct_id:
                     updatedQuestion.construct_id || updatedQuestion.constructId,
+                  is_active: finalActive,
                 }
               : item
           )
@@ -585,7 +604,7 @@ export default function AdminMasterQuestions() {
     setActiveTab("single");
     setFieldErrors({});
     setEditingId(null);
-    setEditingData({ question_text: "", category: "" });
+    setEditingData({ question_text: "", category: "", is_active: true });
     // Reset file inputs
     const fileInputs = [
       document.getElementById("bulk-upload-file"),
@@ -743,6 +762,7 @@ export default function AdminMasterQuestions() {
     setEditingData({
       question_text: item.question_text || "",
       category: item.category || "",
+      is_active: item.is_active ?? true,
     });
     setShowForm(true);
   };
@@ -1894,6 +1914,41 @@ className="btn btn-primary text-sm"
                         className="input w-full"
                       />
                     </div>
+                    <div>
+                      <label className="text-sm font-semibold neutral-text block mb-2">
+                        Status
+                      </label>
+                      <div className="h-[42px] flex items-center bg-medium border border-neutral-border-light rounded-lg px-3 md:px-4">
+                        <label className="flex items-center justify-between cursor-pointer w-full">
+                          <span className="neutral-text font-medium text-sm md:text-base">
+                            {editingData.is_active ? "Active" : "Inactive"}
+                          </span>
+                          <div className="relative ml-4 flex-shrink-0">
+                            <input
+                              type="checkbox"
+                              checked={editingData.is_active}
+                              onChange={(e) =>
+                                setEditingData({ ...editingData, is_active: e.target.checked })
+                              }
+                              className="sr-only"
+                              disabled={actionLoading.update}
+                            />
+                            <div
+                              className={`w-14 h-7 rounded-full transition-colors duration-200 ease-in-out ${
+                                editingData.is_active ? "accent-bg" : "danger-bg"
+                              }`}
+                            >
+                              <div
+                                className={`absolute top-0.5 left-0.5 w-6 h-6 white-bg rounded-full shadow-md transform transition-transform duration-200 ease-in-out ${
+                                  editingData.is_active ? "translate-x-7" : "translate-x-0"
+                                }`}
+                              />
+                            </div>
+                          </div>
+                        </label>
+                      </div>
+                      <p className="text-xs neutral-text-muted mt-1.5">Save changes to apply</p>
+                    </div>
                 </div>
 
                 <div className="flex justify-end gap-3 pt-4 border-t border-neutral-border-light">
@@ -2671,6 +2726,7 @@ className="btn btn-primary text-sm"
                     <th className="font-semibold text-xs sm:text-sm py-3 px-2 md:px-4 text-left neutral-text-muted">S.No</th>
                     <th className="font-semibold text-xs sm:text-sm py-3 px-2 md:px-4 text-left neutral-text-muted">Question Text</th>
                     <th className="font-semibold text-xs sm:text-sm py-3 px-2 md:px-4 text-left neutral-text-muted">Category</th>
+                    <th className="font-semibold text-xs sm:text-sm py-3 px-2 md:px-4 text-left neutral-text-muted">Status</th>
                     <th className="font-semibold text-xs sm:text-sm py-3 px-2 md:px-4 text-left neutral-text-muted">Construct</th>
                     <th className="font-semibold text-xs sm:text-sm py-3 px-2 md:px-4 neutral-text-muted" style={{ textAlign: 'right' }}>Actions</th>
                   </tr>
@@ -2708,6 +2764,17 @@ className="btn btn-primary text-sm"
                         <td className="py-3 px-2 md:px-4 neutral-text">
                           <span className="text-xs sm:text-sm">
                             {item.category || "N/A"}
+                          </span>
+                        </td>
+                        <td className="py-3 px-2 md:px-4">
+                          <span
+                            className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
+                              item.is_active
+                                ? "bg-green-100 text-green-700"
+                                : "bg-gray-100 text-gray-600"
+                            }`}
+                          >
+                            {item.is_active ? "Active" : "Inactive"}
                           </span>
                         </td>
                         <td className="py-3 px-4 neutral-text">
