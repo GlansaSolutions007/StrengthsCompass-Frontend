@@ -283,9 +283,11 @@ export default function RegisterPage() {
   const validateField = (name, value) => {
     switch (name) {
       case "first_name":
+        if (!value) return "First name is required";
+        if (value.length < 2) return "First name must be at least 2 characters";
+        return "";
       case "last_name":
-        if (!value) return `${name === "first_name" ? "First" : "Last"} name is required`;
-        if (value.length < 2) return `${name === "first_name" ? "First" : "Last"} name must be at least 2 characters`;
+        if (!value) return "Last name is required";
         return "";
       case "email":
         if (!value) return "Email is required";

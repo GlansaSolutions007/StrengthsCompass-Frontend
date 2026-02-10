@@ -36,10 +36,12 @@ export default function AdminTestResults() {
   const [savingSummary, setSavingSummary] = useState(false);
   const [summaryStatus, setSummaryStatus] = useState(null);
   const [exporting, setExporting] = useState(false);
+  const [exportingSummary, setExportingSummary] = useState(false);
   const [selectedUsers, setSelectedUsers] = useState([]);
   const [generatingSummaryReport, setGeneratingSummaryReport] = useState(false);
   const [generatingFullReport, setGeneratingFullReport] = useState(false);
   const [successModal, setSuccessModal] = useState({ isOpen: false, message: "", title: "" });
+  const [pdfDownloading, setPdfDownloading] = useState(false);
 
   const fetchTests = async () => {
     try {
@@ -203,7 +205,7 @@ export default function AdminTestResults() {
 
         return {
           id: item.test_result_id || item.id || index + 1,
-          userId: item.user?.id || null,
+          userId: item.user_id ?? item.user?.id ?? null,
           userName:
             item.user?.name ||
             `${item.user?.first_name || ""} ${
@@ -469,6 +471,28 @@ export default function AdminTestResults() {
     }
   };
 
+  // Build export query params: date filter when set; selected rows → pass their user IDs (else download all). Match by id with loose equality.
+  const buildExportParams = (extra = {}) => {
+    const ageGroupId = localStorage.getItem("adminSelectedVariantId");
+    const params = { ...extra };
+    if (ageGroupId) params.age_group_id = ageGroupId;
+    if (selectedTestId) params.test_id = selectedTestId;
+    if (fromDate) params.from_date = fromDate;
+    if (toDate) params.to_date = toDate;
+    if (selectedUsers.length > 0) {
+      const selectedIdSet = new Set(selectedUsers.map((s) => (typeof s === "number" ? s : Number(s) || s)));
+      const selectedRows = filteredResults.filter((r) =>
+        selectedIdSet.has(Number(r.id)) || selectedIdSet.has(r.id) || selectedUsers.includes(r.id)
+      );
+      const userIds = selectedRows
+        .map((r) => r.userId)
+        .filter((id) => id != null && id !== "");
+      const uniqueUserIds = [...new Set(userIds.map(String))];
+      if (uniqueUserIds.length > 0) params.user_ids = uniqueUserIds.join(",");
+    }
+    return params;
+  };
+
   const handleExportExcel = async () => {
     try {
       const token = localStorage.getItem("adminToken");
@@ -483,6 +507,7 @@ export default function AdminTestResults() {
       const response = await apiClient.get(
         "/test-results-comprehensive/export",
         {
+          params: buildExportParams(),
           responseType: "blob",
         }
       );
@@ -508,6 +533,103 @@ export default function AdminTestResults() {
       );
     } finally {
       setExporting(false);
+    }
+  };
+
+  const handleExportSummary = async () => {
+    try {
+      const token = localStorage.getItem("adminToken");
+      if (!token) {
+        setError("Authentication required. Please login.");
+        return;
+      }
+
+      setExportingSummary(true);
+      setError(null);
+
+      const response = await apiClient.get(
+        "/test-results-comprehensive/export",
+        {
+          params: buildExportParams({ export_type: "summary" }),
+          responseType: "blob",
+        }
+      );
+
+      const blob = new Blob([response.data], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+      link.download = `Strengths-Compass-Summary-${timestamp}.xlsx`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("Error exporting summary:", err);
+      const is404 = err.response?.status === 404;
+      setError(
+        is404
+          ? "Export summary is not available (404). The server may not have this endpoint yet."
+          : err.response?.data?.message ||
+            err.message ||
+            "Failed to download summary. Please try again."
+      );
+    } finally {
+      setExportingSummary(false);
+    }
+  };
+
+  const handleBulkDownloadPdf = async () => {
+    try {
+      const token = localStorage.getItem("adminToken");
+      if (!token) {
+        setError("Authentication required. Please login.");
+        return;
+      }
+      setPdfDownloading(true);
+      setError(null);
+
+      const params = { type: "full" };
+      if (fromDate) params.from_date = fromDate;
+      if (toDate) params.to_date = toDate;
+      if (selectedUsers.length > 0) {
+        const userIds = filteredResults
+          .filter((r) => selectedUsers.includes(r.id))
+          .map((r) => r.userId)
+          .filter((id) => id != null);
+        if (userIds.length > 0) params.user_ids = userIds.join(",");
+      }
+
+      const response = await apiClient.get("/reports/pdf/bulk-download", {
+        params,
+        responseType: "blob",
+      });
+
+      const blob = new Blob([response.data], {
+        type: response.data.type || "application/pdf",
+      });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+      const ext = response.data.type?.includes("zip") ? "zip" : "pdf";
+      link.download = `Strengths-Compass-Results-${timestamp}.${ext}`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("Error bulk PDF download:", err);
+      setError(
+        err.response?.data?.message ||
+          err.message ||
+          "Failed to download results. Please try again."
+      );
+    } finally {
+      setPdfDownloading(false);
     }
   };
 
@@ -615,25 +737,20 @@ export default function AdminTestResults() {
         message={successModal.message}
       />
 
-      <div className="mb-4 md:mb-6 flex flex-col gap-3 md:gap-4">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-          <div className="w-full sm:w-auto">
-            <h1 className="text-xl sm:text-2xl font-bold neutral-text flex items-center gap-2">
-              <HiChartBar className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" />
-              Test Results
-            </h1>
-            <p className="text-xs sm:text-sm neutral-text-muted mt-1">
-              Overview of user assessments and performance categories.
-            </p>
-          </div>
+      {/* Fixed bar: transparent like layout header, shadow below, below layout bar */}
+      <div className="fixed top-23 left-0 right-0 lg:left-64 z-[100] backdrop-blur-xl bg-white/70 border-b border-white/20 shadow-md py-3 px-4 sm:px-6 md:px-8 md:py-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-around sm:gap-3">
+         
 
+        
 
-
-          <button
-            onClick={handleSummaryReport}
-            disabled={generatingSummaryReport || selectedUsers.length === 0}
-            className="btn btn-secondary text-sm w-full sm:w-[220px] disabled:opacity-50 disabled:cursor-not-allowed"
-          >
+          {/* Report buttons - wrap on small screens */}
+          <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 shrink-0 w-full sm:w-auto">
+            <button
+              onClick={handleSummaryReport}
+              disabled={generatingSummaryReport || selectedUsers.length === 0}
+              className="btn btn-secondary text-sm w-full sm:min-w-[240px] disabled:opacity-50 disabled:cursor-not-allowed"
+            >
             {generatingSummaryReport ? (
               <>
                 <span className="spinner spinner-sm"></span>
@@ -653,7 +770,7 @@ export default function AdminTestResults() {
           <button
             onClick={handleFullReport}
             disabled={generatingFullReport || selectedUsers.length === 0}
-            className="btn btn-secondary text-sm w-full sm:w-[220px] disabled:opacity-50 disabled:cursor-not-allowed"
+            className="btn btn-secondary text-sm w-full sm:min-w-[220px] disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {generatingFullReport ? (
               <>
@@ -674,9 +791,7 @@ export default function AdminTestResults() {
           <button
             onClick={handleExportExcel}
             disabled={exporting}
-            // className="btn bg-green-600 hover:bg-green-700 text-white shadow-md flex items-center gap-2 w-full sm:w-auto text-sm sm:text-base disabled:opacity-50 disabled:cursor-not-allowed"
-
-            className="btn btn-primary text-sm w-full sm:w-[220px]"
+            className="btn btn-primary text-sm w-full sm:min-w-[210px]"
           >
             {exporting ? (
               <>
@@ -688,31 +803,78 @@ export default function AdminTestResults() {
               <>
                 <HiDownload className="w-4 h-4 sm:w-5 sm:h-5" />
                 <span className="hidden sm:inline">
-                  All Test Results
+                  Excel Results
                 </span>
                 <span className="sm:hidden">Download</span>
               </>
             )}
           </button>
+
+          <button
+            onClick={handleExportSummary}
+            disabled={exportingSummary}
+            className="btn btn-primary text-sm w-full sm:min-w-[210px]"
+          >
+            {exportingSummary ? (
+              <>
+                <span className="spinner spinner-sm"></span>
+                <span className="hidden sm:inline">Downloading...</span>
+                <span className="sm:hidden">Downloading...</span>
+              </>
+            ) : (
+              <>
+                <HiDownload className="w-4 h-4 sm:w-5 sm:h-5" />
+                <span className="hidden sm:inline">
+                  Export Summary
+                </span>
+                <span className="sm:hidden">Summary</span>
+              </>
+            )}
+          </button>
+
+          <button
+            onClick={handleBulkDownloadPdf}
+            disabled={pdfDownloading}
+            className="btn btn-secondary text-sm w-full sm:min-w-[220px] disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {pdfDownloading ? (
+              <>
+                <span className="spinner spinner-sm"></span>
+                <span>Downloading...</span>
+              </>
+            ) : (
+              <>
+                <HiDownload className="w-4 h-4 sm:w-5 sm:h-5" />
+                <span>Results ZIP</span>
+              </>
+            )}
+          </button>
+          </div>
         </div>
+      </div>
 
-        {/* Filters Card */}
-        <div className="bg-white rounded-lg border border-neutral-200 shadow-sm p-4 mb-4">
-          <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-end">
-            {/* Total Users Count - Aligned with inputs */}
-            <div className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-50 to-blue-100 border border-blue-300 rounded-lg shadow-sm h-9 self-end lg:self-auto">
-              <div className="p-1 bg-blue-500 rounded-full">
-                <HiUser className="w-3.5 h-3.5 text-white" />
-              </div>
-              <div className="flex items-baseline gap-1.5">
-                <span className="text-xs text-blue-700 font-medium">Total Users:</span>
-                <span className="text-base font-bold text-blue-900">{filteredResults.length}</span>
-              </div>
-            </div>
+      {/* Spacer so content is not hidden under the fixed bar */}
+      <div className="h-20 md:h-10" aria-hidden="true" />
 
-            {/* Search Bar */}
-            <div className="flex-1 w-full lg:max-w-md">
-              <div className="group flex w-full rounded-md overflow-hidden border border-neutral-300 transition-all focus-within:ring-2 focus-within:ring-secondary focus-within:border-secondary h-9">
+        {/* Filters Card - responsive and aligned */}
+        <div className="bg-white rounded-lg border border-neutral-200 shadow-sm p-4 sm:p-5 mb-4">
+          <div className="flex flex-col gap-4">
+            {/* Row 1: Total Users + Filter row (stack on mobile, inline on lg) */}
+            <div className="flex flex-col lg:flex-row lg:items-end gap-4 lg:gap-6 justify-between">
+              {/* Total Users Count */}
+              <div className="flex items-center gap-2 px-4 py-2.5  border border-blue-300 rounded-lg shadow-sm h-10 w-fit shrink-0">
+                <div className="p-1 bg-blue-500 rounded-full">
+                  <HiUser className="w-3.5 h-3.5 text-white" />
+                </div>
+                <div className="flex items-baseline gap-1.5">
+                  <span className="text-xs text-blue-700 font-medium">Total Users:</span>
+                  <span className="text-base font-bold text-blue-900">{filteredResults.length}</span>
+                </div>
+              </div>
+
+                {/* Search Bar - full width on mobile */}
+          <div className="w-full sm:flex-1 sm:min-w-0 sm:max-w-md">
+            <div className="group flex w-full rounded-md overflow-hidden border border-neutral-300 transition-all focus-within:ring-2 focus-within:ring-secondary focus-within:border-secondary h-9">
                 <div className="flex items-center justify-center bg-primary-bg-light px-3 transition-all group-focus-within:bg-secondary-bg-light">
                   <HiSearch className="h-4 w-4 primary-text group-focus-within:secondary-text transition-colors" />
                 </div>
@@ -741,149 +903,132 @@ export default function AdminTestResults() {
               </div>
             </div>
 
-            {/* Filter Controls - All aligned at bottom */}
-            <div className="flex flex-col sm:flex-row gap-3 flex-1 lg:flex-nowrap">
-              {/* Test Dropdown */}
-              <div className="flex flex-col min-w-[160px]">
-                <label className="text-xs font-medium neutral-text-muted mb-1.5">
-                  Test
-                </label>
-                <div className="relative">
-                  <select
-                    value={selectedTestId}
-                    onChange={(e) => {
-                      setSelectedTestId(e.target.value);
-                      setCurrentPage(1);
-                    }}
-                    className="input input-sm bg-white text-xs sm:text-sm pr-8 pl-3 w-full h-9 focus:outline-none focus:ring-2 focus:ring-secondary focus:border-secondary appearance-none border-neutral-300"
-                    disabled={testsLoading}
-                  >
-                    <option value="">All Tests</option>
-                    {tests.map((test) => (
-                      <option key={test.id} value={test.id}>
-                        {test.title}
-                      </option>
-                    ))}
-                  </select>
-                  <HiChevronDown className="w-4 h-4 text-blue-500 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
+              {/* Filter Controls - wrap on small screens, single row on lg */}
+              <div className="flex flex-col sm:flex-row flex-wrap gap-3 min-w-0 lg:flex-nowrap lg:items-end">
+                {/* Test Dropdown */}
+                <div className="flex flex-col gap-1.5 min-w-0 flex-1 sm:flex-initial sm:min-w-[140px] md:min-w-[160px]">
+                  <label className="text-xs font-medium neutral-text-muted whitespace-nowrap">
+                    Test
+                  </label>
+                  <div className="relative h-9">
+                    <select
+                      value={selectedTestId}
+                      onChange={(e) => {
+                        setSelectedTestId(e.target.value);
+                        setCurrentPage(1);
+                      }}
+                      className="input input-sm bg-white text-xs sm:text-sm pr-8 pl-3 w-full h-full min-h-9 focus:outline-none focus:ring-2 focus:ring-secondary focus:border-secondary appearance-none border-neutral-300 rounded"
+                      disabled={testsLoading}
+                    >
+                      <option value="">All Tests</option>
+                      {tests.map((test) => (
+                        <option key={test.id} value={test.id}>
+                          {test.title}
+                        </option>
+                      ))}
+                    </select>
+                    <HiChevronDown className="w-4 h-4 text-blue-500 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  </div>
                 </div>
-              </div>
 
-              {/* From Date */}
-              <div className="flex flex-col min-w-[150px]">
-                <label className="text-xs font-medium neutral-text-muted mb-1.5">
-                  From Date
-                </label>
-                <div className="relative">
-                  <input
-                    type="date"
-                    value={fromDate}
-                    max={new Date().toISOString().split("T")[0]}
-                    onChange={(e) => {
-                      const selectedDate = e.target.value;
-                      setFromDate(selectedDate);
-                      setDateError("");
-
-                      if (
-                        toDate &&
-                        selectedDate &&
-                        new Date(selectedDate) > new Date(toDate)
-                      ) {
-                        setDateError("From Date cannot be after To Date");
-                      } else if (dateError) {
+                {/* From Date */}
+                <div className="flex flex-col gap-1.5 min-w-0 flex-1 sm:flex-initial sm:min-w-[140px] md:min-w-[150px]">
+                  <label className="text-xs font-medium neutral-text-muted whitespace-nowrap">
+                    From Date
+                  </label>
+                  <div className="relative h-9">
+                    <input
+                      type="date"
+                      value={fromDate}
+                      max={new Date().toISOString().split("T")[0]}
+                      onChange={(e) => {
+                        const selectedDate = e.target.value;
+                        setFromDate(selectedDate);
                         setDateError("");
-                      }
-                    }}
-                    className={`input input-sm bg-white text-xs sm:text-sm pr-8 pl-3 w-full h-9 border-neutral-300 ${
-                      dateError ? "border-red-300 focus:border-red-500" : ""
-                    }`}
-                  />
-                  <HiCalendar className="w-4 h-4 text-blue-500 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
+                        if (toDate && selectedDate && new Date(selectedDate) > new Date(toDate)) {
+                          setDateError("From Date cannot be after To Date");
+                        } else if (dateError) setDateError("");
+                      }}
+                      className={`input input-sm bg-white text-xs sm:text-sm pr-8 pl-3 w-full h-full min-h-9 border-neutral-300 rounded ${
+                        dateError ? "border-red-300 focus:border-red-500" : ""
+                      }`}
+                    />
+                    <HiCalendar className="w-4 h-4 text-blue-500 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  </div>
                 </div>
-              </div>
 
-              {/* To Date */}
-              <div className="flex flex-col min-w-[150px]">
-                <label className="text-xs font-medium neutral-text-muted mb-1.5">
-                  To Date
-                </label>
-                <div className="relative">
-                  <input
-                    type="date"
-                    value={toDate}
-                    min={fromDate || undefined}
-                    max={new Date().toISOString().split("T")[0]}
-                    onChange={(e) => {
-                      const selectedDate = e.target.value;
-                      setToDate(selectedDate);
-                      setDateError("");
-
-                      if (
-                        fromDate &&
-                        selectedDate &&
-                        new Date(selectedDate) < new Date(fromDate)
-                      ) {
-                        setDateError("To Date cannot be before From Date");
-                      } else if (dateError) {
+                {/* To Date */}
+                <div className="flex flex-col gap-1.5 min-w-0 flex-1 sm:flex-initial sm:min-w-[140px] md:min-w-[150px]">
+                  <label className="text-xs font-medium neutral-text-muted whitespace-nowrap">
+                    To Date
+                  </label>
+                  <div className="relative h-9">
+                    <input
+                      type="date"
+                      value={toDate}
+                      min={fromDate || undefined}
+                      max={new Date().toISOString().split("T")[0]}
+                      onChange={(e) => {
+                        const selectedDate = e.target.value;
+                        setToDate(selectedDate);
                         setDateError("");
-                      }
-                    }}
-                    className={`input input-sm bg-white text-xs sm:text-sm pr-8 pl-3 w-full h-9 border-neutral-300 ${
-                      dateError ? "border-red-300 focus:border-red-500" : ""
-                    }`}
-                  />
-                  <HiCalendar className="w-4 h-4 text-blue-500 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
+                        if (fromDate && selectedDate && new Date(selectedDate) < new Date(fromDate)) {
+                          setDateError("To Date cannot be before From Date");
+                        } else if (dateError) setDateError("");
+                      }}
+                      className={`input input-sm bg-white text-xs sm:text-sm pr-8 pl-3 w-full h-full min-h-9 border-neutral-300 rounded ${
+                        dateError ? "border-red-300 focus:border-red-500" : ""
+                      }`}
+                    />
+                    <HiCalendar className="w-4 h-4 text-blue-500 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  </div>
                 </div>
-              </div>
 
-              {/* Action Buttons */}
-              <div className="flex items-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (
-                      fromDate &&
-                      toDate &&
-                      new Date(fromDate) > new Date(toDate)
-                    ) {
-                      setDateError("From Date cannot be after To Date");
-                      return;
-                    }
-                    if (fromDate && new Date(fromDate) > new Date()) {
-                      setDateError("From Date cannot be in the future");
-                      return;
-                    }
-                    if (toDate && new Date(toDate) > new Date()) {
-                      setDateError("To Date cannot be in the future");
-                      return;
-                    }
-                    setDateError("");
-                    setLoading(true);
-                    setCurrentPage(1);
-                    fetchResults();
-                  }}
-                  className="btn btn-sm secondary-bg black-text hover:secondary-bg-dark shadow-md whitespace-nowrap h-9 px-4 font-medium"
-                  disabled={!!dateError}
-                >
-                  Apply
-                </button>
-                {(fromDate || toDate || selectedTestId) && (
+                {/* Action Buttons - aligned with inputs */}
+                <div className="flex flex-wrap items-end gap-2 shrink-0">
                   <button
                     type="button"
                     onClick={() => {
-                      setFromDate("");
-                      setToDate("");
-                      setSelectedTestId("");
+                      if (fromDate && toDate && new Date(fromDate) > new Date(toDate)) {
+                        setDateError("From Date cannot be after To Date");
+                        return;
+                      }
+                      if (fromDate && new Date(fromDate) > new Date()) {
+                        setDateError("From Date cannot be in the future");
+                        return;
+                      }
+                      if (toDate && new Date(toDate) > new Date()) {
+                        setDateError("To Date cannot be in the future");
+                        return;
+                      }
                       setDateError("");
                       setLoading(true);
                       setCurrentPage(1);
                       fetchResults();
                     }}
-                    className="btn btn-ghost btn-sm whitespace-nowrap h-9 px-4"
+                    className="btn btn-sm secondary-bg black-text hover:secondary-bg-dark shadow-md whitespace-nowrap h-9 px-4 font-medium"
+                    disabled={!!dateError}
                   >
-                    Clear
+                    Apply
                   </button>
-                )}
+                  {(fromDate || toDate || selectedTestId) && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFromDate("");
+                        setToDate("");
+                        setSelectedTestId("");
+                        setDateError("");
+                        setLoading(true);
+                        setCurrentPage(1);
+                        fetchResults();
+                      }}
+                      className="btn btn-ghost btn-sm whitespace-nowrap h-9 px-4"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -895,7 +1040,6 @@ export default function AdminTestResults() {
             </div>
           )}
         </div>
-      </div>
 
       {!hasResults ? (
         <div className="flex flex-col items-center justify-center py-12">

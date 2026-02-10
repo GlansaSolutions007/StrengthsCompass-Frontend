@@ -28,12 +28,11 @@ export default function AdminMasterQuestions() {
   const [constructId, setConstructId] = useState("");
   const [questionText, setQuestionText] = useState("");
   const [category, setCategory] = useState("");
-  const [orderNo, setOrderNo] = useState("");
   const [editingId, setEditingId] = useState(null);
   const [editingData, setEditingData] = useState({
     question_text: "",
     category: "",
-    order_no: "",
+    is_active: true,
   });
   const [loading, setLoading] = useState(true);
   const [clustersLoading, setClustersLoading] = useState(true);
@@ -184,8 +183,8 @@ export default function AdminMasterQuestions() {
             id: q.id,
             question_text: q.question_text || q.questionText || "",
             category: q.category || "",
-            order_no: q.order_no || q.orderNo || 0,
             construct_id: q.construct_id || q.constructId,
+            is_active: q.is_active === 1 || q.is_active === true,
             translations: q.translations || [],
           }))
         );
@@ -470,7 +469,6 @@ export default function AdminMasterQuestions() {
         construct_id: constructId,
         question_text: questionText.trim(),
         category: category.trim() || null,
-        order_no: orderNo ? parseInt(orderNo) : null,
       });
 
       if (response.data?.status && response.data.data) {
@@ -482,8 +480,8 @@ export default function AdminMasterQuestions() {
             question_text:
               newQuestion.question_text || newQuestion.questionText || "",
             category: newQuestion.category || "",
-            order_no: newQuestion.order_no || newQuestion.orderNo || 0,
             construct_id: newQuestion.construct_id || newQuestion.constructId,
+            is_active: newQuestion.is_active === 1 || newQuestion.is_active === true,
           },
         ]);
         resetForm();
@@ -521,14 +519,35 @@ export default function AdminMasterQuestions() {
     setFieldErrors({});
     setActionLoading({ ...actionLoading, update: true });
     try {
-      const response = await apiClient.put(`/questions/${id}`, {
+      const categoryVal = (editingData.category ?? "").toString().trim();
+
+      const payload = {
         question_text: editingData.question_text.trim(),
-        category: editingData.category.trim() || null,
-        order_no: editingData.order_no ? parseInt(editingData.order_no) : null,
-      });
+        category: categoryVal || "",
+      };
+      if (constructId) {
+        payload.construct_id = constructId;
+      }
+
+      const response = await apiClient.put(`/questions/${id}`, payload);
 
       if (response.data?.status && response.data.data) {
         const updatedQuestion = response.data.data;
+        const currentItem = items.find((i) => i.id === id);
+        const userWantsActive = editingData.is_active;
+        const statusChanged = currentItem && userWantsActive !== currentItem.is_active;
+
+        if (statusChanged) {
+          try {
+            await apiClient.patch(`/questions/${id}/toggle-active`);
+          } catch {
+            // PATCH failed; still update UI to user's choice
+          }
+        }
+
+        const responseActive = updatedQuestion.is_active === 1 || updatedQuestion.is_active === true;
+        const finalActive = statusChanged ? userWantsActive : (responseActive ?? userWantsActive);
+
         setItems(
           items.map((item) =>
             item.id === id
@@ -539,10 +558,9 @@ export default function AdminMasterQuestions() {
                     updatedQuestion.questionText ||
                     "",
                   category: updatedQuestion.category || "",
-                  order_no:
-                    updatedQuestion.order_no || updatedQuestion.orderNo || 0,
                   construct_id:
                     updatedQuestion.construct_id || updatedQuestion.constructId,
+                  is_active: finalActive,
                 }
               : item
           )
@@ -559,10 +577,16 @@ export default function AdminMasterQuestions() {
         localStorage.removeItem("adminUser");
         navigate("/admin/login");
       } else {
-        setError(
-          err.response?.data?.message ||
-            "Failed to update question. Please try again."
-        );
+        const res = err.response?.data;
+        const message =
+          res?.message ||
+          (res?.errors && typeof res.errors === "object"
+            ? Object.entries(res.errors)
+                .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(", ") : v}`)
+                .join("; ")
+            : null) ||
+          "Failed to update question. Please try again.";
+        setError(message);
       }
     } finally {
       setActionLoading({ ...actionLoading, update: false });
@@ -572,7 +596,6 @@ export default function AdminMasterQuestions() {
   const resetForm = () => {
     setQuestionText("");
     setCategory("");
-    setOrderNo("");
     setClusterId("");
     setConstructId("");
     setBulkUploadFile(null);
@@ -581,7 +604,7 @@ export default function AdminMasterQuestions() {
     setActiveTab("single");
     setFieldErrors({});
     setEditingId(null);
-    setEditingData({ question_text: "", category: "", order_no: "" });
+    setEditingData({ question_text: "", category: "", is_active: true });
     // Reset file inputs
     const fileInputs = [
       document.getElementById("bulk-upload-file"),
@@ -739,7 +762,7 @@ export default function AdminMasterQuestions() {
     setEditingData({
       question_text: item.question_text || "",
       category: item.category || "",
-      order_no: item.order_no || "",
+      is_active: item.is_active ?? true,
     });
     setShowForm(true);
   };
@@ -927,21 +950,6 @@ export default function AdminMasterQuestions() {
   return (
     <div className="neutral-text bg-white min-h-screen p-4 md:p-8">
       <AlertModal
-        isOpen={!!error}
-        onClose={() => setError(null)}
-        type="error"
-        title="Error"
-        message={error || ""}
-      />
-      <AlertModal
-        isOpen={!!success}
-        onClose={() => setSuccess(null)}
-        type="success"
-        title="Success"
-        message={success || ""}
-        autoClose={3000}
-      />
-      <AlertModal
         isOpen={deleteConfirm.isOpen}
         onClose={() =>
           setDeleteConfirm({ isOpen: false, id: null, questionText: "" })
@@ -975,6 +983,25 @@ export default function AdminMasterQuestions() {
         title="No Translation Available"
         message={noTranslationAlert.message}
       />
+
+      {/* Error and Success on top of all modals */}
+      <div className="fixed inset-0 z-[9999]" style={{ pointerEvents: (error || success) ? "auto" : "none" }} aria-hidden={!error && !success}>
+        <AlertModal
+          isOpen={!!error}
+          onClose={() => setError(null)}
+          type="error"
+          title="Error"
+          message={error || ""}
+        />
+        <AlertModal
+          isOpen={!!success}
+          onClose={() => setSuccess(null)}
+          type="success"
+          title="Success"
+          message={success || ""}
+          autoClose={3000}
+        />
+      </div>
 
       {/* View Modal */}
       {(viewModal.isOpen || isClosingView) && viewModal.question && (
@@ -1552,19 +1579,6 @@ className="btn btn-primary text-sm"
                               className="input w-full"
                             />
                           </div>
-                          <div>
-                            <label className="text-sm font-semibold neutral-text block mb-2">
-                              Order No
-                            </label>
-                            <input
-                              type="number"
-                              value={orderNo}
-                              onChange={(e) => setOrderNo(e.target.value)}
-                              placeholder="e.g., 1"
-                              disabled={!constructId || actionLoading.create || actionLoading.update}
-                              className="input w-full"
-                            />
-                          </div>
                         </div>
                       </div>
 
@@ -1902,22 +1916,39 @@ className="btn btn-primary text-sm"
                     </div>
                     <div>
                       <label className="text-sm font-semibold neutral-text block mb-2">
-                        Order No
+                        Status
                       </label>
-                      <input
-                        type="number"
-                        value={editingData.order_no}
-                        onChange={(e) => {
-                            setEditingData({
-                              ...editingData,
-                              order_no: e.target.value,
-                            });
-                        }}
-                        placeholder="e.g., 1"
-                        disabled={actionLoading.update}
-                        className="input w-full"
-                      />
-                  </div>
+                      <div className="h-[42px] flex items-center bg-medium border border-neutral-border-light rounded-lg px-3 md:px-4">
+                        <label className="flex items-center justify-between cursor-pointer w-full">
+                          <span className="neutral-text font-medium text-sm md:text-base">
+                            {editingData.is_active ? "Active" : "Inactive"}
+                          </span>
+                          <div className="relative ml-4 flex-shrink-0">
+                            <input
+                              type="checkbox"
+                              checked={editingData.is_active}
+                              onChange={(e) =>
+                                setEditingData({ ...editingData, is_active: e.target.checked })
+                              }
+                              className="sr-only"
+                              disabled={actionLoading.update}
+                            />
+                            <div
+                              className={`w-14 h-7 rounded-full transition-colors duration-200 ease-in-out ${
+                                editingData.is_active ? "accent-bg" : "danger-bg"
+                              }`}
+                            >
+                              <div
+                                className={`absolute top-0.5 left-0.5 w-6 h-6 white-bg rounded-full shadow-md transform transition-transform duration-200 ease-in-out ${
+                                  editingData.is_active ? "translate-x-7" : "translate-x-0"
+                                }`}
+                              />
+                            </div>
+                          </div>
+                        </label>
+                      </div>
+                      <p className="text-xs neutral-text-muted mt-1.5">Save changes to apply</p>
+                    </div>
                 </div>
 
                 <div className="flex justify-end gap-3 pt-4 border-t border-neutral-border-light">
@@ -2695,7 +2726,7 @@ className="btn btn-primary text-sm"
                     <th className="font-semibold text-xs sm:text-sm py-3 px-2 md:px-4 text-left neutral-text-muted">S.No</th>
                     <th className="font-semibold text-xs sm:text-sm py-3 px-2 md:px-4 text-left neutral-text-muted">Question Text</th>
                     <th className="font-semibold text-xs sm:text-sm py-3 px-2 md:px-4 text-left neutral-text-muted">Category</th>
-                    {/* <th className="font-semibold text-xs sm:text-sm py-3 px-2 md:px-4 text-left neutral-text-muted">Order No</th> */}
+                    <th className="font-semibold text-xs sm:text-sm py-3 px-2 md:px-4 text-left neutral-text-muted">Status</th>
                     <th className="font-semibold text-xs sm:text-sm py-3 px-2 md:px-4 text-left neutral-text-muted">Construct</th>
                     <th className="font-semibold text-xs sm:text-sm py-3 px-2 md:px-4 neutral-text-muted" style={{ textAlign: 'right' }}>Actions</th>
                   </tr>
@@ -2735,25 +2766,17 @@ className="btn btn-primary text-sm"
                             {item.category || "N/A"}
                           </span>
                         </td>
-                        {/* <td className="py-3 px-4">
-                          {editingId === item.id ? (
-                            <input
-                              type="number"
-                              value={editingData.order_no}
-                              onChange={(e) =>
-                                setEditingData({
-                                  ...editingData,
-                                  order_no: e.target.value,
-                                })
-                              }
-                              className="input input-sm"
-                            />
-                          ) : (
-                            <span className="neutral-text text-sm">
-                              {item.order_no || "N/A"}
-                            </span>
-                          )}
-                        </td> */}
+                        <td className="py-3 px-2 md:px-4">
+                          <span
+                            className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
+                              item.is_active
+                                ? "bg-green-100 text-green-700"
+                                : "bg-gray-100 text-gray-600"
+                            }`}
+                          >
+                            {item.is_active ? "Active" : "Inactive"}
+                          </span>
+                        </td>
                         <td className="py-3 px-4 neutral-text">
                           <span className="text-sm">
                             {constructs.find((c) => {
