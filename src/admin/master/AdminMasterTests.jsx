@@ -29,6 +29,8 @@ export default function AdminMasterTests() {
   const [fieldErrors, setFieldErrors] = useState({});
 
   const [title, setTitle] = useState("");
+  const [testType, setTestType] = useState(""); // "" | "src pro" | "cerc" - mandatory
+  const [previousTestId, setPreviousTestId] = useState(""); // selected test when type is cerc
   const [description, setDescription] = useState("");
   const [status, setStatus] = useState("active");
   const [selectedClusterIds, setSelectedClusterIds] = useState([]);
@@ -69,6 +71,7 @@ export default function AdminMasterTests() {
   const [showForm, setShowForm] = useState(false);
   const [isClosingForm, setIsClosingForm] = useState(false);
   const [addTestMode, setAddTestMode] = useState(""); // "" | "manual" | "excel"
+  const [addSource, setAddSource] = useState("cluster"); // "cluster" | "excel" - which method is selected (mandatory for add)
   const [excelTestFile, setExcelTestFile] = useState(null);
   const [templateDownloading, setTemplateDownloading] = useState(false);
 
@@ -331,13 +334,27 @@ export default function AdminMasterTests() {
   };
 
   const add = async () => {
-    const useExcelImport = !editingId && excelTestFile;
+    const useExcelImport = !editingId && addSource === "excel";
     const errors = {};
     if (!title.trim()) {
       errors.title = "Title is required";
     }
-    if (!useExcelImport && selectedClusterIds.length === 0) {
-      errors.cluster_ids = "At least one cluster is required";
+    if (!testType || (testType !== "src pro" && testType !== "cerc")) {
+      errors.test_type = "Please select a type";
+    }
+    if (testType === "cerc" && !previousTestId) {
+      errors.previous_test_id = "Please select a previous test";
+    }
+    if (!editingId) {
+      if (addSource === "cluster") {
+        if (selectedClusterIds.length === 0) {
+          errors.cluster_ids = "At least one cluster is required";
+        }
+      } else {
+        if (!excelTestFile) {
+          errors.excel_file = "Please upload an Excel file";
+        }
+      }
     }
 
 
@@ -558,6 +575,8 @@ export default function AdminMasterTests() {
 
   const resetForm = () => {
     setTitle("");
+    setTestType("");
+    setPreviousTestId("");
     setDescription("");
     setStatus("active");
     setSelectedClusterIds([]);
@@ -571,6 +590,7 @@ export default function AdminMasterTests() {
     setFieldErrors({});
     setEditingId(null);
     setAddTestMode("");
+    setAddSource("cluster");
     setExcelTestFile(null);
   };
 
@@ -815,6 +835,12 @@ export default function AdminMasterTests() {
     const errors = {};
     if (!title.trim()) {
       errors.title = "Title is required";
+    }
+    if (!testType || (testType !== "src pro" && testType !== "cerc")) {
+      errors.test_type = "Please select a type";
+    }
+    if (testType === "cerc" && !previousTestId) {
+      errors.previous_test_id = "Please select a previous test";
     }
     // Clusters are not editable, so skip validation
 
@@ -1415,6 +1441,69 @@ export default function AdminMasterTests() {
 
                 <div>
                   <label className="text-sm font-semibold neutral-text block mb-2">
+                    Type <span className="danger-text">*</span>
+                  </label>
+                  <div className="relative">
+                    <select
+                      value={testType}
+                      onChange={(e) => {
+                        setTestType(e.target.value);
+                        if (e.target.value !== "cerc") setPreviousTestId("");
+                        if (fieldErrors.test_type) setFieldErrors((prev) => ({ ...prev, test_type: "" }));
+                        if (fieldErrors.previous_test_id) setFieldErrors((prev) => ({ ...prev, previous_test_id: "" }));
+                      }}
+                      disabled={actionLoading.create || actionLoading.update}
+                      className={`input w-full pr-10 ${fieldErrors.test_type ? "input-error" : ""}`}
+                    >
+                      <option value="">Select type</option>
+                      <option value="src pro">src pro</option>
+                      <option value="cerc">cerc</option>
+                    </select>
+                    <HiChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 neutral-text-muted" />
+                  </div>
+                  {fieldErrors.test_type && (
+                    <p id="error-test_type" className="danger-text text-xs mt-1.5">
+                      {fieldErrors.test_type}
+                    </p>
+                  )}
+                </div>
+
+                {testType === "cerc" && (
+                  <div>
+                    <label className="text-sm font-semibold neutral-text block mb-2">
+                      Previous tests <span className="danger-text">*</span>
+                    </label>
+                    <div className="relative">
+                      <select
+                        value={previousTestId}
+                        onChange={(e) => {
+                          setPreviousTestId(e.target.value);
+                          if (fieldErrors.previous_test_id) setFieldErrors((prev) => ({ ...prev, previous_test_id: "" }));
+                        }}
+                        disabled={actionLoading.create || actionLoading.update}
+                        className={`input w-full pr-10 ${fieldErrors.previous_test_id ? "input-error" : ""}`}
+                      >
+                        <option value="">Select a test</option>
+                        {items
+                          .filter((t) => !editingId || t.id !== editingId)
+                          .map((t) => (
+                            <option key={t.id} value={t.id}>
+                              {t.title || `Test #${t.id}`}
+                            </option>
+                          ))}
+                      </select>
+                      <HiChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 neutral-text-muted" />
+                    </div>
+                    {fieldErrors.previous_test_id && (
+                      <p id="error-previous_test_id" className="danger-text text-xs mt-1.5">
+                        {fieldErrors.previous_test_id}
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                <div>
+                  <label className="text-sm font-semibold neutral-text block mb-2">
                     Description
                   </label>
                   <textarea
@@ -1427,7 +1516,48 @@ export default function AdminMasterTests() {
                   />
                 </div>
 
+                {/* Add method: Cluster or Excel - only when adding */}
                 {!editingId && (
+                  <div className="space-y-3">
+                    <label className="text-sm font-semibold neutral-text block">
+                      How do you want to add this test?
+                    </label>
+                    <div className="flex flex-wrap gap-4">
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="radio"
+                          name="addSource"
+                          value="cluster"
+                          checked={addSource === "cluster"}
+                          onChange={() => {
+                            setAddSource("cluster");
+                            if (fieldErrors.excel_file) setFieldErrors((prev) => ({ ...prev, excel_file: "" }));
+                          }}
+                          disabled={actionLoading.create || actionLoading.update}
+                          className="radio"
+                        />
+                        <span className="text-sm neutral-text">Add by selecting clusters</span>
+                      </label>
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="radio"
+                          name="addSource"
+                          value="excel"
+                          checked={addSource === "excel"}
+                          onChange={() => {
+                            setAddSource("excel");
+                            if (fieldErrors.cluster_ids) setFieldErrors((prev) => ({ ...prev, cluster_ids: "" }));
+                          }}
+                          disabled={actionLoading.create || actionLoading.update}
+                          className="radio"
+                        />
+                        <span className="text-sm neutral-text">Add by uploading Excel</span>
+                      </label>
+                    </div>
+                  </div>
+                )}
+
+                {!editingId && addSource === "cluster" && (
                 <div>
                   <label className="text-sm font-semibold neutral-text block mb-2">
                     Clusters <span className="danger-text">*</span>
@@ -1507,44 +1637,51 @@ export default function AdminMasterTests() {
                 </div>
                 )}
 
-                {/* Upload from Excel (optional) - only when adding */}
-                {!editingId && (
-                  <div className="space-y-3 border-t border-neutral-200 pt-4">
-                    <label className="text-sm font-semibold neutral-text block">
-                      Upload from Excel <span className="text-xs font-normal neutral-text-muted">(optional)</span>
-                    </label>
-                    <div className="flex flex-wrap items-center gap-3">
+                {/* Upload from Excel - only when adding and Excel option selected (required) */}
+                {!editingId && addSource === "excel" && (
+                  <div className="border-t border-neutral-200 pt-4">
+                    <div className="flex items-center justify-between gap-2 mb-2">
+                      <label className="text-sm font-semibold neutral-text">
+                        Upload from Excel <span className="danger-text">*</span>
+                      </label>
                       <button
                         type="button"
                         onClick={handleDownloadTemplate}
                         disabled={templateDownloading}
-                        className="btn btn-secondary inline-flex items-center gap-2"
-                      >
+                        className="btn btn-secondary"
+                                              >
                         {templateDownloading ? (
                           <span className="spinner spinner-sm" />
                         ) : (
-                          <HiDownload className="w-5 h-5" />
+                          <HiDownload className="w-4 h-4 mr-2 black-text" />
                         )}
-                        Format Download
+                        Download template
                       </button>
-                      <span className="text-xs neutral-text-muted">Download the template, fill it, then upload below.</span>
                     </div>
                     <input
                       type="file"
                       accept=".xlsx,.xls,.csv"
-                      onChange={(e) => setExcelTestFile(e.target.files?.[0] || null)}
-                      className="input w-full"
+                      onChange={(e) => {
+                        setExcelTestFile(e.target.files?.[0] || null);
+                        if (fieldErrors.excel_file) setFieldErrors((prev) => ({ ...prev, excel_file: "" }));
+                      }}
+                      className={`input w-full ${fieldErrors.excel_file ? "input-error" : ""}`}
                     />
-                    {excelTestFile && (
-                      <p className="text-xs neutral-text-muted">
-                        Selected: {excelTestFile.name}
+                    {excelTestFile && !fieldErrors.excel_file && (
+                      <p className="text-xs neutral-text-muted mt-1.5">
+                        {excelTestFile.name}
+                      </p>
+                    )}
+                    {fieldErrors.excel_file && (
+                      <p id="error-excel_file" className="danger-text text-xs mt-1.5">
+                        {fieldErrors.excel_file}
                       </p>
                     )}
                   </div>
                 )}
 
-                {/* Question Selection Section */}
-                {selectedClusterIds.length > 0 && (
+                {/* Question Selection Section - only when adding by clusters */}
+                {!editingId && addSource === "cluster" && selectedClusterIds.length > 0 && (
                   <div className="space-y-4 border-t border-neutral-200 pt-4">
                     <div className="flex items-center justify-between">
                       <label className="text-sm font-semibold neutral-text">
@@ -1818,7 +1955,7 @@ export default function AdminMasterTests() {
                   <button
                     onClick={add}
                     disabled={actionLoading.create}
-                    className="btn secondary-bg black-text hover:secondary-bg-dark shadow-md"
+                    className="btn btn-warning shadow-md"
                   >
                     {actionLoading.create ? (
                       <>
