@@ -176,8 +176,12 @@ export default function Test() {
         allTests = response.data.data;
       }
 
-      // Filter active tests
-      const activeTests = allTests.filter((test) => test.is_active !== false);
+      // Filter: only is_active === 1 and source === "SC Pro" (exclude is_active 0 and source "cerc")
+      const activeTests = allTests.filter((test) => {
+        if (test.is_active !== 1 && test.is_active !== true) return false;
+        const source = (test.source || "").toString().trim().toLowerCase();
+        return source === "sc pro";
+      });
       
       if (activeTests.length > 0) {
         // Get the first test

@@ -29,8 +29,8 @@ export default function AdminMasterTests() {
   const [fieldErrors, setFieldErrors] = useState({});
 
   const [title, setTitle] = useState("");
-  const [testType, setTestType] = useState(""); // "" | "src pro" | "cerc" - mandatory
-  const [previousTestId, setPreviousTestId] = useState(""); // selected test when type is cerc
+  const [testType, setTestType] = useState(""); 
+  const [previousTestId, setPreviousTestId] = useState(""); 
   const [description, setDescription] = useState("");
   const [status, setStatus] = useState("active");
   const [selectedClusterIds, setSelectedClusterIds] = useState([]);
@@ -39,14 +39,12 @@ export default function AdminMasterTests() {
   const [constructsLoading, setConstructsLoading] = useState(true);
   const [questions, setQuestions] = useState([]);
   const [questionsLoading, setQuestionsLoading] = useState(false);
-  // Common counts for all constructs: { P: count, R: count, SDB: count }
   const [questionCounts, setQuestionCounts] = useState({ P: 0, R: 0, SDB: 0 });
-  // Structure: { constructId: { P: [questionIds], R: [questionIds], SDB: [questionIds] } }
   const [selectedQuestions, setSelectedQuestions] = useState({});
   const [questionSelectionError, setQuestionSelectionError] = useState("");
-  const [errorConstructInfo, setErrorConstructInfo] = useState(null); // { constructId, constructName, category }
-  const [skippedConstructs, setSkippedConstructs] = useState([]); // Array of construct IDs to skip
-  const [selectAllMode, setSelectAllMode] = useState(false); // Toggle for selecting all questions 
+  const [errorConstructInfo, setErrorConstructInfo] = useState(null);
+  const [skippedConstructs, setSkippedConstructs] = useState([]);
+  const [selectAllMode, setSelectAllMode] = useState(false);  
 
   const [editingId, setEditingId] = useState(null);
   const [editingData, setEditingData] = useState({});
@@ -70,8 +68,8 @@ export default function AdminMasterTests() {
   const [isClosingView, setIsClosingView] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [isClosingForm, setIsClosingForm] = useState(false);
-  const [addTestMode, setAddTestMode] = useState(""); // "" | "manual" | "excel"
-  const [addSource, setAddSource] = useState("cluster"); // "cluster" | "excel" - which method is selected (mandatory for add)
+  const [addTestMode, setAddTestMode] = useState(""); 
+  const [addSource, setAddSource] = useState("cluster"); 
   const [excelTestFile, setExcelTestFile] = useState(null);
   const [templateDownloading, setTemplateDownloading] = useState(false);
 
@@ -79,8 +77,7 @@ export default function AdminMasterTests() {
     try {
       const response = await apiClient.get("/options");
       if (response.data?.status && response.data.data) {
-        // Filter options for status (you may need to adjust the filter based on your API structure)
-        // Assuming status options have a specific category or label pattern
+       
         const statusOpts = response.data.data
           .filter((opt) => {
             const label = (opt.label || opt.option_text || opt.name || "").toLowerCase();
@@ -92,7 +89,6 @@ export default function AdminMasterTests() {
             value: opt.value !== undefined ? String(opt.value) : opt.label?.toLowerCase() || "",
           }));
         
-        // If no status options found, use default options
         if (statusOpts.length === 0) {
           setStatusOptions([
             { id: 1, label: "Active", value: "active" },
@@ -103,7 +99,6 @@ export default function AdminMasterTests() {
         }
         setError(null);
       } else {
-        // Default status options if API fails
         setStatusOptions([
           { id: 1, label: "Active", value: "active" },
           { id: 2, label: "Inactive", value: "inactive" },
@@ -111,7 +106,6 @@ export default function AdminMasterTests() {
       }
     } catch (err) {
       console.error("Error fetching status options:", err);
-      // Default status options on error
       setStatusOptions([
         { id: 1, label: "Active", value: "active" },
         { id: 2, label: "Inactive", value: "inactive" },
@@ -164,6 +158,7 @@ export default function AdminMasterTests() {
             is_active: t.is_active !== undefined ? t.is_active : true,
             cluster_ids: t.cluster_ids || [],
             clusters: t.clusters || [],
+            test_type: t.test_type ?? t.type ?? null,
           }))
         );
         setError(null);
@@ -218,11 +213,9 @@ export default function AdminMasterTests() {
 
     try {
       setQuestionsLoading(true);
-      // Age group ID will be automatically added by API interceptor from localStorage
       const response = await apiClient.get("/questions");
 
       if (response.data?.status && response.data.data) {
-        // Filter questions by selected clusters
         const filteredQuestions = response.data.data.filter((q) => {
           const construct = constructs.find((c) => c.id === q.construct_id);
           if (!construct) return false;
@@ -262,10 +255,8 @@ export default function AdminMasterTests() {
     } else {
       setQuestions([]);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedClusterIds.join(",")]);
 
-  // Clean up selected questions when clusters change
   useEffect(() => {
     if (selectedClusterIds.length > 0 && constructs.length > 0) {
       const validConstructIds = constructsForSelectedClusters.map((c) => c.id.toString());
@@ -423,11 +414,25 @@ export default function AdminMasterTests() {
       if (useExcelImport) {
         // Upload via Excel: POST /tests/import with FormData (file optional - no validation)
         const formData = new FormData();
-        formData.append("file", excelTestFile);
+        formData.append("questions_file", excelTestFile);
         formData.append("title", title.trim());
         formData.append("description", description.trim() || "");
         formData.append("is_active", status === "active" || status === "1" || status === 1 ? "1" : "0");
         selectedClusterIds.forEach((id) => formData.append("cluster_ids[]", id));
+        formData.append("source", testType === "cerc" ? "CERC" : "SC Pro");
+        if (testType === "cerc" && previousTestId) {
+          formData.append("sc_pro_test_id", String(previousTestId));
+        }
+        const postDataLog = {
+          title: title.trim(),
+          description: description.trim() || "",
+          is_active: status === "active" || status === "1" || status === 1 ? "1" : "0",
+          cluster_ids: selectedClusterIds,
+          source: testType === "cerc" ? "CERC" : "SC Pro",
+          ...(testType === "cerc" && previousTestId && { sc_pro_test_id: previousTestId }),
+          questions_file: excelTestFile?.name ?? "(file)",
+        };
+        console.log("POST /tests (Excel) data:", postDataLog);
 
         const response = await apiClient.post("/tests", formData, {
           headers: { "Content-Type": "multipart/form-data" },
@@ -444,6 +449,7 @@ export default function AdminMasterTests() {
               is_active: newTest.is_active !== undefined ? newTest.is_active : true,
               cluster_ids: newTest.cluster_ids || [],
               clusters: newTest.clusters || [],
+              test_type: newTest.test_type ?? newTest.type ?? null,
             },
           ]);
           resetForm();
@@ -481,7 +487,12 @@ export default function AdminMasterTests() {
           is_active: status === "active" || status === "1" || status === 1,
           question_ids: allSelectedQuestionIds,
           clusters: clustersArray,
+          source: testType === "cerc" ? "CERC" : "SC Pro",
         };
+        if (testType === "cerc" && previousTestId) {
+          payload.sc_pro_test_id = parseInt(previousTestId, 10) || previousTestId;
+        }
+        console.log("POST /tests (manual) data:", payload);
 
         const response = await apiClient.post("/tests", payload);
 
@@ -497,6 +508,7 @@ export default function AdminMasterTests() {
                 newTest.is_active !== undefined ? newTest.is_active : true,
               cluster_ids: newTest.cluster_ids || [],
               clusters: newTest.clusters || [],
+              test_type: newTest.test_type ?? newTest.type ?? null,
             },
           ]);
           resetForm();
@@ -939,7 +951,12 @@ export default function AdminMasterTests() {
         is_active: status === "active" || status === "1" || status === 1,
         question_ids: allSelectedQuestionIds,
         clusters: clustersArray,
+        source: testType === "cerc" ? "CERC" : "SC Pro",
       };
+      if (testType === "cerc" && previousTestId) {
+        payload.sc_pro_test_id = parseInt(previousTestId, 10) || previousTestId;
+      }
+      console.log("PUT /tests data:", payload);
 
       const response = await apiClient.put(`/tests/${editingId}`, payload);
 
@@ -949,6 +966,7 @@ export default function AdminMasterTests() {
           items.map((item) =>
             item.id === editingId
               ? {
+                  ...item,
                   id: updatedTest.id,
                   title: updatedTest.title || "",
                   description: updatedTest.description || "",
@@ -958,6 +976,7 @@ export default function AdminMasterTests() {
                       : true,
                   cluster_ids: updatedTest.cluster_ids || [],
                   clusters: updatedTest.clusters || [],
+                  test_type: updatedTest.test_type ?? updatedTest.type ?? item.test_type,
                 }
               : item
           )
@@ -1485,7 +1504,11 @@ export default function AdminMasterTests() {
                       >
                         <option value="">Select a test</option>
                         {items
-                          .filter((t) => !editingId || t.id !== editingId)
+                          .filter((t) => {
+                            if (editingId && t.id === editingId) return false;
+                            const type = t.test_type ?? t.type;
+                            return type === "src pro" || type == null;
+                          })
                           .map((t) => (
                             <option key={t.id} value={t.id}>
                               {t.title || `Test #${t.id}`}
