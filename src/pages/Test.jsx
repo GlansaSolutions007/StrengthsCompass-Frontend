@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { HiCheck, HiChevronLeft, HiChevronRight, HiTranslate, HiChevronDown, HiMail, HiLockClosed, HiExclamationCircle, HiEye, HiEyeOff } from "react-icons/hi";
 import Navbar from "../components/Navbar";
 import AlertModal from "../components/AlertModal";
-import apiClient from "../config/api";
+import apiClient, { API_BASE_URL } from "../config/api";
 import axios from "axios";
 import logoImage from "../../Images/Logo.png";
 
@@ -221,7 +221,6 @@ export default function Test() {
       // Questions endpoint gives us questions with translations
       // IMPORTANT: Use direct axios for /questions to bypass age_group_id filter
       // so translations are available for ALL users, not just specific age groups
-      const API_BASE_URL = "https://strengthscompass.axiscompass.in/v1/api";
       const userToken = localStorage.getItem("token") || 
                        localStorage.getItem("userToken") || 
                        localStorage.getItem("authToken");

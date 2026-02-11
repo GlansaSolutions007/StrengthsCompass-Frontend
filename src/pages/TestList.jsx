@@ -12,7 +12,7 @@ import {
   HiCheckCircle,
 } from "react-icons/hi";
 import Navbar from "../components/Navbar";
-import apiClient from "../config/api";
+import apiClient, { API_BASE_URL } from "../config/api";
 import AlertModal from "../components/AlertModal";
 
 export default function TestList() {
@@ -139,7 +139,6 @@ export default function TestList() {
       // Get ALL tests from API (no filtering on backend)
       // We will filter on frontend based on age_group_id matching
       // IMPORTANT: Use direct axios call to bypass the interceptor that adds age_group_id
-      const API_BASE_URL = "https://strengthscompass.axiscompass.in/v1/api";
       const userToken = localStorage.getItem("token") || 
                        localStorage.getItem("userToken") || 
                        localStorage.getItem("authToken");
