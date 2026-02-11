@@ -144,7 +144,7 @@ export default function AlertModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 flex items-center justify-center p-4" style={{ zIndex: 10000 }}>
       <div
         className={`absolute inset-0 bg-black/40 ${
           isClosing ? "animate-backdrop-out" : "animate-backdrop-in"

@@ -720,28 +720,33 @@ export default function AdminMasterAge() {
                   <label className="text-sm font-semibold neutral-text block mb-2">
                     Status
                   </label>
-                  <div className="flex items-center gap-4">
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="radio"
-                        name="is_active"
-                        checked={formData.is_active === true}
-                        onChange={() => handleFormChange("is_active", true)}
-                        disabled={actionLoading.create}
-                        className="radio"
-                      />
-                      <span className="text-sm neutral-text">Active</span>
-                    </label>
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="radio"
-                        name="is_active"
-                        checked={formData.is_active === false}
-                        onChange={() => handleFormChange("is_active", false)}
-                        disabled={actionLoading.create}
-                        className="radio"
-                      />
-                      <span className="text-sm neutral-text">Inactive</span>
+                  <div className="h-[42px] flex items-center bg-medium border border-neutral-border-light rounded-lg px-3 md:px-4">
+                    <label className="flex items-center justify-between cursor-pointer w-full">
+                      <span className="neutral-text font-medium text-sm md:text-base">
+                        {formData.is_active !== false ? "Active" : "Inactive"}
+                      </span>
+                      <div className="relative ml-4 flex-shrink-0">
+                        <input
+                          type="checkbox"
+                          checked={formData.is_active !== false}
+                          onChange={(e) =>
+                            handleFormChange("is_active", e.target.checked)
+                          }
+                          disabled={actionLoading.create}
+                          className="sr-only"
+                        />
+                        <div
+                          className={`w-14 h-7 rounded-full transition-colors duration-200 ease-in-out ${
+                            formData.is_active !== false ? "accent-bg" : "danger-bg"
+                          }`}
+                        >
+                          <div
+                            className={`absolute top-0.5 left-0.5 w-6 h-6 white-bg rounded-full shadow-md transform transition-transform duration-200 ease-in-out ${
+                              formData.is_active !== false ? "translate-x-7" : "translate-x-0"
+                            }`}
+                          />
+                        </div>
+                      </div>
                     </label>
                   </div>
                 </div>
@@ -1231,28 +1236,33 @@ export default function AdminMasterAge() {
                   <label className="text-sm font-semibold neutral-text block mb-2">
                     Status
                   </label>
-                  <div className="flex items-center gap-4">
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="radio"
-                        name="edit_is_active"
-                        checked={editingData.is_active === true}
-                        onChange={() => handleEditChange("is_active", true)}
-                        disabled={actionLoading.update}
-                        className="radio"
-                      />
-                      <span className="text-sm neutral-text">Active</span>
-                    </label>
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="radio"
-                        name="edit_is_active"
-                        checked={editingData.is_active === false}
-                        onChange={() => handleEditChange("is_active", false)}
-                        disabled={actionLoading.update}
-                        className="radio"
-                      />
-                      <span className="text-sm neutral-text">Inactive</span>
+                  <div className="h-[42px] flex items-center bg-medium border border-neutral-border-light rounded-lg px-3 md:px-4">
+                    <label className="flex items-center justify-between cursor-pointer w-full">
+                      <span className="neutral-text font-medium text-sm md:text-base">
+                        {editingData.is_active !== false ? "Active" : "Inactive"}
+                      </span>
+                      <div className="relative ml-4 flex-shrink-0">
+                        <input
+                          type="checkbox"
+                          checked={editingData.is_active !== false}
+                          onChange={(e) =>
+                            handleEditChange("is_active", e.target.checked)
+                          }
+                          disabled={actionLoading.update}
+                          className="sr-only"
+                        />
+                        <div
+                          className={`w-14 h-7 rounded-full transition-colors duration-200 ease-in-out ${
+                            editingData.is_active !== false ? "accent-bg" : "danger-bg"
+                          }`}
+                        >
+                          <div
+                            className={`absolute top-0.5 left-0.5 w-6 h-6 white-bg rounded-full shadow-md transform transition-transform duration-200 ease-in-out ${
+                              editingData.is_active !== false ? "translate-x-7" : "translate-x-0"
+                            }`}
+                          />
+                        </div>
+                      </div>
                     </label>
                   </div>
                 </div>

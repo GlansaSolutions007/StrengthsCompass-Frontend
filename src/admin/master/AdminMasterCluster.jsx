@@ -25,6 +25,7 @@ export default function AdminMasterCluster() {
     high_behaviour: "",
     medium_behaviour: "",
     low_behaviour: "",
+    is_active: true,
   });
   const [editingId, setEditingId] = useState(null);
   const [editingData, setEditingData] = useState({
@@ -34,6 +35,7 @@ export default function AdminMasterCluster() {
     high_behaviour: "",
     medium_behaviour: "",
     low_behaviour: "",
+    is_active: true,
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -54,6 +56,7 @@ export default function AdminMasterCluster() {
     create: false,
     update: false,
     delete: false,
+    toggleActiveId: null,
   });
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
@@ -85,6 +88,7 @@ export default function AdminMasterCluster() {
             high_behaviour: c.high_behaviour || "",
             medium_behaviour: c.medium_behaviour || "",
             low_behaviour: c.low_behaviour || "",
+            is_active: c.is_active !== undefined ? !!c.is_active : true,
           }))
         );
         setError(null);
@@ -144,6 +148,7 @@ export default function AdminMasterCluster() {
       high_behaviour: "",
       medium_behaviour: "",
       low_behaviour: "",
+      is_active: true,
     });
     setFieldErrors({});
   };
@@ -177,8 +182,33 @@ export default function AdminMasterCluster() {
         high_behaviour: "",
         medium_behaviour: "",
         low_behaviour: "",
+        is_active: true,
       });
     }, 220);
+  };
+
+  const handleToggleActive = async (id) => {
+    setActionLoading((prev) => ({ ...prev, toggleActiveId: id }));
+    try {
+      await apiClient.patch(`/constructs/${id}/toggle-active`);
+      const current = items.find((i) => i.id === id);
+      const newActive = !(current?.is_active ?? true);
+      setItems((prev) =>
+        prev.map((item) =>
+          item.id === id ? { ...item, is_active: newActive } : item
+        )
+      );
+      if (editingId === id) {
+        setEditingData((prev) => ({ ...prev, is_active: newActive }));
+      }
+    } catch (err) {
+      console.error("Error toggling active:", err);
+      setError(
+        err.response?.data?.message || "Failed to update status. Please try again."
+      );
+    } finally {
+      setActionLoading((prev) => ({ ...prev, toggleActiveId: null }));
+    }
   };
 
   const add = async () => {
@@ -202,14 +232,15 @@ export default function AdminMasterCluster() {
         high_behaviour: formData.high_behaviour.trim() || undefined,
         medium_behaviour: formData.medium_behaviour.trim() || undefined,
         low_behaviour: formData.low_behaviour.trim() || undefined,
+        is_active: formData.is_active !== false,
       };
 
       const response = await apiClient.post("/clusters", payload);
 
       if (response.data?.status && response.data.data) {
         const newCluster = response.data.data;
-        setItems([
-          ...items,
+        setItems((prev) => [
+          ...prev,
           {
             id: newCluster.id,
             name: newCluster.name || "",
@@ -218,6 +249,7 @@ export default function AdminMasterCluster() {
             high_behaviour: newCluster.high_behaviour || "",
             medium_behaviour: newCluster.medium_behaviour || "",
             low_behaviour: newCluster.low_behaviour || "",
+            is_active: newCluster.is_active !== undefined ? !!newCluster.is_active : true,
           },
         ]);
         resetForm();
@@ -270,10 +302,11 @@ export default function AdminMasterCluster() {
 
       if (response.data?.status && response.data.data) {
         const updatedCluster = response.data.data;
-        setItems(
-          items.map((item) =>
+        setItems((prev) =>
+          prev.map((item) =>
             item.id === id
               ? {
+                  ...item,
                   id: updatedCluster.id,
                   name: updatedCluster.name || "",
                   short_code: updatedCluster.short_code || "",
@@ -281,6 +314,7 @@ export default function AdminMasterCluster() {
                   high_behaviour: updatedCluster.high_behaviour || "",
                   medium_behaviour: updatedCluster.medium_behaviour || "",
                   low_behaviour: updatedCluster.low_behaviour || "",
+                  is_active: updatedCluster.is_active !== undefined ? !!updatedCluster.is_active : item.is_active,
                 }
               : item
           )
@@ -290,6 +324,10 @@ export default function AdminMasterCluster() {
           name: "",
           short_code: "",
           description: "",
+          high_behaviour: "",
+          medium_behaviour: "",
+          low_behaviour: "",
+          is_active: true,
         });
         setError(null);
         setSuccess("Cluster updated successfully!");
@@ -525,20 +563,56 @@ export default function AdminMasterCluster() {
               )}
 
               <div className="space-y-4">
-                <div>
-                  <label className="text-sm font-semibold neutral-text block mb-2">
-                    Name <span className="danger-text">*</span>
-                  </label>
-                  <input
-                    value={formData.name}
-                    onChange={(e) => handleFormChange("name", e.target.value)}
-                    placeholder="Enter cluster name"
-                    disabled={actionLoading.create}
-                    className={`input w-full ${fieldErrors.name ? "input-error" : ""}`}
-                  />
-                  {fieldErrors.name && (
-                    <p className="danger-text text-xs mt-1.5">{fieldErrors.name}</p>
-                  )}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-semibold neutral-text block mb-2">
+                      Name <span className="danger-text">*</span>
+                    </label>
+                    <input
+                      value={formData.name}
+                      onChange={(e) => handleFormChange("name", e.target.value)}
+                      placeholder="Enter cluster name"
+                      disabled={actionLoading.create}
+                      className={`input w-full ${fieldErrors.name ? "input-error" : ""}`}
+                    />
+                    {fieldErrors.name && (
+                      <p className="danger-text text-xs mt-1.5">{fieldErrors.name}</p>
+                    )}
+                  </div>
+                  <div>
+                    <label className="text-sm font-semibold neutral-text block mb-2">
+                      Status
+                    </label>
+                    <div className="h-[42px] flex items-center bg-medium border border-neutral-border-light rounded-lg px-3 md:px-4">
+                      <label className="flex items-center justify-between cursor-pointer w-full">
+                        <span className="neutral-text font-medium text-sm md:text-base">
+                          {formData.is_active !== false ? "Active" : "Inactive"}
+                        </span>
+                        <div className="relative ml-4 flex-shrink-0">
+                          <input
+                            type="checkbox"
+                            checked={formData.is_active !== false}
+                            onChange={(e) =>
+                              handleFormChange("is_active", e.target.checked)
+                            }
+                            disabled={actionLoading.create}
+                            className="sr-only"
+                          />
+                          <div
+                            className={`w-14 h-7 rounded-full transition-colors duration-200 ease-in-out ${
+                              formData.is_active !== false ? "accent-bg" : "danger-bg"
+                            }`}
+                          >
+                            <div
+                              className={`absolute top-0.5 left-0.5 w-6 h-6 white-bg rounded-full shadow-md transform transition-transform duration-200 ease-in-out ${
+                                formData.is_active !== false ? "translate-x-7" : "translate-x-0"
+                              }`}
+                            />
+                          </div>
+                        </div>
+                      </label>
+                    </div>
+                  </div>
                 </div>
 
                 <div>
@@ -777,6 +851,7 @@ export default function AdminMasterCluster() {
                           high_behaviour: viewModal.cluster.high_behaviour || "",
                           medium_behaviour: viewModal.cluster.medium_behaviour || "",
                           low_behaviour: viewModal.cluster.low_behaviour || "",
+                          is_active: viewModal.cluster.is_active !== undefined ? !!viewModal.cluster.is_active : true,
                         });
                       }, 220);
                     }}
@@ -852,17 +927,51 @@ export default function AdminMasterCluster() {
               )}
 
               <div className="space-y-4">
-                <div>
-                  <label className="text-sm font-semibold neutral-text block mb-2">
-                    Name <span className="danger-text">*</span>
-                  </label>
-                  <input
-                    value={editingData.name}
-                    onChange={(e) => handleEditChange("name", e.target.value)}
-                    placeholder="Enter cluster name"
-                    disabled={actionLoading.update}
-                    className="input w-full"
-                  />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-semibold neutral-text block mb-2">
+                      Name <span className="danger-text">*</span>
+                    </label>
+                    <input
+                      value={editingData.name}
+                      onChange={(e) => handleEditChange("name", e.target.value)}
+                      placeholder="Enter cluster name"
+                      disabled={actionLoading.update}
+                      className="input w-full"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-semibold neutral-text block mb-2">
+                      Status
+                    </label>
+                    <div className="h-[42px] flex items-center bg-medium border border-neutral-border-light rounded-lg px-3 md:px-4">
+                      <label className="flex items-center justify-between cursor-pointer w-full">
+                        <span className="neutral-text font-medium text-sm md:text-base">
+                          {editingData.is_active !== false ? "Active" : "Inactive"}
+                        </span>
+                        <div className="relative ml-4 flex-shrink-0">
+                          <input
+                            type="checkbox"
+                            checked={editingData.is_active !== false}
+                            onChange={() => handleToggleActive(editingId)}
+                            disabled={actionLoading.update || actionLoading.toggleActiveId === editingId}
+                            className="sr-only"
+                          />
+                          <div
+                            className={`w-14 h-7 rounded-full transition-colors duration-200 ease-in-out ${
+                              editingData.is_active !== false ? "accent-bg" : "danger-bg"
+                            }`}
+                          >
+                            <div
+                              className={`absolute top-0.5 left-0.5 w-6 h-6 white-bg rounded-full shadow-md transform transition-transform duration-200 ease-in-out ${
+                                editingData.is_active !== false ? "translate-x-7" : "translate-x-0"
+                              }`}
+                            />
+                          </div>
+                        </div>
+                      </label>
+                    </div>
+                  </div>
                 </div>
 
                 <div>
@@ -1192,9 +1301,10 @@ export default function AdminMasterCluster() {
                                     name: item.name || "",
                                     short_code: item.short_code || "",
                                     description: item.description || "",
-                        high_behaviour: item.high_behaviour || "",
-                        medium_behaviour: item.medium_behaviour || "",
-                        low_behaviour: item.low_behaviour || "",
+                                    high_behaviour: item.high_behaviour || "",
+                                    medium_behaviour: item.medium_behaviour || "",
+                                    low_behaviour: item.low_behaviour || "",
+                                    is_active: item.is_active !== undefined ? !!item.is_active : true,
                                   });
                                 }}
                                 className="btn-edit"
