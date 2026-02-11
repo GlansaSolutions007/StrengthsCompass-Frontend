@@ -176,16 +176,9 @@ export default function Test() {
         allTests = response.data.data;
       }
 
-      // Filter: only is_active === 1 and source === "SC Pro" (exclude is_active 0 and source "cerc")
-      const activeTests = allTests.filter((test) => {
-        if (test.is_active !== 1 && test.is_active !== true) return false;
-        const source = (test.source || "").toString().trim().toLowerCase();
-        return source === "sc pro";
-      });
-      
-      if (activeTests.length > 0) {
-        // Get the first test
-        const firstTest = activeTests[0];
+      if (allTests.length > 0) {
+        // Get the first test (filtering is done in TestList.jsx)
+        const firstTest = allTests[0];
         const firstTestId = firstTest.id;
         
         // Set the testId and fetch test data
@@ -1103,17 +1096,21 @@ export default function Test() {
                 </p>
                 <div className="flex items-start pt-2">
                   <div className="flex items-center h-5 mt-0.5">
-                    <input
-                      type="checkbox"
+                    <button
+                      type="button"
+                      role="checkbox"
+                      aria-checked={isConsent}
                       id="consent-checkbox"
-                      checked={isConsent}
-                      onChange={(e) => setIsConsent(e.target.checked)}
-                      className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500 focus:ring-2 cursor-pointer"
-                    />
+                      onClick={() => setIsConsent((c) => !c)}
+                      className={`flex items-center justify-center w-5 h-5 border-2 rounded cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 ${isConsent ? "bg-blue-600 border-blue-600 text-white" : "bg-white border-gray-300 text-transparent"}`}
+                    >
+                      <HiCheck className="w-3.5 h-3.5 shrink-0" strokeWidth={2.5} />
+                    </button>
                   </div>
-                  <label 
-                    htmlFor="consent-checkbox" 
-                    className="ml-3 text-sm text-gray-900 cursor-pointer"
+                  <label
+                    htmlFor="consent-checkbox"
+                    onClick={() => setIsConsent((c) => !c)}
+                    className="ml-3 text-sm text-gray-900 cursor-pointer select-none"
                   >
                     I agree to the terms and conditions above
                   </label>

@@ -136,9 +136,6 @@ export default function TestList() {
       setLoading(true);
       setError(null);
       
-      // Get ALL tests from API (no filtering on backend)
-      // We will filter on frontend based on age_group_id matching
-      // IMPORTANT: Use direct axios call to bypass the interceptor that adds age_group_id
       const userToken = localStorage.getItem("token") || 
                        localStorage.getItem("userToken") || 
                        localStorage.getItem("authToken");
@@ -152,10 +149,14 @@ export default function TestList() {
         headers.Authorization = `Bearer ${userToken}`;
       }
       
-      // Direct axios call WITHOUT age_group_id to get ALL tests
-      // This bypasses the interceptor that automatically adds age_group_id
-      console.log(`🔵 Fetching ALL tests from API (no age_group_id filter)...`);
-      const response = await axios.get(`${API_BASE_URL}/tests`, { headers });
+      // Send age_group_id so API can filter; also filter on frontend for display
+      const params = {};
+      if (ageGroupId != null && ageGroupId !== "") {
+        params.age_group_id = ageGroupId;
+      }
+      
+      console.log(`🔵 Fetching tests from API (age_group_id: ${ageGroupId ?? "none"})...`);
+      const response = await axios.get(`${API_BASE_URL}/tests`, { headers, params });
       console.log(`🔵 API Response:`, response.data);
 
       // Handle different response structures
@@ -169,11 +170,22 @@ export default function TestList() {
       }
 
       if (allTests.length > 0) {
-        // Show only tests with source "SC Pro"
-        const activeTests = allTests
+        // Filter by age_group_id (show only tests for user's age group when we have one)
+        let byAge = allTests;
+        if (ageGroupId != null && ageGroupId !== "") {
+          const id = Number(ageGroupId);
+          byAge = allTests.filter((test) => {
+            const tid = test.age_group_id != null ? Number(test.age_group_id) : null;
+            return tid === id;
+          });
+        }
+        const activeTests = byAge
           .filter((test) => {
-            const source = (test.source || test.test_type || "").toString().trim();
-            return source.toLowerCase() === "sc pro";
+            const active = test.is_active;
+            const isActive = active === 1;
+            if (!isActive) return false;
+            const source = (test.source || test.test_type || "").toString().trim().toLowerCase();
+            return source === "sc pro";
           })
           .map((test) => ({
             id: test.id,

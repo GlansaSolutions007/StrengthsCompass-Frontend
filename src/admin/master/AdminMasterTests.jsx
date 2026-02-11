@@ -159,6 +159,8 @@ export default function AdminMasterTests() {
             cluster_ids: t.cluster_ids || [],
             clusters: t.clusters || [],
             test_type: t.test_type ?? t.type ?? null,
+            source: t.source ?? null,
+            sc_pro_test_id: t.sc_pro_test_id ?? null,
           }))
         );
         setError(null);
@@ -577,6 +579,15 @@ export default function AdminMasterTests() {
     setTitle(item.title || "");
     setDescription(item.description || "");
     setStatus(item.is_active !== undefined && item.is_active ? "active" : "inactive");
+
+    // Get and show Type from source or test_type
+    const rawType = (item.source || item.test_type || item.type || "").toString().trim().toLowerCase();
+    const typeValue = rawType === "cerc" ? "cerc" : rawType === "sc pro" ? "src pro" : "";
+    setTestType(typeValue);
+
+    // Show previous test (SC Pro) when type is cerc
+    const prevId = item.sc_pro_test_id ?? item.previous_test_id ?? "";
+    setPreviousTestId(prevId !== null && prevId !== undefined ? String(prevId) : "");
 
     const clusterIds =
       item.cluster_ids ||
