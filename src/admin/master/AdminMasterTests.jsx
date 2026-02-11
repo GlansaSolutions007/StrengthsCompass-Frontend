@@ -11,6 +11,8 @@ import {
   HiCollection,
   HiEye,
   HiSearch,
+  HiDownload,
+  HiUpload,
 } from "react-icons/hi";
 import AlertModal from "../../components/AlertModal";
 
@@ -66,6 +68,9 @@ export default function AdminMasterTests() {
   const [isClosingView, setIsClosingView] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [isClosingForm, setIsClosingForm] = useState(false);
+  const [addTestMode, setAddTestMode] = useState(""); // "" | "manual" | "excel"
+  const [excelTestFile, setExcelTestFile] = useState(null);
+  const [templateDownloading, setTemplateDownloading] = useState(false);
 
   const fetchStatusOptions = async () => {
     try {
@@ -326,16 +331,19 @@ export default function AdminMasterTests() {
   };
 
   const add = async () => {
+    const useExcelImport = !editingId && excelTestFile;
     const errors = {};
     if (!title.trim()) {
       errors.title = "Title is required";
     }
-    if (selectedClusterIds.length === 0) {
+    if (!useExcelImport && selectedClusterIds.length === 0) {
       errors.cluster_ids = "At least one cluster is required";
     }
 
+
+    // Validate question selection only when not using Excel import
     // Validate that question counts are set (only if not in select all mode)
-    if (!selectAllMode && selectedClusterIds.length > 0 && constructsForSelectedClusters.length > 0) {
+    if (!useExcelImport && !selectAllMode && selectedClusterIds.length > 0 && constructsForSelectedClusters.length > 0) {
       const activeConstructs = constructsForSelectedClusters.filter(
         (c) => !skippedConstructs.includes(c.id.toString())
       );
@@ -356,8 +364,8 @@ export default function AdminMasterTests() {
       }
     }
 
-    // Validate question selection (only if not in select all mode)
-    if (!selectAllMode) {
+    // Validate question selection (only if not in select all mode and not Excel import)
+    if (!useExcelImport && !selectAllMode) {
       const questionValidationError = validateQuestionSelection();
       if (questionValidationError) {
         setQuestionSelectionError(questionValidationError);
@@ -395,63 +403,92 @@ export default function AdminMasterTests() {
     setActionLoading({ ...actionLoading, create: true });
 
     try {
-      // Collect only selected question IDs from constructs in selected clusters
-      const validConstructIds = constructsForSelectedClusters.map((c) => c.id.toString());
-      const allSelectedQuestionIds = [];
-      
-      for (const constructId of validConstructIds) {
-        const selected = selectedQuestions[constructId];
-        if (selected) {
-          for (const category of ["P", "R", "SDB"]) {
-            if (selected[category] && Array.isArray(selected[category])) {
-              allSelectedQuestionIds.push(...selected[category]);
+      if (useExcelImport) {
+        // Upload via Excel: POST /tests/import with FormData (file optional - no validation)
+        const formData = new FormData();
+        formData.append("file", excelTestFile);
+        formData.append("title", title.trim());
+        formData.append("description", description.trim() || "");
+        formData.append("is_active", status === "active" || status === "1" || status === 1 ? "1" : "0");
+        selectedClusterIds.forEach((id) => formData.append("cluster_ids[]", id));
+
+        const response = await apiClient.post("/tests", formData, {
+          headers: { "Content-Type": "multipart/form-data" },
+        });
+
+        if (response.data?.status && response.data.data) {
+          const newTest = response.data.data;
+          setItems((prev) => [
+            ...prev,
+            {
+              id: newTest.id,
+              title: newTest.title || "",
+              description: newTest.description || "",
+              is_active: newTest.is_active !== undefined ? newTest.is_active : true,
+              cluster_ids: newTest.cluster_ids || [],
+              clusters: newTest.clusters || [],
+            },
+          ]);
+          resetForm();
+          setShowForm(false);
+          setError(null);
+          setSuccess("Test created successfully from Excel!");
+        } else {
+          setError(response.data?.message || "Failed to create test from Excel");
+        }
+      } else {
+        // Manual: collect question IDs and POST /tests
+        const validConstructIds = constructsForSelectedClusters.map((c) => c.id.toString());
+        const allSelectedQuestionIds = [];
+        for (const constructId of validConstructIds) {
+          const selected = selectedQuestions[constructId];
+          if (selected) {
+            for (const category of ["P", "R", "SDB"]) {
+              if (selected[category] && Array.isArray(selected[category])) {
+                allSelectedQuestionIds.push(...selected[category]);
+              }
             }
           }
         }
-      }
 
-      // Build clusters array with P, R, SDB counts for each cluster
-      const clustersArray = selectedClusterIds.map((clusterId) => ({
-        cluster_id: parseInt(clusterId),
-        p_count: selectAllMode ? null : (questionCounts.P || null),
-        r_count: selectAllMode ? null : (questionCounts.R || null),
-        sdb_count: selectAllMode ? null : (questionCounts.SDB || null),
-      }));
+        const clustersArray = selectedClusterIds.map((clusterId) => ({
+          cluster_id: parseInt(clusterId),
+          p_count: selectAllMode ? null : (questionCounts.P || null),
+          r_count: selectAllMode ? null : (questionCounts.R || null),
+          sdb_count: selectAllMode ? null : (questionCounts.SDB || null),
+        }));
 
-      // Build payload with all required fields
-      // Age group ID will be automatically added by API interceptor from localStorage
-      // Note: Only send 'clusters' array, not 'cluster_ids', to avoid duplicates in backend
-      const payload = {
-        title: title.trim(),
-        description: description.trim() || "",
-        is_active: status === "active" || status === "1" || status === 1,
-        question_ids: allSelectedQuestionIds,
-        clusters: clustersArray,
-      };
+        const payload = {
+          title: title.trim(),
+          description: description.trim() || "",
+          is_active: status === "active" || status === "1" || status === 1,
+          question_ids: allSelectedQuestionIds,
+          clusters: clustersArray,
+        };
 
-      const response = await apiClient.post("/tests", payload);
+        const response = await apiClient.post("/tests", payload);
 
-      if (response.data?.status && response.data.data) {
-        const newTest = response.data.data;
-        setItems([
-          ...items,
-          {
-            id: newTest.id,
-            title: newTest.title || "",
-            description: newTest.description || "",
-            is_active:
-              newTest.is_active !== undefined ? newTest.is_active : true,
-            cluster_ids: newTest.cluster_ids || [],
-            clusters: newTest.clusters || [],
-          },
-        ]);
-
-        resetForm();
-        setShowForm(false);
-        setError(null);
-        setSuccess("Test created successfully!");
-      } else {
-        setError(response.data?.message || "Failed to create test");
+        if (response.data?.status && response.data.data) {
+          const newTest = response.data.data;
+          setItems((prev) => [
+            ...prev,
+            {
+              id: newTest.id,
+              title: newTest.title || "",
+              description: newTest.description || "",
+              is_active:
+                newTest.is_active !== undefined ? newTest.is_active : true,
+              cluster_ids: newTest.cluster_ids || [],
+              clusters: newTest.clusters || [],
+            },
+          ]);
+          resetForm();
+          setShowForm(false);
+          setError(null);
+          setSuccess("Test created successfully!");
+        } else {
+          setError(response.data?.message || "Failed to create test");
+        }
       }
     } catch (err) {
       console.error("Error creating test:", err);
@@ -533,6 +570,8 @@ export default function AdminMasterTests() {
     setSelectAllMode(false);
     setFieldErrors({});
     setEditingId(null);
+    setAddTestMode("");
+    setExcelTestFile(null);
   };
 
   // Get constructs for selected clusters
@@ -728,8 +767,42 @@ export default function AdminMasterTests() {
     setTimeout(() => {
       setIsClosingForm(false);
       resetForm();
+      setAddTestMode("");
+      setExcelTestFile(null);
       setShowForm(false);
     }, 220);
+  };
+
+  const handleDownloadTemplate = async () => {
+    setTemplateDownloading(true);
+    setError(null);
+    try {
+      const ageGroupId = localStorage.getItem("adminSelectedVariantId") || "1";
+      const response = await apiClient.get("/tests/questions/template", {
+        params: { age_group_id: ageGroupId },
+        responseType: "blob",
+      });
+      const blob = new Blob([response.data], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `test-questions-template-${ageGroupId}.xlsx`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("Error downloading template:", err);
+      setError(
+        err.response?.data?.message ||
+          err.message ||
+          "Failed to download template. Please try again."
+      );
+    } finally {
+      setTemplateDownloading(false);
+    }
   };
 
   const handleCancelEdit = () => {
@@ -1250,6 +1323,7 @@ export default function AdminMasterTests() {
                   </div>
                 )}
 
+                {(editingId || !editingId) && (
                 <div className="space-y-4">
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                   <div>
@@ -1431,6 +1505,42 @@ export default function AdminMasterTests() {
                     </p>
                   )}
                 </div>
+                )}
+
+                {/* Upload from Excel (optional) - only when adding */}
+                {!editingId && (
+                  <div className="space-y-3 border-t border-neutral-200 pt-4">
+                    <label className="text-sm font-semibold neutral-text block">
+                      Upload from Excel <span className="text-xs font-normal neutral-text-muted">(optional)</span>
+                    </label>
+                    <div className="flex flex-wrap items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={handleDownloadTemplate}
+                        disabled={templateDownloading}
+                        className="btn btn-secondary inline-flex items-center gap-2"
+                      >
+                        {templateDownloading ? (
+                          <span className="spinner spinner-sm" />
+                        ) : (
+                          <HiDownload className="w-5 h-5" />
+                        )}
+                        Format Download
+                      </button>
+                      <span className="text-xs neutral-text-muted">Download the template, fill it, then upload below.</span>
+                    </div>
+                    <input
+                      type="file"
+                      accept=".xlsx,.xls,.csv"
+                      onChange={(e) => setExcelTestFile(e.target.files?.[0] || null)}
+                      className="input w-full"
+                    />
+                    {excelTestFile && (
+                      <p className="text-xs neutral-text-muted">
+                        Selected: {excelTestFile.name}
+                      </p>
+                    )}
+                  </div>
                 )}
 
                 {/* Question Selection Section */}
@@ -1674,6 +1784,8 @@ export default function AdminMasterTests() {
                   </div>
                 )}
                 </div>
+                )}
+
               </div>
 
               {/* Fixed Button Bar at Bottom */}
@@ -1755,15 +1867,18 @@ export default function AdminMasterTests() {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl md:text-3xl font-bold neutral-text">Manage Tests</h1>
-        <button
-          onClick={() => {
-            resetForm();
-            setShowForm(true);
-          }} 
-          className="btn btn-secondary"
-        >
-          <HiPlus className="w-4 h-4 mr-2 black-text" /> Add New Test
-        </button>
+        <div className="flex items-center gap-3">
+         
+          <button
+            onClick={() => {
+              resetForm();
+              setShowForm(true);
+            }}
+            className="btn btn-secondary"
+          >
+            <HiPlus className="w-4 h-4 mr-2 black-text" /> Add New Test
+          </button>
+        </div>
       </div>
 
         {/* Search and Bulk Actions */}
