@@ -29,6 +29,8 @@ export default function AdminMasterTests() {
   const [fieldErrors, setFieldErrors] = useState({});
 
   const [title, setTitle] = useState("");
+  const [testType, setTestType] = useState(""); 
+  const [previousTestId, setPreviousTestId] = useState(""); 
   const [description, setDescription] = useState("");
   const [status, setStatus] = useState("active");
   const [selectedClusterIds, setSelectedClusterIds] = useState([]);
@@ -37,14 +39,12 @@ export default function AdminMasterTests() {
   const [constructsLoading, setConstructsLoading] = useState(true);
   const [questions, setQuestions] = useState([]);
   const [questionsLoading, setQuestionsLoading] = useState(false);
-  // Common counts for all constructs: { P: count, R: count, SDB: count }
   const [questionCounts, setQuestionCounts] = useState({ P: 0, R: 0, SDB: 0 });
-  // Structure: { constructId: { P: [questionIds], R: [questionIds], SDB: [questionIds] } }
   const [selectedQuestions, setSelectedQuestions] = useState({});
   const [questionSelectionError, setQuestionSelectionError] = useState("");
-  const [errorConstructInfo, setErrorConstructInfo] = useState(null); // { constructId, constructName, category }
-  const [skippedConstructs, setSkippedConstructs] = useState([]); // Array of construct IDs to skip
-  const [selectAllMode, setSelectAllMode] = useState(false); // Toggle for selecting all questions 
+  const [errorConstructInfo, setErrorConstructInfo] = useState(null);
+  const [skippedConstructs, setSkippedConstructs] = useState([]);
+  const [selectAllMode, setSelectAllMode] = useState(false);  
 
   const [editingId, setEditingId] = useState(null);
   const [editingData, setEditingData] = useState({});
@@ -68,7 +68,8 @@ export default function AdminMasterTests() {
   const [isClosingView, setIsClosingView] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [isClosingForm, setIsClosingForm] = useState(false);
-  const [addTestMode, setAddTestMode] = useState(""); // "" | "manual" | "excel"
+  const [addTestMode, setAddTestMode] = useState(""); 
+  const [addSource, setAddSource] = useState("cluster"); 
   const [excelTestFile, setExcelTestFile] = useState(null);
   const [templateDownloading, setTemplateDownloading] = useState(false);
 
@@ -76,8 +77,7 @@ export default function AdminMasterTests() {
     try {
       const response = await apiClient.get("/options");
       if (response.data?.status && response.data.data) {
-        // Filter options for status (you may need to adjust the filter based on your API structure)
-        // Assuming status options have a specific category or label pattern
+       
         const statusOpts = response.data.data
           .filter((opt) => {
             const label = (opt.label || opt.option_text || opt.name || "").toLowerCase();
@@ -89,7 +89,6 @@ export default function AdminMasterTests() {
             value: opt.value !== undefined ? String(opt.value) : opt.label?.toLowerCase() || "",
           }));
         
-        // If no status options found, use default options
         if (statusOpts.length === 0) {
           setStatusOptions([
             { id: 1, label: "Active", value: "active" },
@@ -100,7 +99,6 @@ export default function AdminMasterTests() {
         }
         setError(null);
       } else {
-        // Default status options if API fails
         setStatusOptions([
           { id: 1, label: "Active", value: "active" },
           { id: 2, label: "Inactive", value: "inactive" },
@@ -108,7 +106,6 @@ export default function AdminMasterTests() {
       }
     } catch (err) {
       console.error("Error fetching status options:", err);
-      // Default status options on error
       setStatusOptions([
         { id: 1, label: "Active", value: "active" },
         { id: 2, label: "Inactive", value: "inactive" },
@@ -161,6 +158,9 @@ export default function AdminMasterTests() {
             is_active: t.is_active !== undefined ? t.is_active : true,
             cluster_ids: t.cluster_ids || [],
             clusters: t.clusters || [],
+            test_type: t.test_type ?? t.type ?? null,
+            source: t.source ?? null,
+            sc_pro_test_id: t.sc_pro_test_id ?? null,
           }))
         );
         setError(null);
@@ -215,11 +215,9 @@ export default function AdminMasterTests() {
 
     try {
       setQuestionsLoading(true);
-      // Age group ID will be automatically added by API interceptor from localStorage
       const response = await apiClient.get("/questions");
 
       if (response.data?.status && response.data.data) {
-        // Filter questions by selected clusters
         const filteredQuestions = response.data.data.filter((q) => {
           const construct = constructs.find((c) => c.id === q.construct_id);
           if (!construct) return false;
@@ -259,10 +257,8 @@ export default function AdminMasterTests() {
     } else {
       setQuestions([]);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedClusterIds.join(",")]);
 
-  // Clean up selected questions when clusters change
   useEffect(() => {
     if (selectedClusterIds.length > 0 && constructs.length > 0) {
       const validConstructIds = constructsForSelectedClusters.map((c) => c.id.toString());
@@ -331,13 +327,27 @@ export default function AdminMasterTests() {
   };
 
   const add = async () => {
-    const useExcelImport = !editingId && excelTestFile;
+    const useExcelImport = !editingId && addSource === "excel";
     const errors = {};
     if (!title.trim()) {
       errors.title = "Title is required";
     }
-    if (!useExcelImport && selectedClusterIds.length === 0) {
-      errors.cluster_ids = "At least one cluster is required";
+    if (!testType || (testType !== "src pro" && testType !== "cerc")) {
+      errors.test_type = "Please select a type";
+    }
+    if (testType === "cerc" && !previousTestId) {
+      errors.previous_test_id = "Please select a previous test";
+    }
+    if (!editingId) {
+      if (addSource === "cluster") {
+        if (selectedClusterIds.length === 0) {
+          errors.cluster_ids = "At least one cluster is required";
+        }
+      } else {
+        if (!excelTestFile) {
+          errors.excel_file = "Please upload an Excel file";
+        }
+      }
     }
 
 
@@ -406,11 +416,25 @@ export default function AdminMasterTests() {
       if (useExcelImport) {
         // Upload via Excel: POST /tests/import with FormData (file optional - no validation)
         const formData = new FormData();
-        formData.append("file", excelTestFile);
+        formData.append("questions_file", excelTestFile);
         formData.append("title", title.trim());
         formData.append("description", description.trim() || "");
         formData.append("is_active", status === "active" || status === "1" || status === 1 ? "1" : "0");
         selectedClusterIds.forEach((id) => formData.append("cluster_ids[]", id));
+        formData.append("source", testType === "cerc" ? "CERC" : "SC Pro");
+        if (testType === "cerc" && previousTestId) {
+          formData.append("sc_pro_test_id", String(previousTestId));
+        }
+        const postDataLog = {
+          title: title.trim(),
+          description: description.trim() || "",
+          is_active: status === "active" || status === "1" || status === 1 ? "1" : "0",
+          cluster_ids: selectedClusterIds,
+          source: testType === "cerc" ? "CERC" : "SC Pro",
+          ...(testType === "cerc" && previousTestId && { sc_pro_test_id: previousTestId }),
+          questions_file: excelTestFile?.name ?? "(file)",
+        };
+        console.log("POST /tests (Excel) data:", postDataLog);
 
         const response = await apiClient.post("/tests", formData, {
           headers: { "Content-Type": "multipart/form-data" },
@@ -427,6 +451,7 @@ export default function AdminMasterTests() {
               is_active: newTest.is_active !== undefined ? newTest.is_active : true,
               cluster_ids: newTest.cluster_ids || [],
               clusters: newTest.clusters || [],
+              test_type: newTest.test_type ?? newTest.type ?? null,
             },
           ]);
           resetForm();
@@ -464,7 +489,12 @@ export default function AdminMasterTests() {
           is_active: status === "active" || status === "1" || status === 1,
           question_ids: allSelectedQuestionIds,
           clusters: clustersArray,
+          source: testType === "cerc" ? "CERC" : "SC Pro",
         };
+        if (testType === "cerc" && previousTestId) {
+          payload.sc_pro_test_id = parseInt(previousTestId, 10) || previousTestId;
+        }
+        console.log("POST /tests (manual) data:", payload);
 
         const response = await apiClient.post("/tests", payload);
 
@@ -480,6 +510,7 @@ export default function AdminMasterTests() {
                 newTest.is_active !== undefined ? newTest.is_active : true,
               cluster_ids: newTest.cluster_ids || [],
               clusters: newTest.clusters || [],
+              test_type: newTest.test_type ?? newTest.type ?? null,
             },
           ]);
           resetForm();
@@ -549,6 +580,15 @@ export default function AdminMasterTests() {
     setDescription(item.description || "");
     setStatus(item.is_active !== undefined && item.is_active ? "active" : "inactive");
 
+    // Get and show Type from source or test_type
+    const rawType = (item.source || item.test_type || item.type || "").toString().trim().toLowerCase();
+    const typeValue = rawType === "cerc" ? "cerc" : rawType === "sc pro" ? "src pro" : "";
+    setTestType(typeValue);
+
+    // Show previous test (SC Pro) when type is cerc
+    const prevId = item.sc_pro_test_id ?? item.previous_test_id ?? "";
+    setPreviousTestId(prevId !== null && prevId !== undefined ? String(prevId) : "");
+
     const clusterIds =
       item.cluster_ids ||
       (item.clusters || []).map((c) => c.cluster_id || c.clusterId);
@@ -558,6 +598,8 @@ export default function AdminMasterTests() {
 
   const resetForm = () => {
     setTitle("");
+    setTestType("");
+    setPreviousTestId("");
     setDescription("");
     setStatus("active");
     setSelectedClusterIds([]);
@@ -571,6 +613,7 @@ export default function AdminMasterTests() {
     setFieldErrors({});
     setEditingId(null);
     setAddTestMode("");
+    setAddSource("cluster");
     setExcelTestFile(null);
   };
 
@@ -816,6 +859,12 @@ export default function AdminMasterTests() {
     if (!title.trim()) {
       errors.title = "Title is required";
     }
+    if (!testType || (testType !== "src pro" && testType !== "cerc")) {
+      errors.test_type = "Please select a type";
+    }
+    if (testType === "cerc" && !previousTestId) {
+      errors.previous_test_id = "Please select a previous test";
+    }
     // Clusters are not editable, so skip validation
 
     // Validate that question counts are set (only if not in select all mode)
@@ -913,7 +962,12 @@ export default function AdminMasterTests() {
         is_active: status === "active" || status === "1" || status === 1,
         question_ids: allSelectedQuestionIds,
         clusters: clustersArray,
+        source: testType === "cerc" ? "CERC" : "SC Pro",
       };
+      if (testType === "cerc" && previousTestId) {
+        payload.sc_pro_test_id = parseInt(previousTestId, 10) || previousTestId;
+      }
+      console.log("PUT /tests data:", payload);
 
       const response = await apiClient.put(`/tests/${editingId}`, payload);
 
@@ -923,6 +977,7 @@ export default function AdminMasterTests() {
           items.map((item) =>
             item.id === editingId
               ? {
+                  ...item,
                   id: updatedTest.id,
                   title: updatedTest.title || "",
                   description: updatedTest.description || "",
@@ -932,6 +987,7 @@ export default function AdminMasterTests() {
                       : true,
                   cluster_ids: updatedTest.cluster_ids || [],
                   clusters: updatedTest.clusters || [],
+                  test_type: updatedTest.test_type ?? updatedTest.type ?? item.test_type,
                 }
               : item
           )
@@ -1415,6 +1471,73 @@ export default function AdminMasterTests() {
 
                 <div>
                   <label className="text-sm font-semibold neutral-text block mb-2">
+                    Type <span className="danger-text">*</span>
+                  </label>
+                  <div className="relative">
+                    <select
+                      value={testType}
+                      onChange={(e) => {
+                        setTestType(e.target.value);
+                        if (e.target.value !== "cerc") setPreviousTestId("");
+                        if (fieldErrors.test_type) setFieldErrors((prev) => ({ ...prev, test_type: "" }));
+                        if (fieldErrors.previous_test_id) setFieldErrors((prev) => ({ ...prev, previous_test_id: "" }));
+                      }}
+                      disabled={actionLoading.create || actionLoading.update}
+                      className={`input w-full pr-10 ${fieldErrors.test_type ? "input-error" : ""}`}
+                    >
+                      <option value="">Select type</option>
+                      <option value="src pro">src pro</option>
+                      <option value="cerc">cerc</option>
+                    </select>
+                    <HiChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 neutral-text-muted" />
+                  </div>
+                  {fieldErrors.test_type && (
+                    <p id="error-test_type" className="danger-text text-xs mt-1.5">
+                      {fieldErrors.test_type}
+                    </p>
+                  )}
+                </div>
+
+                {testType === "cerc" && (
+                  <div>
+                    <label className="text-sm font-semibold neutral-text block mb-2">
+                      Previous tests <span className="danger-text">*</span>
+                    </label>
+                    <div className="relative">
+                      <select
+                        value={previousTestId}
+                        onChange={(e) => {
+                          setPreviousTestId(e.target.value);
+                          if (fieldErrors.previous_test_id) setFieldErrors((prev) => ({ ...prev, previous_test_id: "" }));
+                        }}
+                        disabled={actionLoading.create || actionLoading.update}
+                        className={`input w-full pr-10 ${fieldErrors.previous_test_id ? "input-error" : ""}`}
+                      >
+                        <option value="">Select a test</option>
+                        {items
+                          .filter((t) => {
+                            if (editingId && t.id === editingId) return false;
+                            const type = t.test_type ?? t.type;
+                            return type === "src pro" || type == null;
+                          })
+                          .map((t) => (
+                            <option key={t.id} value={t.id}>
+                              {t.title || `Test #${t.id}`}
+                            </option>
+                          ))}
+                      </select>
+                      <HiChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 neutral-text-muted" />
+                    </div>
+                    {fieldErrors.previous_test_id && (
+                      <p id="error-previous_test_id" className="danger-text text-xs mt-1.5">
+                        {fieldErrors.previous_test_id}
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                <div>
+                  <label className="text-sm font-semibold neutral-text block mb-2">
                     Description
                   </label>
                   <textarea
@@ -1427,7 +1550,48 @@ export default function AdminMasterTests() {
                   />
                 </div>
 
+                {/* Add method: Cluster or Excel - only when adding */}
                 {!editingId && (
+                  <div className="space-y-3">
+                    <label className="text-sm font-semibold neutral-text block">
+                      How do you want to add this test?
+                    </label>
+                    <div className="flex flex-wrap gap-4">
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="radio"
+                          name="addSource"
+                          value="cluster"
+                          checked={addSource === "cluster"}
+                          onChange={() => {
+                            setAddSource("cluster");
+                            if (fieldErrors.excel_file) setFieldErrors((prev) => ({ ...prev, excel_file: "" }));
+                          }}
+                          disabled={actionLoading.create || actionLoading.update}
+                          className="radio"
+                        />
+                        <span className="text-sm neutral-text">Add by selecting clusters</span>
+                      </label>
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="radio"
+                          name="addSource"
+                          value="excel"
+                          checked={addSource === "excel"}
+                          onChange={() => {
+                            setAddSource("excel");
+                            if (fieldErrors.cluster_ids) setFieldErrors((prev) => ({ ...prev, cluster_ids: "" }));
+                          }}
+                          disabled={actionLoading.create || actionLoading.update}
+                          className="radio"
+                        />
+                        <span className="text-sm neutral-text">Add by uploading Excel</span>
+                      </label>
+                    </div>
+                  </div>
+                )}
+
+                {!editingId && addSource === "cluster" && (
                 <div>
                   <label className="text-sm font-semibold neutral-text block mb-2">
                     Clusters <span className="danger-text">*</span>
@@ -1507,44 +1671,51 @@ export default function AdminMasterTests() {
                 </div>
                 )}
 
-                {/* Upload from Excel (optional) - only when adding */}
-                {!editingId && (
-                  <div className="space-y-3 border-t border-neutral-200 pt-4">
-                    <label className="text-sm font-semibold neutral-text block">
-                      Upload from Excel <span className="text-xs font-normal neutral-text-muted">(optional)</span>
-                    </label>
-                    <div className="flex flex-wrap items-center gap-3">
+                {/* Upload from Excel - only when adding and Excel option selected (required) */}
+                {!editingId && addSource === "excel" && (
+                  <div className="border-t border-neutral-200 pt-4">
+                    <div className="flex items-center justify-between gap-2 mb-2">
+                      <label className="text-sm font-semibold neutral-text">
+                        Upload from Excel <span className="danger-text">*</span>
+                      </label>
                       <button
                         type="button"
                         onClick={handleDownloadTemplate}
                         disabled={templateDownloading}
-                        className="btn btn-secondary inline-flex items-center gap-2"
-                      >
+                        className="btn btn-secondary"
+                                              >
                         {templateDownloading ? (
                           <span className="spinner spinner-sm" />
                         ) : (
-                          <HiDownload className="w-5 h-5" />
+                          <HiDownload className="w-4 h-4 mr-2 black-text" />
                         )}
-                        Format Download
+                        Download template
                       </button>
-                      <span className="text-xs neutral-text-muted">Download the template, fill it, then upload below.</span>
                     </div>
                     <input
                       type="file"
                       accept=".xlsx,.xls,.csv"
-                      onChange={(e) => setExcelTestFile(e.target.files?.[0] || null)}
-                      className="input w-full"
+                      onChange={(e) => {
+                        setExcelTestFile(e.target.files?.[0] || null);
+                        if (fieldErrors.excel_file) setFieldErrors((prev) => ({ ...prev, excel_file: "" }));
+                      }}
+                      className={`input w-full ${fieldErrors.excel_file ? "input-error" : ""}`}
                     />
-                    {excelTestFile && (
-                      <p className="text-xs neutral-text-muted">
-                        Selected: {excelTestFile.name}
+                    {excelTestFile && !fieldErrors.excel_file && (
+                      <p className="text-xs neutral-text-muted mt-1.5">
+                        {excelTestFile.name}
+                      </p>
+                    )}
+                    {fieldErrors.excel_file && (
+                      <p id="error-excel_file" className="danger-text text-xs mt-1.5">
+                        {fieldErrors.excel_file}
                       </p>
                     )}
                   </div>
                 )}
 
-                {/* Question Selection Section */}
-                {selectedClusterIds.length > 0 && (
+                {/* Question Selection Section - only when adding by clusters */}
+                {!editingId && addSource === "cluster" && selectedClusterIds.length > 0 && (
                   <div className="space-y-4 border-t border-neutral-200 pt-4">
                     <div className="flex items-center justify-between">
                       <label className="text-sm font-semibold neutral-text">
@@ -1818,7 +1989,7 @@ export default function AdminMasterTests() {
                   <button
                     onClick={add}
                     disabled={actionLoading.create}
-                    className="btn secondary-bg black-text hover:secondary-bg-dark shadow-md"
+                    className="btn btn-warning shadow-md"
                   >
                     {actionLoading.create ? (
                       <>

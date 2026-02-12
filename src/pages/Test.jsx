@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { HiCheck, HiChevronLeft, HiChevronRight, HiTranslate, HiChevronDown, HiMail, HiLockClosed, HiExclamationCircle, HiEye, HiEyeOff } from "react-icons/hi";
 import Navbar from "../components/Navbar";
@@ -46,6 +46,7 @@ export default function Test() {
   const [userAge, setUserAge] = useState(null);
   const [selectedLanguage, setSelectedLanguage] = useState(null);
   const [showLanguageDropdown, setShowLanguageDropdown] = useState(false);
+  const languageDropdownRef = useRef(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [showLoginForm, setShowLoginForm] = useState(true); // true for login, false for register
   const [loginEmail, setLoginEmail] = useState("");
@@ -176,12 +177,9 @@ export default function Test() {
         allTests = response.data.data;
       }
 
-      // Filter active tests
-      const activeTests = allTests.filter((test) => test.is_active !== false);
-      
-      if (activeTests.length > 0) {
-        // Get the first test
-        const firstTest = activeTests[0];
+      if (allTests.length > 0) {
+        // Get the first test (filtering is done in TestList.jsx)
+        const firstTest = allTests[0];
         const firstTestId = firstTest.id;
         
         // Set the testId and fetch test data
@@ -439,6 +437,18 @@ export default function Test() {
       localStorage.removeItem("selectedLanguage");
     }
   }, [isEligibleForLanguageSelection, selectedLanguage]);
+
+  // Close language dropdown when clicking outside
+  useEffect(() => {
+    if (!showLanguageDropdown) return;
+    const handleClickOutside = (e) => {
+      if (languageDropdownRef.current && !languageDropdownRef.current.contains(e.target)) {
+        setShowLanguageDropdown(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [showLanguageDropdown]);
 
   const handleLanguageSelect = (language) => {
     setSelectedLanguage(language);
@@ -1099,17 +1109,21 @@ export default function Test() {
                 </p>
                 <div className="flex items-start pt-2">
                   <div className="flex items-center h-5 mt-0.5">
-                    <input
-                      type="checkbox"
+                    <button
+                      type="button"
+                      role="checkbox"
+                      aria-checked={isConsent}
                       id="consent-checkbox"
-                      checked={isConsent}
-                      onChange={(e) => setIsConsent(e.target.checked)}
-                      className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500 focus:ring-2 cursor-pointer"
-                    />
+                      onClick={() => setIsConsent((c) => !c)}
+                      className={`flex items-center justify-center w-5 h-5 border-2 rounded cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 ${isConsent ? "bg-blue-600 border-blue-600 text-white" : "bg-white border-gray-300 text-transparent"}`}
+                    >
+                      <HiCheck className="w-3.5 h-3.5 shrink-0" strokeWidth={2.5} />
+                    </button>
                   </div>
-                  <label 
-                    htmlFor="consent-checkbox" 
-                    className="ml-3 text-sm text-gray-900 cursor-pointer"
+                  <label
+                    htmlFor="consent-checkbox"
+                    onClick={() => setIsConsent((c) => !c)}
+                    className="ml-3 text-sm text-gray-900 cursor-pointer select-none"
                   >
                     I agree to the terms and conditions above
                   </label>
@@ -1167,19 +1181,53 @@ export default function Test() {
         {/* Language Dropdown - Available only for age group 13-17 */}
         {isEligibleForLanguageSelection && (
           <div className="mb-6 flex justify-end">
-            <div className="relative">
+            <div className="relative" ref={languageDropdownRef}>
               <button
-                onClick={() => setShowLanguageDropdown(!showLanguageDropdown)}
-                className="flex items-center gap-2 px-4 py-2 yellow-bg-400 border border-yellow-500 rounded-lg shadow-sm hover:yellow-bg-500 transition-colors"
-              >
-                <HiTranslate className="w-5 h-5 text-gray-500" />
-                <span className="text-sm font-medium text-gray-500">
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowLanguageDropdown((prev) => !prev);
+                }}
+                className="flex btn btn-secondary items-center justify-center px-3 hover:bg-secondary-bg-light transition-colors"
+                >
+                <HiTranslate className="w-5 h-5 text-black" />
+                <span className="text-sm font-medium text-black">
                   {selectedLanguage ? selectedLanguage.name : "English"}
                 </span>
-                <HiChevronDown className="w-4 h-4 text-gray-500" />
+                <HiChevronDown className={`w-4 h-4 text-black transition-transform ${showLanguageDropdown ? "rotate-180" : ""}`} />
               </button>
-              
-             
+              {showLanguageDropdown && (
+                <div
+                  className="absolute right-0 mt-1 w-48 py-1 border border-gray-200 rounded-lg shadow-lg z-50"
+                  role="listbox"
+                >
+                  <button
+                    type="button"
+                    role="option"
+                    onClick={() => {
+                      handleLanguageSelect(null);
+                      setShowLanguageDropdown(false);
+                    }}
+                    className={`btn btn-secondary w-full text-left px-4 py-2 text-sm hover:bg-gray-100 ${!selectedLanguage ? "bg-white text-yellow-600 font-medium" : "text-gray-800"}`}
+                  >
+                    English
+                  </button>
+                  {languages.map((lang) => (
+                    <button
+                      key={lang.id}
+                      type="button"
+                      role="option"
+                      onClick={() => {
+                        handleLanguageSelect(lang);
+                        setShowLanguageDropdown(false);
+                      }}
+                      className={`w-full btn btn-secondary text-left px-4 py-2 text-sm hover:bg-gray-100 ${selectedLanguage?.id === lang.id ? "bg-white text-yellow-600 font-medium" : "text-gray-800"}`}
+                    >
+                      {lang.name}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         )}

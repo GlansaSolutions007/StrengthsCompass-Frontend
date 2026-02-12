@@ -136,9 +136,6 @@ export default function TestList() {
       setLoading(true);
       setError(null);
       
-      // Get ALL tests from API (no filtering on backend)
-      // We will filter on frontend based on age_group_id matching
-      // IMPORTANT: Use direct axios call to bypass the interceptor that adds age_group_id
       const userToken = localStorage.getItem("token") || 
                        localStorage.getItem("userToken") || 
                        localStorage.getItem("authToken");
@@ -152,10 +149,14 @@ export default function TestList() {
         headers.Authorization = `Bearer ${userToken}`;
       }
       
-      // Direct axios call WITHOUT age_group_id to get ALL tests
-      // This bypasses the interceptor that automatically adds age_group_id
-      console.log(`🔵 Fetching ALL tests from API (no age_group_id filter)...`);
-      const response = await axios.get(`${API_BASE_URL}/tests`, { headers });
+      // Send age_group_id so API can filter; also filter on frontend for display
+      const params = {};
+      if (ageGroupId != null && ageGroupId !== "") {
+        params.age_group_id = ageGroupId;
+      }
+      
+      console.log(`🔵 Fetching tests from API (age_group_id: ${ageGroupId ?? "none"})...`);
+      const response = await axios.get(`${API_BASE_URL}/tests`, { headers, params });
       console.log(`🔵 API Response:`, response.data);
 
       // Handle different response structures
@@ -169,78 +170,22 @@ export default function TestList() {
       }
 
       if (allTests.length > 0) {
-        console.log(`=== TEST FILTERING START ===`);
-        console.log(`🔵 USER age_group_id: ${ageGroupId}`);
-        console.log(`User age: ${userAge || 'N/A'}`);
-        console.log(`\n📋 ALL TESTS FETCHED FROM API (Total: ${allTests.length}):`);
-        allTests.forEach((test, index) => {
-          console.log(`   ${index + 1}. "${test.title}" (ID: ${test.id}) - age_group_id: ${test.age_group_id !== undefined && test.age_group_id !== null ? test.age_group_id : 'NULL/UNDEFINED'}`);
-        });
-        console.log(`\n🔍 FILTERING TESTS BASED ON MATCHING age_group_id...\n`);
-        
-        // Filter tests: Only show tests that match user's age group ID exactly
-        const activeTests = allTests
+        // Filter by age_group_id (show only tests for user's age group when we have one)
+        let byAge = allTests;
+        if (ageGroupId != null && ageGroupId !== "") {
+          const id = Number(ageGroupId);
+          byAge = allTests.filter((test) => {
+            const tid = test.age_group_id != null ? Number(test.age_group_id) : null;
+            return tid === id;
+          });
+        }
+        const activeTests = byAge
           .filter((test) => {
-            // Get age_group_id from test - handle various formats
-            const testAgeGroupId = test.age_group_id !== undefined && test.age_group_id !== null 
-              ? test.age_group_id 
-              : null;
-            
-            // Print user and test age_group_id for comparison
-            console.log(`\n🔍 Checking Test: "${test.title}" (ID: ${test.id})`);
-            console.log(`   User age_group_id: ${ageGroupId}`);
-            console.log(`   Test age_group_id: ${testAgeGroupId !== null ? testAgeGroupId : 'NULL/UNDEFINED'}`);
-            
-            // First check if test is active
-            const isActive = test.is_active !== false && test.is_active !== 0;
-            if (!isActive) {
-              console.log(`   ❌ Filtered out - test is not active`);
-              return false;
-            }
-            
-            // STRICT MATCHING: Only show tests if user has age_group_id from API
-            if (ageGroupId === null || ageGroupId === undefined) {
-              // If user doesn't have age_group_id from API, show no tests
-              console.log(`   ❌ Filtered out - user age_group_id not available from API`);
-              return false;
-            }
-            
-            // If test has no age_group_id, filter it out
-            if (testAgeGroupId === null || testAgeGroupId === undefined) {
-              console.log(`   ❌ Filtered out - test has no age_group_id`);
-              return false;
-            }
-            
-            // Convert both to numbers for strict comparison
-            const testAgeGroupNum = parseInt(testAgeGroupId);
-            const requiredAgeGroupNum = parseInt(ageGroupId);
-            
-            console.log(`   📊 Comparison: test.age_group_id (${testAgeGroupId}) [${typeof testAgeGroupId}] → ${testAgeGroupNum} [number]`);
-            console.log(`    Comparison: user.age_group_id (${ageGroupId}) [${typeof ageGroupId}] → ${requiredAgeGroupNum} [number]`);
-            
-            // Check for NaN after parsing
-            if (isNaN(testAgeGroupNum) || isNaN(requiredAgeGroupNum)) {
-              console.log(`   ❌ Filtered out - invalid age_group_id values (test: ${testAgeGroupId}→${testAgeGroupNum}, user: ${ageGroupId}→${requiredAgeGroupNum})`);
-              return false;
-            }
-            
-            // Strict matching - must be exact match
-            const matches = testAgeGroupNum === requiredAgeGroupNum;
-            
-            if (!matches) {
-              console.log(`   ❌ Filtered out - age_group_id mismatch:`);
-              console.log(`      Test age_group_id: ${testAgeGroupNum} (${typeof testAgeGroupNum})`);
-              console.log(`      User age_group_id: ${requiredAgeGroupNum} (${typeof requiredAgeGroupNum})`);
-              console.log(`      Match: ${testAgeGroupNum} === ${requiredAgeGroupNum} = ${matches}`);
-              return false;
-            } else {
-              console.log(`   ✅✅✅ MATCHED! ✅✅✅`);
-              console.log(`      Test age_group_id: ${testAgeGroupId} (${testAgeGroupNum})`);
-              console.log(`      User age_group_id: ${ageGroupId} (${requiredAgeGroupNum})`);
-              console.log(`      ✅ Both age_group_ids are MATCHING: ${testAgeGroupNum} === ${requiredAgeGroupNum}`);
-            }
-            
-            return true; // Test is active AND age_group_id matches exactly
+            const active = test.is_active;
+            const isActive = active === 1;
+            if (!isActive) return false;
+            const source = (test.source || test.test_type || "").toString().trim().toLowerCase();
+            return source === "sc pro";
           })
           .map((test) => ({
             id: test.id,
@@ -260,28 +205,6 @@ export default function TestList() {
             category: test.clusters?.[0]?.name || "General",
           }));
         
-        console.log(`\n=== TEST FILTERING COMPLETE ===`);
-        console.log(`🔵 USER age_group_id: ${ageGroupId}`);
-        console.log(`📊 Total tests from API: ${allTests.length}`);
-        console.log(`✅ Matching tests found: ${activeTests.length}`);
-        
-        if (activeTests.length > 0) {
-          console.log(`\n✅✅✅ MATCHED TESTS - age_group_id: ${ageGroupId} ✅✅✅`);
-          console.log(`\n📋 Summary of Matched Tests:`);
-          activeTests.forEach((test, index) => {
-            console.log(`   ${index + 1}. "${test.title}" (ID: ${test.id})`);
-            console.log(`      ✅ Test age_group_id: ${test.age_group_id}`);
-            console.log(`      ✅ User age_group_id: ${ageGroupId}`);
-            console.log(`      ✅ MATCHED: ${test.age_group_id} === ${ageGroupId}`);
-          });
-          console.log(`\n✅ Showing ${activeTests.length} test(s) to the user with matching age_group_id: ${ageGroupId}`);
-        } else {
-          console.warn(`\n⚠️ No tests match user's age_group_id: ${ageGroupId}`);
-          console.warn(`   User age_group_id: ${ageGroupId}`);
-          const availableAgeGroupIds = [...new Set(allTests.map(t => t.age_group_id).filter(id => id !== null && id !== undefined))];
-          console.warn(`   Available test age_group_ids in API: ${availableAgeGroupIds.length > 0 ? availableAgeGroupIds.join(', ') : 'None'}`);
-          console.warn(`   User needs age_group_id: ${ageGroupId}, but tests have: ${availableAgeGroupIds.join(', ') || 'none'}`);
-        }
         setTests(activeTests);
       } else {
         setError("Failed to load tests");
