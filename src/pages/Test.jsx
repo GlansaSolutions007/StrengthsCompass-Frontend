@@ -3,8 +3,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { HiCheck, HiChevronLeft, HiChevronRight, HiTranslate, HiChevronDown, HiMail, HiLockClosed, HiExclamationCircle, HiEye, HiEyeOff } from "react-icons/hi";
 import Navbar from "../components/Navbar";
 import AlertModal from "../components/AlertModal";
-import apiClient, { API_BASE_URL } from "../config/api";
-import axios from "axios";
+import apiClient from "../config/api";
 import logoImage from "../../Images/Logo.png";
 
 export default function Test() {
@@ -233,42 +232,34 @@ export default function Test() {
     try {
       setLoading(true);
       setError(null);
-      
-      // Fetch test data and questions in parallel
-      // Test endpoint gives us test metadata and question IDs
-      // Questions endpoint gives us questions with translations
-      // IMPORTANT: Use direct axios for /questions to bypass age_group_id filter
-      // so translations are available for ALL users, not just specific age groups
-      const userToken = localStorage.getItem("token") || 
-                       localStorage.getItem("userToken") || 
-                       localStorage.getItem("authToken");
-      
-      const questionsHeaders = {
-        "Content-Type": "application/json",
-        "Accept": "application/json",
-      };
-      
-      if (userToken) {
-        questionsHeaders.Authorization = `Bearer ${userToken}`;
-      }
 
       const takeParams = {};
       if (userIdForTake) {
         takeParams.user_id = userIdForTake;
       }
 
-      const [testResponse, questionsResponse] = await Promise.all([
-        apiClient.get(`/tests/${idToUse}/take`, { params: takeParams }),
-        axios.get(`${API_BASE_URL}/questions`, { headers: questionsHeaders })
-      ]);
-
+      const testResponse = await apiClient.get(`/tests/${idToUse}/take`, { params: takeParams });
       const data = testResponse.data?.data;
       const takeQuestions = Array.isArray(data?.questions) ? data.questions : [];
       const takeOptions = Array.isArray(data?.options) ? data.options : [];
       const takeTest = data?.test ?? data;
 
-      // When take response includes full questions and options, use them directly (e.g. /tests/:id/take?user_id=23)
-      if (takeQuestions.length > 0 && takeOptions.length > 0) {
+      // CERC: backend returns filtered questions (SC Pro duplicates removed) and may set questions_filtered: true
+      // Use direct path when we have questions and (options or filtering was applied) so filtered list is always shown
+      const questionsFiltered = data?.questions_filtered === true;
+      const useDirectPath =
+        takeQuestions.length > 0 && (takeOptions.length > 0 || questionsFiltered);
+
+      if (takeQuestions.length > 0 && process.env.NODE_ENV === "development") {
+        console.log("Test take data:", {
+          takeQuestions: takeQuestions.length,
+          takeOptions: takeOptions.length,
+          questionsFiltered,
+          testSource: data?.test?.source,
+        });
+      }
+
+      if (useDirectPath) {
         setTestName(
           takeTest?.title || takeTest?.name || data?.title || data?.name || "Assessment Test"
         );
@@ -281,120 +272,21 @@ export default function Test() {
             translations: q.translations || [],
           }))
         );
-        const sortedOptions = takeOptions
-          .map((o) => ({
-            id: o.id,
-            label: o.label || o.option_text || o.optionText || o.name || "",
-            value: o.value !== undefined ? o.value : null,
-          }))
-          .sort((a, b) => {
-            if (a.value != null && b.value != null) return a.value - b.value;
-            return 0;
-          });
-        setOptions(sortedOptions);
-        setLoading(false);
-        return;
-      }
-
-      // Fallback: merge with /questions endpoint for translations
-      let extractedName = "Assessment Test";
-      if (testResponse.data?.status && data) {
-        extractedName =
-          data?.test?.title ||
-          data?.test?.name ||
-          data.title ||
-          data.name ||
-          data.test_name ||
-          data.testName ||
-          "Assessment Test";
-      } else if (data) {
-        extractedName =
-          data?.test?.title ||
-          data?.test?.name ||
-          data.title ||
-          data.name ||
-          "Assessment Test";
-      }
-      setTestName(extractedName);
-
-      let testQuestionIds = [];
-      if (data) {
-        if (data.questions && Array.isArray(data.questions)) {
-          testQuestionIds = data.questions.map((q) => q.id);
-        } else if (data.data?.questions && Array.isArray(data.data.questions)) {
-          testQuestionIds = data.data.questions.map((q) => q.id);
-        } else if (Array.isArray(data)) {
-          testQuestionIds = data.map((q) => q.id);
+        if (takeOptions.length > 0) {
+          const sortedOptions = takeOptions
+            .map((o) => ({
+              id: o.id,
+              label: o.label || o.option_text || o.optionText || o.name || "",
+              value: o.value !== undefined ? o.value : null,
+            }))
+            .sort((a, b) => {
+              if (a.value != null && b.value != null) return a.value - b.value;
+              return 0;
+            });
+          setOptions(sortedOptions);
         }
-      }
-
-      // Extract questions with translations from /questions endpoint
-      let allQuestions = [];
-      if (questionsResponse.data?.status && questionsResponse.data.data) {
-        allQuestions = Array.isArray(questionsResponse.data.data) 
-          ? questionsResponse.data.data 
-          : [questionsResponse.data.data];
-      } else if (Array.isArray(questionsResponse.data)) {
-        allQuestions = questionsResponse.data;
-      } else if (questionsResponse.data?.data && Array.isArray(questionsResponse.data.data)) {
-        allQuestions = questionsResponse.data.data;
-      }
-
-      // If we have question IDs from test, filter questions; otherwise use all questions
-      let finalQuestions = [];
-      if (testQuestionIds.length > 0) {
-        // Create a map for quick lookup
-        const questionsMap = new Map();
-        allQuestions.forEach((q) => {
-          questionsMap.set(q.id, q);
-        });
-
-        // Filter and map questions in the order they appear in the test
-        finalQuestions = testQuestionIds
-          .map((id) => questionsMap.get(id))
-          .filter((q) => q !== undefined)
-          .map((q) => ({
-            id: q.id,
-            question_text: q.question_text || q.questionText || q.question || "",
-            category: q.category || "",
-            order_no: q.order_no || q.orderNo || 0,
-            translations: q.translations || [],
-          }));
       } else {
-        let testQuestions = [];
-        if (data) {
-          if (data.questions && Array.isArray(data.questions)) {
-            testQuestions = data.questions;
-          } else if (data.data?.questions && Array.isArray(data.data.questions)) {
-            testQuestions = data.data.questions;
-          } else if (Array.isArray(data)) {
-            testQuestions = data;
-          }
-        }
-
-        // Create a map of questions with translations
-        const questionsMap = new Map();
-        allQuestions.forEach((q) => {
-          questionsMap.set(q.id, q);
-        });
-
-        // Merge test questions with translations from /questions endpoint
-        finalQuestions = testQuestions.map((q) => {
-          const enrichedQuestion = questionsMap.get(q.id) || q;
-          return {
-            id: q.id,
-            question_text: enrichedQuestion.question_text || q.question_text || q.questionText || q.question || "",
-            category: q.category || "",
-            order_no: q.order_no || q.orderNo || 0,
-            translations: enrichedQuestion.translations || q.translations || [],
-          };
-        });
-      }
-
-      if (finalQuestions.length > 0) {
-        setQuestions(finalQuestions);
-      } else {
-        setError("No questions found for this test");
+        setError(data?.message || "No questions found for this test");
       }
     } catch (err) {
       console.error("Error fetching test data:", err);
