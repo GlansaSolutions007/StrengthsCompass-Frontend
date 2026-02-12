@@ -40,6 +40,9 @@ export default function Test() {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState(null);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [showCercPopup, setShowCercPopup] = useState(false);
+  const [availableCercTests, setAvailableCercTests] = useState([]);
+  const [submitResponseData, setSubmitResponseData] = useState(null);
   const [userId, setUserId] = useState(null);
   const [showConsentModal, setShowConsentModal] = useState(false);
   const [isConsent, setIsConsent] = useState(false);
@@ -202,12 +205,29 @@ export default function Test() {
     }
   };
 
-  const fetchTestData = async (testIdToFetch = null) => {
+  const fetchTestData = async (testIdToFetch = null, userIdToPass = null) => {
     const idToUse = testIdToFetch || testId;
     if (!idToUse) {
       setError("Test ID is required. Please select a test from the test list.");
       setLoading(false);
       return;
+    }
+
+    // For CERC tests the backend requires user_id to filter out SC Pro questions – ensure we always send it when available
+    let userIdForTake = userIdToPass ?? userId;
+    if (userIdForTake == null) {
+      try {
+        const stored = localStorage.getItem("userId");
+        if (stored) userIdForTake = parseInt(stored, 10);
+        else {
+          const user = localStorage.getItem("user");
+          if (user) {
+            const parsed = JSON.parse(user);
+            const id = parsed?.id ?? parsed?.user_id;
+            if (id != null) userIdForTake = parseInt(id, 10);
+          }
+        }
+      } catch (e) {}
     }
 
     try {
@@ -231,54 +251,80 @@ export default function Test() {
       if (userToken) {
         questionsHeaders.Authorization = `Bearer ${userToken}`;
       }
-      
+
+      const takeParams = {};
+      if (userIdForTake) {
+        takeParams.user_id = userIdForTake;
+      }
+
       const [testResponse, questionsResponse] = await Promise.all([
-        apiClient.get(`/tests/${idToUse}/take`),
+        apiClient.get(`/tests/${idToUse}/take`, { params: takeParams }),
         axios.get(`${API_BASE_URL}/questions`, { headers: questionsHeaders })
       ]);
 
-      // Extract test name from test response
+      const data = testResponse.data?.data;
+      const takeQuestions = Array.isArray(data?.questions) ? data.questions : [];
+      const takeOptions = Array.isArray(data?.options) ? data.options : [];
+      const takeTest = data?.test ?? data;
+
+      // When take response includes full questions and options, use them directly (e.g. /tests/:id/take?user_id=23)
+      if (takeQuestions.length > 0 && takeOptions.length > 0) {
+        setTestName(
+          takeTest?.title || takeTest?.name || data?.title || data?.name || "Assessment Test"
+        );
+        setQuestions(
+          takeQuestions.map((q) => ({
+            id: q.id,
+            question_text: q.question_text || q.questionText || q.question || "",
+            category: q.category || "",
+            order_no: q.order_no ?? q.orderNo ?? 0,
+            translations: q.translations || [],
+          }))
+        );
+        const sortedOptions = takeOptions
+          .map((o) => ({
+            id: o.id,
+            label: o.label || o.option_text || o.optionText || o.name || "",
+            value: o.value !== undefined ? o.value : null,
+          }))
+          .sort((a, b) => {
+            if (a.value != null && b.value != null) return a.value - b.value;
+            return 0;
+          });
+        setOptions(sortedOptions);
+        setLoading(false);
+        return;
+      }
+
+      // Fallback: merge with /questions endpoint for translations
       let extractedName = "Assessment Test";
-      if (testResponse.data?.status && testResponse.data.data) {
-        const testData = testResponse.data.data;
+      if (testResponse.data?.status && data) {
         extractedName =
-          testData.title ||
-          testData.name ||
-          testData.test_name ||
-          testData.testName ||
-          testData?.test?.title ||
-          testData?.test?.name ||
-          testResponse.data?.data?.test?.title ||
-          testResponse.data?.data?.test?.name ||
+          data?.test?.title ||
+          data?.test?.name ||
+          data.title ||
+          data.name ||
+          data.test_name ||
+          data.testName ||
           "Assessment Test";
-      } else if (testResponse.data?.data) {
-        const testData = testResponse.data.data;
+      } else if (data) {
         extractedName =
-          testData.title ||
-          testData.name ||
-          testData.test_name ||
-          testData.testName ||
-          testData?.test?.title ||
-          testData?.test?.name ||
+          data?.test?.title ||
+          data?.test?.name ||
+          data.title ||
+          data.name ||
           "Assessment Test";
       }
       setTestName(extractedName);
 
-      // Extract question IDs from test response
       let testQuestionIds = [];
-      if (testResponse.data?.status && testResponse.data.data) {
-        const testData = testResponse.data.data;
-        if (testData.questions && Array.isArray(testData.questions)) {
-          testQuestionIds = testData.questions.map((q) => q.id);
-        } else if (testData.data?.questions && Array.isArray(testData.data.questions)) {
-          testQuestionIds = testData.data.questions.map((q) => q.id);
-        }
-      } else if (testResponse.data?.data) {
-        const testData = testResponse.data.data;
-        if (Array.isArray(testData)) {
-          testQuestionIds = testData.map((q) => q.id);
-        } else if (testData.questions && Array.isArray(testData.questions)) {
-          testQuestionIds = testData.questions.map((q) => q.id);
+      if (data) {
+        if (data.questions && Array.isArray(data.questions)) {
+          testQuestionIds = data.questions.map((q) => q.id);
+        } else if (data.data?.questions && Array.isArray(data.data.questions)) {
+          testQuestionIds = data.data.questions.map((q) => q.id);
+        } else if (Array.isArray(data)) {
+          testQuestionIds = data.map((q) => q.id);
         }
       }
 
@@ -315,20 +361,14 @@ export default function Test() {
             translations: q.translations || [],
           }));
       } else {
-        // If no question IDs from test, use questions from test response as fallback
-        // but try to enrich with translations from /questions endpoint
         let testQuestions = [];
-        if (testResponse.data?.status && testResponse.data.data) {
-          const testData = testResponse.data.data;
-          if (testData.questions && Array.isArray(testData.questions)) {
-            testQuestions = testData.questions;
-          } else if (testData.data?.questions && Array.isArray(testData.data.questions)) {
-            testQuestions = testData.data.questions;
-          }
-        } else if (testResponse.data?.data) {
-          const testData = testResponse.data.data;
-          if (Array.isArray(testData)) {
-            testQuestions = testData;
+        if (data) {
+          if (data.questions && Array.isArray(data.questions)) {
+            testQuestions = data.questions;
+          } else if (data.data?.questions && Array.isArray(data.data.questions)) {
+            testQuestions = data.data.questions;
+          } else if (Array.isArray(data)) {
+            testQuestions = data;
           }
         }
 
@@ -634,7 +674,7 @@ export default function Test() {
         return;
       }
 
-      // Map answers to the required format - only include answered questions
+      // Build answers from current questions (backend filters CERC questions on take and merges SC Pro answers on submit)
       const answersArray = questions
         .filter((question) => answers[question.id] !== undefined && answers[question.id] !== null)
         .map((question) => {
@@ -642,12 +682,8 @@ export default function Test() {
           const selectedOption = options[optionIndex];
           const answerValue = selectedOption?.value !== null && selectedOption?.value !== undefined
             ? selectedOption.value
-            : optionIndex + 1; // Fallback to index + 1 if value is null
-
-          return {
-            question_id: question.id,
-            answer_value: answerValue,
-          };
+            : optionIndex + 1;
+          return { question_id: question.id, answer_value: answerValue };
         });
 
       if (!testId) {
@@ -665,9 +701,10 @@ export default function Test() {
       const response = await apiClient.post(`/tests/${testId}/submit`, payload);
 
       if (response.data?.status) {
+        const data = response.data.data || {};
         // Store test results in localStorage
         const testResult = {
-          testId: testId ? parseInt(testId) : (response.data.data?.test_id || Date.now()),
+          testId: testId ? parseInt(testId) : (data.test_id || Date.now()),
           userId: finalUserId,
           submittedAt: new Date().toISOString(),
           answers: answersArray,
@@ -675,22 +712,27 @@ export default function Test() {
           answeredQuestions: answersArray.length
         };
         
-        // Update userId state
         setUserId(finalUserId);
+        setSubmitResponseData(data);
         
-        // Get existing test results
         const existingTests = JSON.parse(localStorage.getItem("userTestResults") || "[]");
         existingTests.push(testResult);
         localStorage.setItem("userTestResults", JSON.stringify(existingTests));
         
-        // Clear saved answers from localStorage after successful submission
         if (testId) {
           const savedAnswersKey = `test_${testId}_answers`;
           localStorage.removeItem(savedAnswersKey);
         }
         
-        // Show success modal
-        setShowSuccessModal(true);
+        // Check if CERC tests are available from submit response
+        const hasCercTests = data.has_cerc_tests === true || data.has_cerc_tests === 1;
+        const cercTests = Array.isArray(data.available_cerc_tests) ? data.available_cerc_tests : [];
+        if (hasCercTests && cercTests.length > 0) {
+          setAvailableCercTests(cercTests);
+          setShowCercPopup(true);
+        } else {
+          setShowSuccessModal(true);
+        }
       } else {
         setSubmitError(response.data?.message || "Failed to submit test");
       }
@@ -715,7 +757,7 @@ export default function Test() {
       return;
     }
 
-    // Ensure all questions have been answered
+    // Ensure all questions have been answered (backend returns filtered list for CERC)
     const unanswered = getUnansweredQuestions(questions);
     if (unanswered.length > 0) {
       setSubmitError("Please answer all the questions before submitting the test.");
@@ -755,7 +797,7 @@ export default function Test() {
     isConsent,
   ]);
 
-  // Calculate pagination
+  // Calculate pagination (backend returns filtered questions for CERC)
   const totalPages = Math.ceil(questions.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
@@ -1174,6 +1216,56 @@ export default function Test() {
           navigate("/profile");
         }}
       />
+
+      {/* CERC tests popup – shown after SC Pro submit when CERC tests are available */}
+      {showCercPopup && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={() => {}}>
+          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 border border-gray-200" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-bold neutral-text mb-1">CERC tests available</h3>
+            <p className="text-sm neutral-text-muted mb-4">Would you like to take a CERC test now?</p>
+            <div className="space-y-2 mb-5 max-h-60 overflow-y-auto">
+              {availableCercTests.map((t, idx) => {
+                const id = typeof t === "object" && t !== null ? (t.id ?? t.test_id ?? t.cerc_test_id) : t;
+                const title = typeof t === "object" && t !== null ? (t.title ?? t.name ?? t.test_name ?? `Test #${id}`) : `Test #${id}`;
+                return (
+                  <button
+                    key={id ?? idx}
+                    type="button"
+                    className="w-full flex items-center justify-between gap-3 px-4 py-3 rounded-xl border border-gray-200 hover:border-blue-300 hover:bg-blue-50/50 text-left transition-colors"
+                    onClick={async () => {
+                      if (!id) return;
+                      setShowCercPopup(false);
+                      setAnswers({});
+                      setCurrentPage(1);
+                      setTestId(String(id));
+                      localStorage.setItem("currentTestId", String(id));
+                      setLoading(true);
+                      setError(null);
+                      await fetchTestData(id, userId);
+                    }}
+                  >
+                    <span className="font-medium neutral-text">{title}</span>
+                    <span className="text-sm primary-text-medium">Take this test</span>
+                  </button>
+                );
+              })}
+            </div>
+            <div className="flex flex-col sm:flex-row gap-2 sm:justify-end">
+              <button
+                type="button"
+                className="btn btn-ghost order-2 sm:order-1"
+                onClick={() => {
+                  setShowCercPopup(false);
+                  setShowSuccessModal(true);
+                }}
+              >
+                View my results instead
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <Navbar />
 
       {!showConsentModal && (
