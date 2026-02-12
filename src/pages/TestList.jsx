@@ -258,7 +258,7 @@ export default function TestList() {
 
   if (loading) {
     return (
-      <div className="min-h-screen w-screen neutral-text bg">
+      <div className="min-h-screen w-screen neutral-text neutral-bg">
         <Navbar />
         <div className="flex items-center justify-center min-h-[60vh]">
           <div className="text-center">
@@ -271,7 +271,7 @@ export default function TestList() {
   }
 
   return (
-    <div className="min-h-screen w-screen neutral-text blue-bg-50">
+    <div className="min-h-screen w-screen neutral-text blue-bg-50 flex flex-col">
       <AlertModal
         isOpen={!!error}
         onClose={() => setError(null)}
@@ -281,201 +281,103 @@ export default function TestList() {
       />
       <Navbar />
 
-      <div className="w-full px-4 sm:px-6 md:px-8 lg:px-12 xl:px-16 py-6 sm:py-8 md:py-10 min-h-[calc(100vh-200px)] flex flex-col justify-center items-center">
-        
-
-        {/* Filters */}
-        {/* <section className="bg-white rounded-3xl shadow-lg border border-amber-100 p-6 space-y-4">
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
-            <div>
-              <p className="text-xs uppercase tracking-[0.4em] text-slate-400">Browse</p>
-              <h2 className="text-2xl font-bold text-slate-900">
-                {selectedCategory === "all" ? "All categories" : selectedCategory}
-              </h2>
+      <main className="flex-1 flex flex-col min-h-0 w-full overflow-auto">
+        <div className="w-full max-w-4xl mx-auto px-4 sm:px-6 py-4 sm:py-6 flex flex-col min-h-0 flex-1">
+        {/* Compact Hero Header */}
+        <header className="relative text-center mb-5 sm:mb-6 overflow-hidden rounded-2xl bg-light border blue-border-100 shadow-md p-5 sm:p-6 gradient-soft shrink-0">
+          <div className="absolute inset-0 overflow-hidden rounded-2xl">
+            <div className="absolute -top-8 -right-8 w-28 h-28 rounded-full blue-bg-100 opacity-40" />
+            <div className="absolute -bottom-6 -left-6 w-20 h-20 rounded-full yellow-bg-100 opacity-30" />
+          </div>
+          <div className="relative z-10 flex flex-col sm:flex-row sm:items-center sm:justify-center sm:gap-4">
+            <div className="inline-flex w-12 h-12 sm:w-14 sm:h-14 rounded-xl gradient-primary items-center justify-center shadow-primary mb-3 sm:mb-0 ring-2 ring-blue-100/50">
+              <HiDocumentText className="w-6 h-6 sm:w-7 sm:h-7 white-text" />
             </div>
-            <div className="flex flex-wrap gap-2">
-              {categories.map((category) => (
-                <button
-                  key={category}
-                  onClick={() => setSelectedCategory(category)}
-                  className={`inline-flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-semibold transition-all ${
-                    selectedCategory === category
-                      ? "bg-yellow-400 text-slate-900 border-yellow-500 shadow-md"
-                      : "border-amber-100 text-slate-600 hover:border-yellow-300 hover:text-slate-900"
-                  }`}
-                >
-                  <HiFilter className="w-4 h-4" />
-                  {category === "all" ? "All Tests" : category}
-                </button>
-              ))}
+            <div>
+              <h1 className="text-xl sm:text-2xl font-bold neutral-text tracking-tight">
+                Available Assessments
+              </h1>
+              <p className="neutral-text-muted text-xs sm:text-sm mt-0.5 max-w-md sm:mx-0 mx-auto">
+                Choose an assessment to discover your strengths.
+              </p>
             </div>
           </div>
-        </section> */}
-
-        {/* Test Grid */}
-        {/* <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-          {filteredTests.map((test) => (
-            <article
-              key={test.id}
-              className="group relative bg-white rounded-[28px] shadow-lg border border-blue-100 hover:border-blue-300 hover:shadow-2xl transition-all duration-300 overflow-hidden"
-            >
-              <div className="absolute inset-x-0 top-0 h-2 bg-gradient-to-r from-blue-200 via-blue-400 to-blue-600" />
-              <div className="p-6 flex flex-col h-full gap-5">
-                <div className="flex items-center justify-between">
-                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-700">
-                    {test.category}
-                  </span>
-                  <div className="p-2 rounded-2xl bg-blue-50 text-blue-500">
-                    <HiDocumentText className="w-5 h-5" />
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <h3 className="text-xl font-bold text-slate-900 group-hover:text-blue-600 transition-colors">
-                    {test.title}
-                  </h3>
-                  <p className="text-sm text-slate-500 line-clamp-3">{test.description}</p>
-                </div>
-
-                <button
-                  onClick={() => handleStartTest(test.id)}
-                  className="mt-auto w-full py-3 px-4 rounded-2xl yellow-bg-400 yellow-text-950 font-semibold font-semibold text-sm flex items-center justify-center gap-2 hover:bg-blue-700 transition-all duration-200 shadow-lg group/btn"
-                >
-                  <HiPlay className="w-4 h-4 group-hover/btn:translate-x-0.5 transition-transform" />
-                  Start test
-                  <HiArrowRight className="w-4 h-4 group-hover/btn:translate-x-1 transition-transform" />
-                </button>
-              </div>
-            </article>
-          ))}
-        </section> */}
+        </header>
 
         {filteredTests.length === 0 ? (
-          <div className="text-center py-20 bg-white rounded-[32px] shadow-inner border border-dashed border-yellow-400">
-            <div className="w-24 h-24 mx-auto mb-4 rounded-full bg-yellow-100 flex items-center justify-center text-yellow-500">
-              <HiDocumentText className="w-10 h-10" />
+          <div className="card bg-light text-center py-20 sm:py-24 rounded-3xl blue-border-200 border-2 max-w-lg mx-auto px-10 gradient-yellow-soft shadow-lg">
+            <div className="w-24 h-24 mx-auto mb-6 rounded-3xl yellow-bg-200 flex items-center justify-center secondary-text-dark shadow-secondary ring-4 ring-yellow-100/50">
+              <HiDocumentText className="w-12 h-12" />
             </div>
-            <h3 className="text-2xl font-semibold text-slate-900 mb-2">No tests available</h3>
-            <p className="text-slate-500 max-w-md mx-auto">
-              {ageGroupId 
-                ? `No tests are available for your age group. Please check back later.`
-                : `No tests found. Please check back later.`}
+            <h2 className="text-2xl font-bold neutral-text mb-3">No tests available</h2>
+            <p className="neutral-text-muted text-sm leading-relaxed max-w-sm mx-auto">
+              {ageGroupId
+                ? "No tests are available for your age group. Please check back later."
+                : "No tests found. Please check back later."}
             </p>
           </div>
-        ): (
-         <section className="flex justify-center items-center w-full">
-           {filteredTests.length === 1 ? (
-             // Single test - centered, no grid
-             <div className="w-full max-w-2xl px-4">
-               {filteredTests.map((test) => (
-                 <article
-                   key={test.id}
-                   className="group relative bg-white rounded-3xl shadow-xl border border-gray-100 hover:border-blue-300 hover:shadow-2xl transition-all duration-300 overflow-hidden cursor-pointer mx-auto"
-                   onClick={() => handleStartTest(test.id)}
-                 >
-                   {/* Gradient Top Bar */}
-                   <div className="absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r from-blue-400 via-blue-500 to-blue-600" />
-                   
-                   <div className="p-4 sm:p-6 md:p-8 flex flex-col h-full gap-4 sm:gap-6">
-                     {/* Header Section */}
-                     <div className="flex items-start justify-between gap-4">
-                       <div className="flex-1">
-                         <h3 className="text-lg sm:text-xl md:text-2xl font-bold text-slate-900 mb-2 group-hover:text-blue-600 transition-colors line-clamp-2">
-                           {test.title}
-                         </h3>
-                         {test.description && (
-                           <p className="text-sm text-slate-600 line-clamp-2 leading-relaxed">
-                             {test.description}
-                           </p>
-                         )}
-                       </div>
-                       <div className="p-3 rounded-xl bg-gradient-to-br from-blue-50 to-blue-100 text-blue-600 group-hover:from-blue-100 group-hover:to-blue-200 transition-all">
-                         <HiDocumentText className="w-6 h-6" />
-                       </div>
-                     </div>
-
-                     {/* Test Info Section */}
-                     {test.questions > 0 && (
-                       <div className="flex items-center gap-2 pt-4 border-t border-gray-100">
-                         <HiLightningBolt className="w-4 h-4 text-yellow-500" />
-                         <span className="text-sm text-slate-600 font-medium">{test.questions} Questions</span>
-                       </div>
-                     )}
-
-                     {/* Action Button */}
-                     <button
-                       onClick={(e) => {
-                         e.stopPropagation();
-                         handleStartTest(test.id);
-                       }}
-                       className="mt-auto w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-yellow-400 to-yellow-500 text-slate-900 font-bold text-sm flex items-center justify-center gap-2 hover:from-yellow-500 hover:to-yellow-600 hover:shadow-lg transition-all duration-200 transform hover:scale-[1.02] group/btn"
-                     >
-                       <HiPlay className="w-5 h-5 group-hover/btn:translate-x-1 transition-transform" />
-                       <span>Start Test</span>
-                       <HiArrowRight className="w-5 h-5 group-hover/btn:translate-x-1 transition-transform" />
-                     </button>
-                   </div>
-                 </article>
-               ))}
-             </div>
-           ) : (
-             // Multiple tests - grid layout
-             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6 md:gap-8 max-w-7xl w-full px-4 mx-auto">
-            {filteredTests.map((test) => (
-              <article
-                key={test.id}
-                className="group relative bg-white rounded-3xl shadow-xl border border-gray-100 hover:border-blue-300 hover:shadow-2xl transition-all duration-300 overflow-hidden cursor-pointer"
-                onClick={() => handleStartTest(test.id)}
-              >
-                {/* Gradient Top Bar */}
-                <div className="absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r from-blue-400 via-blue-500 to-blue-600" />
-                
-                <div className="p-4 sm:p-6 md:p-8 flex flex-col h-full gap-4 sm:gap-6">
-                  {/* Header Section */}
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1">
-                      <h3 className="text-lg sm:text-xl md:text-2xl font-bold text-slate-900 mb-2 group-hover:text-blue-600 transition-colors line-clamp-2">
-                        {test.title}
-                      </h3>
-                      {test.description && (
-                        <p className="text-sm text-slate-600 line-clamp-2 leading-relaxed">
-                          {test.description}
-                        </p>
-                      )}
-                    </div>
-                    <div className="p-3 rounded-xl bg-gradient-to-br from-blue-50 to-blue-100 text-blue-600 group-hover:from-blue-100 group-hover:to-blue-200 transition-all">
-                      <HiDocumentText className="w-6 h-6" />
+        ) : (
+          <div className="flex-1 min-h-0 flex flex-col">
+            <div className="flex items-center justify-between mb-3 sm:mb-4 shrink-0">
+              <h2 className="text-xs sm:text-sm font-semibold uppercase tracking-wider neutral-text-muted">
+                Your assessments
+              </h2>
+              <span className="badge badge-primary text-xs font-semibold">
+                {filteredTests.length} {filteredTests.length === 1 ? "test" : "tests"}
+              </span>
+            </div>
+            <section className="space-y-4 sm:space-y-5 flex-1 min-h-0">
+              {filteredTests.map((test) => (
+                <article
+                  key={test.id}
+                  className="group relative bg-light rounded-3xl border-2 blue-border-100 overflow-hidden cursor-pointer transition-all duration-300 hover:shadow-2xl hover:blue-border-300 hover:-translate-y-0.5 flex flex-row flex-wrap sm:flex-nowrap gap-0 shadow-lg"
+                  onClick={() => handleStartTest(test.id)}
+                >
+                  <div className="absolute left-0 top-0 bottom-0 w-2 gradient-primary rounded-l-3xl group-hover:opacity-100 transition-all duration-300 opacity-90" />
+                <div className="w-full sm:flex-1 min-w-0 pl-6 sm:pl-7 pr-4 sm:pr-5 py-5 sm:py-6 flex flex-col justify-center">
+                  <div className="flex items-start gap-3 sm:gap-4">
+                    <div className="shrink-0 w-12 h-12 sm:w-14 sm:h-14 rounded-xl blue-bg-100 flex items-center justify-center blue-text-600 group-hover:blue-bg-200 group-hover:scale-105 transition-all duration-300">
+                      <HiDocumentText className="w-6 h-6 sm:w-7 sm:h-7" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <h3 className="text-xl sm:text-2xl font-bold neutral-text leading-snug group-hover:primary-text-medium transition-colors">
+                          {test.title}
+                        </h3>
+                        {test.description && (
+                          <p className="mt-2.5 text-sm neutral-text-muted leading-relaxed line-clamp-2">
+                            {test.description}
+                          </p>
+                        )}
+                        {test.questions > 0 && (
+                          <p className="mt-4 inline-flex items-center gap-2 text-xs font-semibold neutral-text-muted primary-bg-light blue-border-100 border px-3 py-1.5 rounded-xl w-fit">
+                            <HiLightningBolt className="w-4 h-4 yellow-text-500 shrink-0" />
+                            {test.questions} questions
+                          </p>
+                        )}
+                      </div>
                     </div>
                   </div>
-
-                  {/* Test Info Section */}
-                  {test.questions > 0 && (
-                    <div className="flex items-center gap-2 pt-4 border-t border-gray-100">
-                      <HiLightningBolt className="w-4 h-4 text-yellow-500" />
-                      <span className="text-sm text-slate-600 font-medium">{test.questions} Questions</span>
-                    </div>
-                  )}
-
-                  {/* Action Button */}
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleStartTest(test.id);
-                    }}
-                    className="mt-auto w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-yellow-400 to-yellow-500 text-slate-900 font-bold text-sm flex items-center justify-center gap-2 hover:from-yellow-500 hover:to-yellow-600 hover:shadow-lg transition-all duration-200 transform hover:scale-[1.02] group/btn"
-                  >
-                    <HiPlay className="w-5 h-5 group-hover/btn:translate-x-1 transition-transform" />
-                    <span>Start Test</span>
-                    <HiArrowRight className="w-5 h-5 group-hover/btn:translate-x-1 transition-transform" />
-                  </button>
-                </div>
-              </article>
-            ))}
+                  <div className="w-full sm:w-auto sm:shrink-0 p-4 sm:py-6 sm:pr-6 sm:pl-5 flex items-center sm:border-l-2 neutral-border-light neutral-bg-light sm:bg-transparent">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleStartTest(test.id);
+                      }}
+                      className="w-full sm:w-auto btn btn-gradient-secondary flex items-center justify-center gap-2.5 min-w-[160px] font-bold text-sm py-3 px-5 rounded-xl"
+                    >
+                      <HiPlay className="w-5 h-5" />
+                      Start Test
+                      <HiArrowRight className="w-5 h-5 group-hover:translate-x-0.5 transition-transform" />
+                    </button>
+                  </div>
+                </article>
+              ))}
+            </section>
           </div>
-           )}
-        </section>
         )}
-      </div>
+        </div>
+      </main>
     </div>
   );
 }
