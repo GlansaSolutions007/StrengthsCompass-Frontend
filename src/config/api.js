@@ -14,7 +14,7 @@ import axios from "axios";
 // export const API_BASE_URL = "https://api.glansa.in/strengthscompass/api/";
 // export const API_BASE_URL = "https://strengthscompass.axiscompass.in/v1/api";
 // export const API_BASE_URL = "https://api.axiscompass.co/api/";
-export const API_BASE_URL = "http://127.0.0.1:8000/api/";
+export const API_BASE_URL = "http://127.0.0.1:8000/api";
 
 // const getApiBaseUrl = () => {
 //   const currentUrl = window.location.origin;
