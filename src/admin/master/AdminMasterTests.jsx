@@ -1339,8 +1339,8 @@ export default function AdminMasterTests() {
         </div>
       )}
 
-      {/* Add New Test Modal */}
-      {(showForm || isClosingForm) && (
+      {/* Edit Test Modal (Add New Test is now a separate page) */}
+      {(showForm || isClosingForm) && editingId != null && (
         <div
           className="fixed inset-0 z-[100] flex items-center justify-center p-4 overflow-y-auto"
           style={{ zIndex: 1000 }}
@@ -2041,10 +2041,7 @@ export default function AdminMasterTests() {
         <div className="flex items-center gap-3">
          
           <button
-            onClick={() => {
-              resetForm();
-              setShowForm(true);
-            }}
+            onClick={() => navigate("/admin/dashboard/master/tests/add")}
             className="btn btn-secondary"
           >
             <HiPlus className="w-4 h-4 mr-2 black-text" /> Add New Test

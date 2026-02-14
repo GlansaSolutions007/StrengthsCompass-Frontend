@@ -547,10 +547,43 @@ export default function AdminTestResults() {
       setExportingSummary(true);
       setError(null);
 
+      const ageGroupId = localStorage.getItem("adminSelectedVariantId") || "1";
+      const now = new Date();
+      const year = now.getFullYear();
+      const fromDateValue = fromDate || `${year}-01-01`;
+      const toDateValue = toDate || `${year}-12-31`;
+      const testIdValue = selectedTestId || (tests.length > 0 ? String(tests[0].id) : "");
+
+      let userIdsParam = "";
+      if (selectedUsers.length > 0) {
+        const selectedIdSet = new Set(selectedUsers.map((s) => (typeof s === "number" ? s : Number(s) || s)));
+        const selectedRows = filteredResults.filter((r) =>
+          selectedIdSet.has(Number(r.id)) || selectedIdSet.has(r.id) || selectedUsers.includes(r.id)
+        );
+        const userIds = selectedRows
+          .map((r) => r.userId)
+          .filter((id) => id != null && id !== "");
+        userIdsParam = [...new Set(userIds.map(String))].join(",");
+      } else {
+        const allUserIds = filteredResults
+          .map((r) => r.userId)
+          .filter((id) => id != null && id !== "");
+        userIdsParam = [...new Set(allUserIds.map(String))].join(",");
+      }
+
+      const summaryExportParams = {
+        age_group_id: ageGroupId,
+        test_id: testIdValue,
+        from_date: fromDateValue,
+        to_date: toDateValue,
+        user_ids: userIdsParam,
+      };
+      console.log("Export summary =======>>>", summaryExportParams);
+
       const response = await apiClient.get(
-        "/test-results-comprehensive/export",
+        "/test-results-comprehensive/export-summary",
         {
-          params: buildExportParams({ export_type: "summary" }),
+          params: summaryExportParams,
           responseType: "blob",
         }
       );
