@@ -29,17 +29,14 @@ export default function StrengthsRadarChart({
     average: clusterScores[name]?.average || 0,
   }));
 
-  // Create cluster config from names
+  // Create cluster config from names (dynamic count)
   const clusterConfig = clusterNames.map((name, index) => ({
     id: `c${index + 1}`,
     name,
     order: index,
   }));
 
-  // Ensure we have data points for all clusters
-  if (clusterConfig.length !== 6) {
-    console.warn("StrengthsRadarChart expects exactly 6 clusters");
-  }
+  const numClusters = clusterConfig.length;
 
   // Chart configuration
   const centerX = size / 2;
@@ -47,16 +44,11 @@ export default function StrengthsRadarChart({
   const radius = size * 0.35; // Chart radius (35% of size)
   const labelRadius = size * 0.42; // Label position radius
 
-  // Clock positions for 6 axes, ordered to match the polygon path:
-  // 12:00, 02:00, 04:00, 06:00, 08:00, 10:00
-  const positions = [
-    { angle: -90, label: "top" },           // 12 o'clock
-    { angle: -30, label: "top-right" },     // 2 o'clock
-    { angle: 30, label: "bottom-right" },   // 4 o'clock
-    { angle: 90, label: "bottom" },         // 6 o'clock
-    { angle: 150, label: "bottom-left" },   // 8 o'clock
-    { angle: -150, label: "top-left" },     // 10 o'clock
-  ];
+  // Generate positions dynamically based on number of clusters (start from top, -90°)
+  const positions = Array.from({ length: numClusters }, (_, index) => {
+    const angle = numClusters > 0 ? (360 / numClusters) * index - 90 : -90;
+    return { angle, index };
+  });
 
   // Convert degrees to radians
   const toRadians = (degrees) => (degrees * Math.PI) / 180;
@@ -263,20 +255,19 @@ export default function StrengthsRadarChart({
 
         {/* Labels for each strength */}
         {orderedData.map((item, index) => {
-          const angle = positions[index]?.angle || -90;
+          const angle = positions[index]?.angle ?? -90;
           const normalizedValue = Math.max(
             0,
             Math.min(100, item.percentage ?? item.value ?? 0)
           );
-          
-          // Determine text anchor based on position
+
+          // Determine text anchor based on angle (dynamic for any number of axes)
           let textAnchor = "middle";
-          if (angle === -90) textAnchor = "middle"; // top
-          else if (angle === -30) textAnchor = "start"; // top-right
-          else if (angle === 30) textAnchor = "start"; // bottom-right
-          else if (angle === 90) textAnchor = "middle"; // bottom
-          else if (angle === 150) textAnchor = "end"; // bottom-left
-          else if (angle === -150) textAnchor = "end"; // top-left
+          const angleNorm = ((angle % 360) + 360) % 360;
+          if (angleNorm >= 315 || angleNorm < 45) textAnchor = "middle";   // top
+          else if (angleNorm >= 45 && angleNorm < 135) textAnchor = "start";  // right
+          else if (angleNorm >= 135 && angleNorm < 225) textAnchor = "middle"; // bottom
+          else if (angleNorm >= 225 && angleNorm < 315) textAnchor = "end";   // left
 
           // Adjust label position slightly outward
           const labelDistance = labelRadius + 15;

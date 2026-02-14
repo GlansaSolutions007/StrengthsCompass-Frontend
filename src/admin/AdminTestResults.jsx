@@ -42,6 +42,7 @@ export default function AdminTestResults() {
   const [generatingFullReport, setGeneratingFullReport] = useState(false);
   const [successModal, setSuccessModal] = useState({ isOpen: false, message: "", title: "" });
   const [pdfDownloading, setPdfDownloading] = useState(false);
+  const [openingResultId, setOpeningResultId] = useState(null);
 
   const fetchTests = async () => {
     try {
@@ -666,13 +667,39 @@ export default function AdminTestResults() {
     }
   };
 
-  const openDetail = (result, tab = "summary") => {
-    if (!result?.userId) return;
-    const path =
-      tab === "answers"
-        ? `/admin/dashboard/users/${result.userId}/answers`
-        : `/admin/dashboard/users/${result.userId}/results`;
-    navigate(path, { state: { fromTestResults: true } });
+  const openDetail = async (result, tab = "summary") => {
+    const testResultId = result?.rawData?.test_result_id || result?.id;
+    if (!testResultId) return;
+    if (tab === "answers") {
+      if (!result?.userId) return;
+      navigate(`/admin/dashboard/users/${result.userId}/answers`, {
+        state: { fromTestResults: true },
+      });
+      return;
+    }
+    // Summary: fetch results via API then navigate with data
+    setOpeningResultId(testResultId);
+    try {
+      const response = await apiClient.get(
+        `/test-results/${testResultId}/report`
+      );
+      if (!result?.userId) return;
+      navigate(`/admin/dashboard/users/${result.userId}/results`, {
+        state: {
+          fromTestResults: true,
+          reportData: response.data,
+        },
+      });
+    } catch (err) {
+      console.error("Error fetching test result:", err);
+      setError(
+        err.response?.data?.message ||
+          err.message ||
+          "Failed to load results. Please try again."
+      );
+    } finally {
+      setOpeningResultId(null);
+    }
   };
 
   const openSummaryModal = (result) => {
@@ -1223,6 +1250,8 @@ export default function AdminTestResults() {
                           }`}
                         >
                           <div className="flex flex-col gap-0.5 sm:gap-1">
+                           
+                            
                             <span className="font-semibold text-xs sm:text-sm neutral-text break-words">
                               {result.userName}
                             </span>
@@ -1234,6 +1263,9 @@ export default function AdminTestResults() {
                             </span>
                             <span className="text-xs neutral-text-muted break-words hidden lg:inline">
                               {result.userCity}, {result.userState}
+                            </span>
+                            <span className="font-semibold text-xs sm:text-sm neutral-text break-words">
+                              {result.testTitle}
                             </span>
                           </div>
                         </td>
@@ -1364,11 +1396,15 @@ export default function AdminTestResults() {
                                 openDetail(result, "summary");
                               }}
                               className="btn primary-bg-medium black-text hover:secondary-bg-dark shadow-md"
-                              disabled={!result.userId}
+                              disabled={!result.userId || openingResultId !== null}
                               title="View detailed results"
                             >
                               {/* <HiEye className="w-4 h-4 mr-1" /> */}
-                              <span className="hidden sm:inline">Results</span>
+                              <span className="hidden sm:inline">
+                                {openingResultId === (result?.rawData?.test_result_id || result?.id)
+                                  ? "Loading..."
+                                  : "Results"}
+                              </span>
                             </button>
                             <button
                               onClick={(e) => {
