@@ -44,6 +44,10 @@ export default function AdminMasterTestAdd() {
   const [templateDownloading, setTemplateDownloading] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [selectedConstructIds, setSelectedConstructIds] = useState([]);
+  const [testDetail, setTestDetail] = useState(null);
+  const [testDetailLoading, setTestDetailLoading] = useState(false);
+  const [excelParsedQuestions, setExcelParsedQuestions] = useState([]);
+  const [excelParseLoading, setExcelParseLoading] = useState(false);
 
   const fetchStatusOptions = async () => {
     try {
@@ -121,6 +125,38 @@ export default function AdminMasterTestAdd() {
     }
   };
 
+  const fetchTestDetail = async (testId, ageGroupId) => {
+    if (!testId || !ageGroupId) {
+      setTestDetail(null);
+      return;
+    }
+    try {
+      setTestDetailLoading(true);
+      setTestDetail(null);
+      const response = await apiClient.get(`/tests/${testId}`, {
+        params: { age_group_id: ageGroupId },
+      });
+      if (response.data?.status && response.data?.data) {
+        setTestDetail(response.data.data);
+        setSelectedClusterIds([]);
+        setSelectedConstructIds([]);
+        setSelectedQuestions({});
+      }
+    } catch (err) {
+      console.error("Error fetching test detail:", err);
+      setTestDetail(null);
+      if (err.response?.status === 401) {
+        localStorage.removeItem("adminToken");
+        localStorage.removeItem("adminUser");
+        navigate("/admin/login");
+      } else {
+        setError(err.response?.data?.message || "Failed to load test details.");
+      }
+    } finally {
+      setTestDetailLoading(false);
+    }
+  };
+
   const fetchConstructs = async () => {
     try {
       setConstructsLoading(true);
@@ -185,29 +221,72 @@ export default function AdminMasterTestAdd() {
   useEffect(() => {
     if (testType !== "cerc" || !previousTestId) {
       setSelectedConstructIds([]);
+      setTestDetail(null);
+    } else {
+      const ageGroupId = localStorage.getItem("adminSelectedVariantId") || "1";
+      fetchTestDetail(previousTestId, ageGroupId);
     }
   }, [testType, previousTestId]);
 
-  useEffect(() => {
-    if (selectedClusterIds.length > 0 && constructs.length > 0) {
-      fetchQuestions();
-    } else {
-      setQuestions([]);
-    }
-  }, [selectedClusterIds.join(","), constructs.length]);
-
   const isCercWithPreviousTest = testType === "cerc" && previousTestId;
+  const testClusters = testDetail?.clusters || [];
+  const testConstructs = testClusters.flatMap((c) =>
+    (c.constructs || []).map((co) => ({
+      id: co.id,
+      name: co.name || co.short_code || "",
+      clusterId: c.id,
+    }))
+  );
+  const effectiveClusters = isCercWithPreviousTest && testClusters.length > 0
+    ? testClusters
+    : clusters;
+  const effectiveConstructs = isCercWithPreviousTest && testConstructs.length > 0
+    ? testConstructs
+    : constructs;
   const constructsForSelectedClusters =
     isCercWithPreviousTest && selectedConstructIds.length > 0
-      ? constructs.filter(
+      ? effectiveConstructs.filter(
           (c) =>
             selectedClusterIds.includes(c.clusterId) &&
             selectedConstructIds.includes(c.id)
         )
-      : constructs.filter((c) => selectedClusterIds.includes(c.clusterId));
+      : effectiveConstructs.filter((c) => selectedClusterIds.includes(c.clusterId));
 
   useEffect(() => {
-    if (selectedClusterIds.length > 0 && constructs.length > 0) {
+    if (isCercWithPreviousTest && testDetail?.selected_questions && constructsForSelectedClusters.length > 0) {
+      const constructIds = constructsForSelectedClusters.map((c) => c.id);
+      const filtered = testDetail.selected_questions
+        .filter((q) => constructIds.includes(q.construct_id))
+        .map((q) => ({
+          id: q.id,
+          question_text: q.question_text || q.questionText || "",
+          category: q.category || "",
+          construct_id: q.construct_id || q.constructId,
+          order_no: q.pivot?.order_no ?? q.order_no ?? 0,
+        }));
+      setQuestions(filtered);
+      setQuestionsLoading(false);
+    } else if (isCercWithPreviousTest && (!testDetail || constructsForSelectedClusters.length === 0)) {
+      setQuestions([]);
+    }
+  }, [
+    isCercWithPreviousTest,
+    testDetail?.selected_questions,
+    selectedClusterIds.join(","),
+    selectedConstructIds.join(","),
+    testClusters.length,
+  ]);
+
+  useEffect(() => {
+    if (!isCercWithPreviousTest && selectedClusterIds.length > 0 && constructs.length > 0) {
+      fetchQuestions();
+    } else if (!isCercWithPreviousTest && (selectedClusterIds.length === 0 || constructs.length === 0)) {
+      setQuestions([]);
+    }
+  }, [isCercWithPreviousTest, selectedClusterIds.join(","), constructs.length]);
+
+  useEffect(() => {
+    if (selectedClusterIds.length > 0 && (constructs.length > 0 || testConstructs.length > 0)) {
       const validConstructIds = constructsForSelectedClusters.map((c) => c.id.toString());
       setSelectedQuestions((prev) => {
         const cleaned = {};
@@ -219,7 +298,13 @@ export default function AdminMasterTestAdd() {
     } else {
       setSelectedQuestions({});
     }
-  }, [selectedClusterIds.join(",")]);
+  }, [selectedClusterIds.join(","), selectedConstructIds.join(",")]);
+
+  useEffect(() => {
+    if (constructsForSelectedClusters.length > 0) {
+      setSelectAllMode(true);
+    }
+  }, [selectedClusterIds.join(","), selectedConstructIds.join(",")]);
 
   const getQuestionsForConstructAndCategory = (constructId, category) => {
     return questions.filter(
@@ -285,7 +370,7 @@ export default function AdminMasterTestAdd() {
       setSelectedClusterIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
     } else {
       setSelectedClusterIds((prev) => prev.filter((cid) => cid !== id));
-      const constructIdsInCluster = constructs
+      const constructIdsInCluster = effectiveConstructs
         .filter((c) => c.clusterId === id)
         .map((c) => c.id);
       setSelectedConstructIds((prev) =>
@@ -315,7 +400,7 @@ export default function AdminMasterTestAdd() {
     const clusterIdNum = parseInt(clusterId);
     const newClusterIds = selectedClusterIds.filter((id) => id !== clusterIdNum);
     setSelectedClusterIds(newClusterIds);
-    const validConstructIds = constructs
+    const validConstructIds = effectiveConstructs
       .filter((c) => newClusterIds.includes(c.clusterId))
       .map((c) => c.id.toString());
     setSelectedQuestions((prev) => {
@@ -423,6 +508,57 @@ export default function AdminMasterTestAdd() {
     }
   };
 
+  const parseExcelQuestions = async (file) => {
+    if (!file) {
+      setExcelParsedQuestions([]);
+      return;
+    }
+    setExcelParseLoading(true);
+    setExcelParsedQuestions([]);
+    try {
+      const xlsxModule = await import("xlsx").catch(() => null);
+      const XLSX = xlsxModule?.default || xlsxModule;
+      if (!XLSX) {
+        setError("Unable to load Excel parser.");
+        return;
+      }
+      const data = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => resolve(e.target?.result);
+        reader.onerror = reject;
+        reader.readAsArrayBuffer(file);
+      });
+      const workbook = XLSX.read(data, { type: "array" });
+      const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(firstSheet, { defval: "" });
+      const getCell = (row, ...keys) => {
+        const key = keys.find((k) => row[k] !== undefined && row[k] !== null && String(row[k]).trim() !== "");
+        return key != null ? String(row[key]).trim() : "";
+      };
+      const questions = rows
+        .map((row, idx) => {
+          const questionText = getCell(row, "question_text", "question text", "Question", "question", "Question Text");
+          if (!questionText) return null;
+          const questionIdRaw = getCell(row, "question_id", "question id", "Question ID", "id");
+          const question_id = questionIdRaw ? parseInt(questionIdRaw, 10) : null;
+          return {
+            id: idx + 1,
+            question_id: Number.isNaN(question_id) ? null : question_id,
+            question_text: questionText,
+            category: getCell(row, "category", "Category", "type") || "",
+          };
+        })
+        .filter(Boolean);
+      setExcelParsedQuestions(questions);
+    } catch (err) {
+      console.error("Error parsing Excel:", err);
+      setExcelParsedQuestions([]);
+      setError(err?.message || "Failed to parse Excel file.");
+    } finally {
+      setExcelParseLoading(false);
+    }
+  };
+
   const handleDownloadTemplate = async () => {
     setTemplateDownloading(true);
     setError(null);
@@ -523,6 +659,27 @@ export default function AdminMasterTestAdd() {
         if (selectedConstructIds.length > 0) {
           selectedConstructIds.forEach((id) => formData.append("construct_ids[]", id));
         }
+        if (isCercWithPreviousTest && selectedClusterIds.length > 0 && constructsForSelectedClusters.length > 0) {
+          const nonSkippedConstructs = constructsForSelectedClusters.filter(
+            (c) => !skippedConstructs.includes(c.id.toString())
+          );
+          const validConstructIds = nonSkippedConstructs.map((c) => c.id.toString());
+          for (const constructId of validConstructIds) {
+            const selected = selectedQuestions[constructId];
+            if (selected) {
+              for (const category of ["P", "R", "SDB"]) {
+                if (selected[category] && Array.isArray(selected[category])) {
+                  selected[category].forEach((qId) => formData.append("question_ids[]", qId));
+                }
+              }
+            }
+          }
+        } else {
+          const excelQuestionIds = (excelParsedQuestions || [])
+            .map((q) => q.question_id)
+            .filter((id) => id != null && Number.isInteger(id));
+          excelQuestionIds.forEach((id) => formData.append("question_ids[]", id));
+        }
         formData.append("source", testType === "cerc" ? "CERC" : "SC Pro");
         if (testType === "cerc" && previousTestId) {
           formData.append("sc_pro_test_id", String(previousTestId));
@@ -537,7 +694,10 @@ export default function AdminMasterTestAdd() {
           setError(response.data?.message || "Failed to create test from Excel");
         }
       } else {
-        const validConstructIds = constructsForSelectedClusters.map((c) => c.id.toString());
+        const nonSkippedConstructs = constructsForSelectedClusters.filter(
+          (c) => !skippedConstructs.includes(c.id.toString())
+        );
+        const validConstructIds = nonSkippedConstructs.map((c) => c.id.toString());
         const allSelectedQuestionIds = [];
         for (const constructId of validConstructIds) {
           const selected = selectedQuestions[constructId];
@@ -555,16 +715,17 @@ export default function AdminMasterTestAdd() {
           r_count: selectAllMode ? null : questionCounts.R || null,
           sdb_count: selectAllMode ? null : questionCounts.SDB || null,
         }));
+        const payloadConstructIds = isCercWithPreviousTest
+          ? selectedConstructIds.filter((id) => !skippedConstructs.includes(String(id)))
+          : nonSkippedConstructs.map((c) => c.id);
         const payload = {
           title: title.trim(),
           description: description.trim() || "",
           is_active: status === "active" || status === "1" || status === 1,
           question_ids: allSelectedQuestionIds,
-          clusters: clustersArray,
           cluster_ids: selectedClusterIds,
-          construct_ids: isCercWithPreviousTest
-            ? selectedConstructIds
-            : constructsForSelectedClusters.map((c) => c.id),
+          construct_ids: payloadConstructIds,
+          clusters: clustersArray,
           source: testType === "cerc" ? "CERC" : "SC Pro",
         };
         if (testType === "cerc" && previousTestId) {
@@ -796,18 +957,20 @@ export default function AdminMasterTestAdd() {
                   <label className="text-sm font-semibold neutral-text block">
                     Clusters <span className="text-red-500">*</span>
                   </label>
-                  {clustersLoading ? (
+                  {testDetailLoading ? (
                     <div className="flex items-center gap-2 text-sm text-gray-500">
                       <span className="spinner spinner-sm" />
-                      Loading clusters...
+                      Loading test clusters...
+                    </div>
+                  ) : effectiveClusters.length === 0 ? (
+                    <div className="bg-gray-100 border border-gray-200 rounded-lg p-4 text-center">
+                      <p className="text-sm text-gray-600">No clusters in this test.</p>
                     </div>
                   ) : (
                     <div className="space-y-4">
-                      {clusters.map((cluster) => {
+                      {effectiveClusters.map((cluster) => {
                         const isClusterChecked = selectedClusterIds.includes(cluster.id);
-                        const constructsInCluster = constructs.filter(
-                          (c) => c.clusterId === cluster.id
-                        );
+                        const constructsInCluster = cluster.constructs || [];
                         return (
                           <div
                             key={cluster.id}
@@ -1014,9 +1177,11 @@ export default function AdminMasterTestAdd() {
                     type="file"
                     accept=".xlsx,.xls,.csv"
                     onChange={(e) => {
-                      setExcelTestFile(e.target.files?.[0] || null);
+                      const file = e.target.files?.[0] || null;
+                      setExcelTestFile(file);
                       if (fieldErrors.excel_file)
                         setFieldErrors((p) => ({ ...p, excel_file: "" }));
+                      parseExcelQuestions(file);
                     }}
                     className={`input w-full ${fieldErrors.excel_file ? "input-error" : ""}`}
                   />
@@ -1026,11 +1191,73 @@ export default function AdminMasterTestAdd() {
                   {fieldErrors.excel_file && (
                     <p className="text-red-600 text-xs mt-1.5">{fieldErrors.excel_file}</p>
                   )}
+
                 </div>
               )}
 
-              {addSource === "cluster" &&
-                selectedClusterIds.length > 0 && (
+              {addSource === "excel" && excelTestFile && (
+                <div className="space-y-4 border-t border-gray-200 pt-4">
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm font-semibold neutral-text">
+                      Question Selection (from uploaded file)
+                    </label>
+                    {excelParseLoading && (
+                      <span className="text-xs text-gray-500">
+                        <span className="spinner spinner-sm mr-2" />
+                        Reading questions...
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="bg-white border border-gray-200 rounded-lg p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h4 className="font-semibold neutral-text mb-1">Select All Questions</h4>
+                        <p className="text-xs text-gray-500">
+                          All questions from the uploaded file will be included in the test
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-gray-500">On</span>
+                        <div className="relative w-14 h-7 rounded-full bg-blue-500">
+                          <div className="absolute top-0.5 left-0.5 w-6 h-6 bg-white rounded-full shadow-md translate-x-7" />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {!excelParseLoading && excelParsedQuestions.length > 0 && (
+                    <div className="bg-white border border-gray-200 rounded-lg p-4">
+                      <h4 className="font-semibold neutral-text mb-2">
+                        Uploaded questions ({excelParsedQuestions.length})
+                      </h4>
+                      <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 max-h-80 overflow-y-auto">
+                        <ol className="list-decimal list-inside space-y-2">
+                          {excelParsedQuestions.map((q, idx) => (
+                            <li key={q.id ?? idx} className="text-sm text-gray-800">
+                              <span className="font-medium text-gray-500 mr-1">{idx + 1}.</span>
+                              {q.question_text}
+                              {q.category && (
+                                <span className="ml-2 text-xs text-gray-400">({q.category})</span>
+                              )}
+                            </li>
+                          ))}
+                        </ol>
+                      </div>
+                    </div>
+                  )}
+
+                  {!excelParseLoading && excelParsedQuestions.length === 0 && excelTestFile && (
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                      <p className="text-sm text-yellow-800">
+                        No questions found. Ensure the file has a &quot;question_text&quot; or &quot;Question&quot; column.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {selectedClusterIds.length > 0 && (
                   <div className="space-y-4 border-t border-gray-200 pt-4">
                     <div className="flex items-center justify-between">
                       <label className="text-sm font-semibold neutral-text">
