@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useParams, useNavigate, useLocation } from "react-router-dom";
+import { useParams, useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import apiClient from "../config/api";
 import {
   HiArrowLeft,
@@ -17,6 +17,8 @@ import ReportFooter from "../components/ReportFooter";
 
 export default function UserResults() {
   const { userId } = useParams();
+  const [searchParams] = useSearchParams();
+  const testIdFromUrl = searchParams.get("testId");
   const navigate = useNavigate();
   const location = useLocation();
   const fromTestResults = Boolean(location.state?.fromTestResults);
@@ -47,27 +49,46 @@ export default function UserResults() {
   const [generatingPDF, setGeneratingPDF] = useState(false);
 
   useEffect(() => {
-    if (userId) {
-      setLoading(true);
-      setError(null);
-      setUser(null);
-      setTestResults([]);
-      setTestResult(null);
-      setClusterDetails([]);
-      setConstructDetails([]);
-      setRadarChartData([]);
-      setClusterInsights([]);
-      setConstructSynergyMatrix([]);
-      setConstructLabels([]);
-      setReportSummary("");
-      setSummaryStatus(null);
-      setSavingSummary(false);
-      fetchUserDetails();
-      fetchTestResults();
-    } else {
+    if (!userId) {
       setError("User ID is missing");
       setLoading(false);
+      return;
     }
+    setLoading(true);
+    setError(null);
+    setUser(null);
+    setTestResults([]);
+    setTestResult(null);
+    setClusterDetails([]);
+    setConstructDetails([]);
+    setRadarChartData([]);
+    setClusterInsights([]);
+    setConstructSynergyMatrix([]);
+    setConstructLabels([]);
+    setReportSummary("");
+    setSummaryStatus(null);
+    setSavingSummary(false);
+
+    const reportDataFromState =
+      location.state?.fromTestResults && location.state?.reportData
+        ? location.state.reportData
+        : null;
+    if (reportDataFromState) {
+      let data = reportDataFromState?.data;
+      if (!data && (reportDataFromState.test_result || reportDataFromState.report)) {
+        data = reportDataFromState;
+      }
+      if (data) {
+        applyReportData(data);
+        return;
+      }
+      setError("Invalid report data");
+      setLoading(false);
+      return;
+    }
+
+    fetchUserDetails();
+    fetchTestResults();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
 
@@ -200,6 +221,126 @@ export default function UserResults() {
     return "";
   };
 
+  const applyReportData = (data) => {
+    if (!data) return;
+    const testResultData = data?.test_result;
+
+    const userData = data?.test_result?.user;
+    if (userData) {
+      setUser({
+        id: userData.id,
+        name:
+          userData.name ||
+          `${userData.first_name || ""} ${userData.last_name || ""}`.trim() ||
+          "N/A",
+        firstName: userData.first_name || "",
+        lastName: userData.last_name || "",
+        email: userData.email || "N/A",
+        phone:
+          userData.whatsapp_number ||
+          userData.contact_number ||
+          userData.contact ||
+          "N/A",
+        contact:
+          userData.contact ||
+          userData.whatsapp_number ||
+          userData.contact_number ||
+          "N/A",
+        whatsappNumber: userData.whatsapp_number || "N/A",
+        role: userData.role || "N/A",
+        gender: userData.gender || "N/A",
+        age: userData.age || "N/A",
+        city: userData.city || "N/A",
+        state: userData.state || "N/A",
+        country: userData.country || "N/A",
+        profession: userData.profession || "N/A",
+        educationalQualification: userData.educational_qualification || "N/A",
+        address: userData.address || "N/A",
+        zipCode: userData.zip_code || userData.zipCode || "N/A",
+        status: "Active",
+        lastLogin: userData.last_login || "Never",
+        createdAt: userData.created_at || "N/A",
+        updatedAt: userData.updated_at || "N/A",
+      });
+    }
+
+    if (testResultData) {
+      setTestResult(testResultData);
+      setTestResults([testResultData]);
+    }
+
+    let insights = data?.cluster_insights;
+    if (!insights && testResultData?.cluster_scores) {
+      const clusterScores = testResultData.cluster_scores;
+      insights = Object.keys(clusterScores).map((clusterName) => ({
+        name: clusterName,
+        percentage: clusterScores[clusterName]?.percentage || 0,
+        average: clusterScores[clusterName]?.average || 0,
+        strength_band: clusterScores[clusterName]?.category || "low",
+      }));
+    }
+    if (insights && Array.isArray(insights)) {
+      setClusterInsights(insights);
+      setRadarChartData(
+        insights.map((insight) => ({
+          name: insight.name,
+          percentage: insight.percentage || 0,
+          average: insight.average ?? null,
+        }))
+      );
+    } else if (testResultData?.cluster_scores) {
+      const clusterScores = testResultData.cluster_scores;
+      setRadarChartData(
+        Object.keys(clusterScores).map((name) => ({
+          name,
+          value: clusterScores[name]?.percentage || 0,
+        }))
+      );
+      setClusterInsights(
+        Object.keys(clusterScores).map((clusterName) => ({
+          name: clusterName,
+          percentage: clusterScores[clusterName]?.percentage || 0,
+          average: clusterScores[clusterName]?.average || 0,
+          strength_band: clusterScores[clusterName]?.category || "low",
+        }))
+      );
+    }
+
+    const clusterDetailsData = data?.cluster_details;
+    if (Array.isArray(clusterDetailsData)) setClusterDetails(clusterDetailsData);
+
+    const constructDetailsData = data?.construct_details;
+    if (Array.isArray(constructDetailsData))
+      setConstructDetails(constructDetailsData);
+
+    const synergyMatrix =
+      data?.construct_synergy_matrix ||
+      data?.synergy_tension_matrix ||
+      data?.construct_matrix;
+    if (Array.isArray(synergyMatrix) && synergyMatrix.length > 0)
+      setConstructSynergyMatrix(synergyMatrix);
+
+    let labels =
+      data?.construct_labels ||
+      data?.construct_names ||
+      (constructDetailsData &&
+      constructDetailsData.length > 0
+        ? constructDetailsData.map((c) => c.name || c.construct_name || c.label)
+        : []);
+    if (
+      (!labels || labels.length === 0) &&
+      testResultData?.construct_scores
+    ) {
+      labels = Object.keys(testResultData.construct_scores);
+    }
+    if (Array.isArray(labels) && labels.length > 0) setConstructLabels(labels);
+
+    const reportSummaryData = data?.report?.report_summary;
+    setReportSummary(reportSummaryData || "");
+    setError(null);
+    setLoading(false);
+  };
+
   const fetchTestResults = async () => {
     if (!userId) return;
 
@@ -226,12 +367,17 @@ export default function UserResults() {
       if (resultsData) {
         setTestResults(resultsData);
 
-        // Get the latest test result ID to fetch report
+        // Get the test result to fetch report: prefer one matching testId from URL, else latest
         if (resultsData.length > 0) {
-          const latestResult = resultsData[0]; // Get first result (usually latest)
-          const testResultId = latestResult.id || latestResult.test_result_id;
+          const resultToLoad =
+            testIdFromUrl != null && testIdFromUrl !== ""
+              ? resultsData.find(
+                  (r) =>
+                    String(r.test_id ?? r.test?.id ?? "") === String(testIdFromUrl)
+                ) || resultsData[0]
+              : resultsData[0];
+          const testResultId = resultToLoad.id || resultToLoad.test_result_id;
           if (testResultId) {
-            // Fetch report data for this test result
             fetchReportData(testResultId);
           }
         }
@@ -266,10 +412,7 @@ export default function UserResults() {
       );
       console.log("Report API Response:", response.data);
 
-      // Check multiple possible response structures
       let data = response.data?.data;
-
-      // If data is not at response.data.data, try response.data directly
       if (!data && response.data) {
         if (response.data.test_result || response.data.report) {
           data = response.data;
@@ -281,182 +424,10 @@ export default function UserResults() {
         return;
       }
 
-      // Extract user details from data.test_result.user
-      const userData = data?.test_result?.user;
-      if (userData) {
-        const mappedUser = {
-          id: userData.id,
-          name:
-            userData.name ||
-            `${userData.first_name || ""} ${userData.last_name || ""}`.trim() ||
-            "N/A",
-          firstName: userData.first_name || "",
-          lastName: userData.last_name || "",
-          email: userData.email || "N/A",
-          phone:
-            userData.whatsapp_number ||
-            userData.contact_number ||
-            userData.contact ||
-            "N/A",
-          contact:
-            userData.contact ||
-            userData.whatsapp_number ||
-            userData.contact_number ||
-            "N/A",
-          whatsappNumber: userData.whatsapp_number || "N/A",
-          role: userData.role || "N/A",
-          gender: userData.gender || "N/A",
-          age: userData.age || "N/A",
-          city: userData.city || "N/A",
-          state: userData.state || "N/A",
-          country: userData.country || "N/A",
-          profession: userData.profession || "N/A",
-          educationalQualification: userData.educational_qualification || "N/A",
-          address: userData.address || "N/A",
-          zipCode: userData.zip_code || userData.zipCode || "N/A",
-          status: "Active",
-          lastLogin: userData.last_login || "Never",
-          createdAt: userData.created_at || "N/A",
-          updatedAt: userData.updated_at || "N/A",
-        };
-        setUser(mappedUser);
-      }
-
-      // Extract test result from data.test_result
-      const testResultData = data?.test_result;
-      if (testResultData) {
-        console.log("Test Result Data:", testResultData);
-        console.log("SDB Percentage from API:", testResultData.sdb_percentage);
-        setTestResult(testResultData);
-      }
-
-      // Extract cluster insights for radar chart
-      // Try cluster_insights first, then calculate from cluster_scores
-      let insights = data?.cluster_insights;
-
-      if (!insights && testResultData?.cluster_scores) {
-        // Create cluster_insights from cluster_scores
-        const clusterScores = testResultData.cluster_scores;
-        insights = Object.keys(clusterScores).map((clusterName) => ({
-          name: clusterName,
-          percentage: clusterScores[clusterName]?.percentage || 0,
-          average: clusterScores[clusterName]?.average || 0,
-          strength_band: clusterScores[clusterName]?.category || "low",
-        }));
-      }
-
-      if (insights && Array.isArray(insights)) {
-        setClusterInsights(insights);
-
-        // Map to radar chart format with extra fields
-        const radarData = insights.map((insight) => ({
-          name: insight.name,
-          percentage: insight.percentage || 0,
-          average: insight.average ?? null,
-        }));
-        setRadarChartData(radarData);
-      } else if (testResultData?.cluster_scores) {
-        // Fallback to cluster_scores
-        const clusterScores = testResultData.cluster_scores;
-        const radarData = [
-          {
-            name: "Caring & Connection",
-            value: clusterScores["Caring & Connection"]?.percentage || 0,
-          },
-          {
-            name: "Humility & Integrity",
-            value: clusterScores["Humility & Integrity"]?.percentage || 0,
-          },
-          {
-            name: "Drive & Achievement",
-            value: clusterScores["Drive & Achievement"]?.percentage || 0,
-          },
-          {
-            name: "Resilience & Adaptability",
-            value: clusterScores["Resilience & Adaptability"]?.percentage || 0,
-          },
-          {
-            name: "Leadership & Growth Orientation",
-            value:
-              clusterScores["Leadership & Growth Orientation"]?.percentage || 0,
-          },
-          {
-            name: "Optimism & Innovation",
-            value: clusterScores["Optimism & Innovation"]?.percentage || 0,
-          },
-        ];
-        setRadarChartData(radarData);
-
-        // Create cluster insights from cluster scores
-        const insightsFromScores = Object.keys(clusterScores).map(
-          (clusterName) => ({
-            name: clusterName,
-            percentage: clusterScores[clusterName]?.percentage || 0,
-            average: clusterScores[clusterName]?.average || 0,
-            strength_band: clusterScores[clusterName]?.category || "low",
-          })
-        );
-        setClusterInsights(insightsFromScores);
-      }
-
-      // Extract cluster details - may need to be fetched separately or constructed
-      // For now, we'll try to extract from the response
-      const clusterDetailsData = data?.cluster_details;
-      if (Array.isArray(clusterDetailsData)) {
-        setClusterDetails(clusterDetailsData);
-      }
-
-      // Extract construct details
-      const constructDetailsData = data?.construct_details;
-      if (Array.isArray(constructDetailsData)) {
-        setConstructDetails(constructDetailsData);
-      }
-
-      // Extract construct synergy-tension matrix
-      const synergyMatrix =
-        data?.construct_synergy_matrix ||
-        data?.synergy_tension_matrix ||
-        data?.construct_matrix;
-      if (Array.isArray(synergyMatrix) && synergyMatrix.length > 0) {
-        setConstructSynergyMatrix(synergyMatrix);
-      }
-
-      // Extract construct labels
-      let labels =
-        data?.construct_labels ||
-        data?.construct_names ||
-        (constructDetailsData && constructDetailsData.length > 0
-          ? constructDetailsData.map(
-              (c) => c.name || c.construct_name || c.label
-            )
-          : []);
-
-      // Fallback: Extract from construct_scores if available
-      if (
-        (!labels || labels.length === 0) &&
-        testResultData?.construct_scores
-      ) {
-        labels = Object.keys(testResultData.construct_scores);
-      }
-
-      if (Array.isArray(labels) && labels.length > 0) {
-        setConstructLabels(labels);
-      }
-
-      // Extract report summary from data.report.report_summary
-      const reportSummaryData = data?.report?.report_summary;
-      if (reportSummaryData) {
-        setReportSummary(reportSummaryData);
-      } else {
-        setReportSummary("");
-      }
-
-      setLoading(false);
-      setError(null);
+      applyReportData(data);
     } catch (err) {
       console.error("Error fetching report data:", err);
       setLoading(false);
-      // Don't set error, just log it - report data is optional
       if (err.response?.status === 404) {
         setError("Report not found for this test result.");
       }
@@ -1200,59 +1171,40 @@ export default function UserResults() {
                           </div>
                         </div>
                       )}
-                    {/* Strengths Radar Chart */}
-                    {testResult?.cluster_scores && (
-                      <div
-                        id="pdf-radar-chart-section"
-                        className="mb-10 max-w-4xl mx-auto"
-                      >
-                        <StrengthsRadarChart
-                          clusterScores={testResult.cluster_scores}
-                          clusters={[
-                            "Caring & Self-Understanding",
-                            "Character & Moral Foundation",
-                            "Drive & Achievement",
-                            "Emotional Strength",
-                            "Personal Agency & Growth",
-                            "Openness & Future Orientation",
-                          ]}
-                          size={500}
-                        />
-                      </div>
-                    )}
+                    {/* Radar charts: show only when 2+ clusters/constructs (single-axis radar is not shown) */}
+                    {testResult?.cluster_scores &&
+                      (() => {
+                        const clusterNames = Object.keys(testResult.cluster_scores);
+                        return clusterNames.length > 1 ? (
+                          <div
+                            id="pdf-radar-chart-section"
+                            className="mb-10 max-w-4xl mx-auto"
+                          >
+                            <StrengthsRadarChart
+                              clusterScores={testResult.cluster_scores}
+                              clusters={clusterNames}
+                              size={500}
+                            />
+                          </div>
+                        ) : null;
+                      })()}
 
-                    {/* Constructs Radar Chart */}
-                    {testResult?.construct_scores && (
-                      <div
-                        id="pdf-constructs-radar-chart-section"
-                        className="mb-10 max-w-4xl mx-auto"
-                      >
-                        <ConstructsRadarChart
-                          constructScores={testResult.construct_scores}
-                          constructs={[
-                            "Self-Awareness",
-                            "Honesty-Humility",
-                            "Reliability",
-                            "Perseverance",
-                            "Self-Discipline",
-                            "Initiative",
-                            "Psychological Resilience",
-                            "Emotional Regulation",
-                            "Cognitive Flexibility",
-                            "Leadership",
-                            "Self-Efficacy",
-                            "Growth Mindset",
-                            "GRIT",
-                            "Creativity & Curiosity",
-                            "Altruism",
-                            "Empathy",
-                            "Cooperation",
-                            "Optimism",
-                          ]}
-                          size={500}
-                        />
-                      </div>
-                    )}
+                    {testResult?.construct_scores &&
+                      (() => {
+                        const constructNames = Object.keys(testResult.construct_scores);
+                        return constructNames.length > 1 ? (
+                          <div
+                            id="pdf-constructs-radar-chart-section"
+                            className="mb-10 max-w-4xl mx-auto"
+                          >
+                            <ConstructsRadarChart
+                              constructScores={testResult.construct_scores}
+                              constructs={constructNames}
+                              size={500}
+                            />
+                          </div>
+                        ) : null;
+                      })()}
 
                     {/* Tension Heatmap */}
                     {/* {clusterInsights.length > 0 && (
