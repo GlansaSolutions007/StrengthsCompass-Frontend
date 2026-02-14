@@ -1113,9 +1113,9 @@ export default function Test() {
       {showCercPopup && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={() => {}}>
           <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 border border-gray-200" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-lg font-bold neutral-text mb-1">CERC tests available</h3>
-            <p className="text-sm neutral-text-muted mb-4">Would you like to take a CERC test now?</p>
+            <h3 className="text-lg font-bold neutral-text mb-1">COMPETITIVE EXAM READINESS COMPASS (CERC)</h3>
             <div className="space-y-2 mb-5 max-h-60 overflow-y-auto">
+
               {availableCercTests.map((t, idx) => {
                 const id = typeof t === "object" && t !== null ? (t.id ?? t.test_id ?? t.cerc_test_id) : t;
                 const title = typeof t === "object" && t !== null ? (t.title ?? t.name ?? t.test_name ?? `Test #${id}`) : `Test #${id}`;
@@ -1123,7 +1123,7 @@ export default function Test() {
                   <button
                     key={id ?? idx}
                     type="button"
-                    className="w-full flex items-center justify-between gap-3 px-4 py-3 rounded-xl border border-gray-200 hover:border-blue-300 hover:bg-blue-50/50 text-left transition-colors"
+                    className="btn btn-primary mt-4 text-sm w-full sm:min-w-[220px] disabled:opacity-50 disabled:cursor-not-allowed"
                     onClick={async () => {
                       if (!id) return;
                       setShowCercPopup(false);
@@ -1136,24 +1136,12 @@ export default function Test() {
                       await fetchTestData(id, userId);
                     }}
                   >
-                    <span className="font-medium neutral-text">{title}</span>
-                    <span className="text-sm primary-text-medium">Take this test</span>
+                    <span className="text-lg text-white">Take this test</span>
                   </button>
                 );
               })}
             </div>
-            <div className="flex flex-col sm:flex-row gap-2 sm:justify-end">
-              <button
-                type="button"
-                className="btn btn-ghost order-2 sm:order-1"
-                onClick={() => {
-                  setShowCercPopup(false);
-                  setShowSuccessModal(true);
-                }}
-              >
-                View my results instead
-              </button>
-            </div>
+           
           </div>
         </div>
       )}
