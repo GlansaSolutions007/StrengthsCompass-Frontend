@@ -267,9 +267,6 @@ export default function AdminMasterConstruct() {
 
   const add = async () => {
     const errors = {};
-    if (!clusterId) {
-      errors.clusterId = "Cluster selection is required";
-    }
     if (!formData.name.trim()) {
       errors.name = "Construct name is required";
     }
@@ -283,7 +280,6 @@ export default function AdminMasterConstruct() {
     setActionLoading({ ...actionLoading, create: true });
     try {
       const payload = {
-        cluster_id: clusterId,
         name: formData.name.trim(),
         short_code: formData.short_code.trim() || undefined,
         description: formData.description.trim() || undefined,
@@ -297,6 +293,9 @@ export default function AdminMasterConstruct() {
         case_example: formData.case_example.trim() || undefined,
         display_order: formData.display_order ? parseInt(formData.display_order) : undefined,
       };
+      if (clusterId) {
+        payload.cluster_id = clusterId;
+      }
 
       const response = await apiClient.post("/constructs", payload);
 
@@ -668,7 +667,7 @@ export default function AdminMasterConstruct() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="text-sm font-semibold neutral-text block mb-2">
-                      Cluster <span className="danger-text">*</span>
+                      Cluster 
             </label>
                     <div className="relative">
                       <select
@@ -1181,7 +1180,7 @@ export default function AdminMasterConstruct() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="text-sm font-semibold neutral-text block mb-2">
-                      Cluster <span className="danger-text">*</span>
+                      Cluster
                     </label>
                     <div className="relative">
                       <select
