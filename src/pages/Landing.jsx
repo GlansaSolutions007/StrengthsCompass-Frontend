@@ -2,6 +2,7 @@ import React, { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { HiPlay, HiArrowRight } from "react-icons/hi";
 import Navbar from "../components/Navbar";
+import bannerImage from "/src/assets/site-image.png"; 
 
 export default function Landing() {
   const navigate = useNavigate();
@@ -79,13 +80,10 @@ export default function Landing() {
           {/* RIGHT BANNER IMAGE */}
           <div className="rounded-2xl sm:rounded-3xl overflow-hidden shadow-2xl border border-white/60 bg-white/90 backdrop-blur order-first md:order-last">
             <img
-              src="https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=900&h=600&fit=crop&q=80"
-              alt="Lightbulb Idea"
+              src={bannerImage}
+              alt="Banner Image"
               className="w-full h-auto object-cover"
-              onError={(e) => {
-                e.target.src =
-                  "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=900&h=600&fit=crop&q=80";
-              }}
+             
             />
           </div>
         </div>
