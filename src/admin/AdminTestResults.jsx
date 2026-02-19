@@ -553,7 +553,6 @@ export default function AdminTestResults() {
       const year = now.getFullYear();
       const fromDateValue = fromDate || `${year}-01-01`;
       const toDateValue = toDate || `${year}-12-31`;
-      const testIdValue = selectedTestId || (tests.length > 0 ? String(tests[0].id) : "");
 
       let userIdsParam = "";
       if (selectedUsers.length > 0) {
@@ -574,11 +573,15 @@ export default function AdminTestResults() {
 
       const summaryExportParams = {
         age_group_id: ageGroupId,
-        test_id: testIdValue,
         from_date: fromDateValue,
         to_date: toDateValue,
         user_ids: userIdsParam,
       };
+      
+      // Only include test_id if one is actually selected
+      if (selectedTestId) {
+        summaryExportParams.test_id = parseInt(selectedTestId, 10);
+      }
       console.log("Export summary =======>>>", summaryExportParams);
 
       const response = await apiClient.get(
