@@ -62,8 +62,15 @@ export default function TestDetails() {
       const clusterName = cluster.name || `Cluster #${cluster.id}`;
       organized[clusterName] = {};
       
-      // Iterate through constructs in this cluster
-      if (cluster.constructs && Array.isArray(cluster.constructs)) {
+      // Get all unique construct IDs from questions that belong to this cluster
+      const constructIdsInCluster = [...new Set(
+        questions
+          .filter((q) => q.pivot?.cluster_id === cluster.id)
+          .map((q) => q.construct_id)
+      )];
+      
+      // If cluster has constructs, use them; otherwise create construct entries from questions
+      if (cluster.constructs && Array.isArray(cluster.constructs) && cluster.constructs.length > 0) {
         cluster.constructs.forEach((construct) => {
           const constructName = construct.name || `Construct #${construct.id}`;
           organized[clusterName][constructName] = { P: [], R: [], SDB: [] };
@@ -73,6 +80,36 @@ export default function TestDetails() {
             const qConstructId = q.construct_id;
             const qClusterId = q.pivot?.cluster_id;
             return qConstructId === construct.id && qClusterId === cluster.id;
+          });
+          
+          // Organize by category
+          constructQuestions.forEach((question) => {
+            const category = (question.category || "").toUpperCase();
+            if (category === "P" || category === "R" || category === "SDB") {
+              organized[clusterName][constructName][category].push(question);
+            }
+          });
+          
+          // Sort each category by pivot order_no
+          ["P", "R", "SDB"].forEach((cat) => {
+            organized[clusterName][constructName][cat].sort((a, b) => {
+              const orderA = a.pivot?.order_no || 0;
+              const orderB = b.pivot?.order_no || 0;
+              return orderA - orderB;
+            });
+          });
+        });
+      } else if (constructIdsInCluster.length > 0) {
+        // Fallback: use construct IDs from questions when cluster.constructs is empty
+        constructIdsInCluster.forEach((constructId) => {
+          const constructName = `Construct #${constructId}`;
+          organized[clusterName][constructName] = { P: [], R: [], SDB: [] };
+          
+          // Find questions for this construct and cluster
+          const constructQuestions = questions.filter((q) => {
+            const qConstructId = q.construct_id;
+            const qClusterId = q.pivot?.cluster_id;
+            return qConstructId === constructId && qClusterId === cluster.id;
           });
           
           // Organize by category
