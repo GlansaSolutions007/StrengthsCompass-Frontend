@@ -456,6 +456,9 @@ export default function AdminMasterQuestions() {
     if (!questionText.trim()) {
       errors.questionText = "Question text is required";
     }
+    if (!category.trim()) {
+      errors.category = "Category selection is required";
+    }
 
     if (Object.keys(errors).length > 0) {
       setFieldErrors(errors);
@@ -468,7 +471,7 @@ export default function AdminMasterQuestions() {
       const response = await apiClient.post("/questions", {
         construct_id: constructId,
         question_text: questionText.trim(),
-        category: category.trim() || null,
+        category: category.trim(),
       });
 
       if (response.data?.status && response.data.data) {
@@ -511,8 +514,16 @@ export default function AdminMasterQuestions() {
   };
 
   const save = async (id) => {
+    const errors = {};
     if (!editingData.question_text.trim()) {
-      setFieldErrors({ questionText: "Question text is required" });
+      errors.questionText = "Question text is required";
+    }
+    if (!editingData.category.trim()) {
+      errors.category = "Category selection is required";
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
       return;
     }
 
@@ -523,7 +534,7 @@ export default function AdminMasterQuestions() {
 
       const payload = {
         question_text: editingData.question_text.trim(),
-        category: categoryVal || "",
+        category: categoryVal,
       };
       if (constructId) {
         payload.construct_id = constructId;
@@ -596,7 +607,6 @@ export default function AdminMasterQuestions() {
   const resetForm = () => {
     setQuestionText("");
     setCategory("");
-    setClusterId("");
     setConstructId("");
     setBulkUploadFile(null);
     setGeneralBulkUploadFile(null);
@@ -1431,61 +1441,8 @@ className="btn btn-primary text-sm"
                   {/* Tab Content */}
                   {activeTab === "single" && (
                     <div className="space-y-6">
-                      {/* Cluster and Construct Selection */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <label className="text-sm font-semibold neutral-text block mb-2">
-                            Cluster <span className="danger-text">*</span>
-                          </label>
-                          <div className="relative">
-                            <select
-                              value={clusterId}
-                              onChange={(e) => {
-                                setClusterId(e.target.value);
-                                if (fieldErrors.clusterId) {
-                                  setFieldErrors({ ...fieldErrors, clusterId: "" });
-                                }
-                              }}
-                              disabled={
-                                clustersLoading ||
-                                actionLoading.create ||
-                                actionLoading.update ||
-                                actionLoading.bulkUpload
-                              }
-                              className={`input w-full pr-10 ${fieldErrors.clusterId ? "input-error" : ""}`}
-                            >
-                              {clustersLoading ? (
-                                <option value="" disabled>
-                                  Loading clusters...
-                                </option>
-                              ) : clusters.length === 0 ? (
-                                <option value="" disabled>
-                                  No clusters available
-                                </option>
-                              ) : (
-                                <>
-                                  {!clusterId && (
-                                    <option value="" disabled hidden>
-                                      Select cluster
-                                    </option>
-                                  )}
-                                  {clusters.map((c) => (
-                                    <option key={c.id} value={c.id}>
-                                      {c.name}
-                                    </option>
-                                  ))}
-                                </>
-                              )}
-                            </select>
-                            <HiChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 neutral-text-muted" />
-                          </div>
-                          {fieldErrors.clusterId && (
-                            <p className="danger-text text-xs mt-1.5">
-                              {fieldErrors.clusterId}
-                            </p>
-                          )}
-                        </div>
-
+                      {/* Construct Selection */}
+                      <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
                         <div>
                           <label className="text-sm font-semibold neutral-text block mb-2">
                             Construct <span className="danger-text">*</span>
@@ -1500,7 +1457,6 @@ className="btn btn-primary text-sm"
                                 }
                               }}
                               disabled={
-                                !clusterId ||
                                 constructsLoading ||
                                 actionLoading.create ||
                                 actionLoading.update ||
@@ -1508,13 +1464,13 @@ className="btn btn-primary text-sm"
                               }
                               className={`input w-full pr-10 ${fieldErrors.constructId ? "input-error" : ""}`}
                             >
-                              {!clusterId && !constructsLoading ? (
+                              {constructsLoading ? (
                                 <option value="" disabled>
-                                  Select cluster first
+                                  Loading constructs...
                                 </option>
-                              ) : clusterId && constructsForCluster.length === 0 ? (
+                              ) : constructs.length === 0 ? (
                                 <option value="" disabled>
-                                  No constructs for this cluster
+                                  No constructs available
                                 </option>
                               ) : (
                                 <>
@@ -1523,7 +1479,7 @@ className="btn btn-primary text-sm"
                                       Select construct
                                     </option>
                                   )}
-                                  {constructsForCluster.map((c) => (
+                                  {constructs.map((c) => (
                                     <option key={c.id} value={c.id}>
                                       {c.name}
                                     </option>
@@ -1544,8 +1500,8 @@ className="btn btn-primary text-sm"
                       {/* Question Form */}
                       <div className="bg-white p-4 rounded-lg border border-neutral-border-light">
                         <h4 className="text-sm font-semibold neutral-text mb-4">Question Details</h4>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                          <div className="md:col-span-3">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="md:col-span-2">
                             <label className="text-sm font-semibold neutral-text block mb-2">
                               Question Text <span className="danger-text">*</span>
                             </label>
@@ -1569,15 +1525,34 @@ className="btn btn-primary text-sm"
                           </div>
                           <div>
                             <label className="text-sm font-semibold neutral-text block mb-2">
-                              Category
+                              Category <span className="danger-text">*</span>
                             </label>
-                            <input
-                              value={category}
-                              onChange={(e) => setCategory(e.target.value)}
-                              placeholder="e.g., Multiple Choice"
-                              disabled={!constructId || actionLoading.create || actionLoading.update}
-                              className="input w-full"
-                            />
+                            <div className="relative">
+                              <select
+                                value={category}
+                                onChange={(e) => {
+                                  setCategory(e.target.value);
+                                  if (fieldErrors.category) {
+                                    setFieldErrors({ ...fieldErrors, category: "" });
+                                  }
+                                }}
+                                disabled={!constructId || actionLoading.create || actionLoading.update}
+                                className={`input w-full pr-10 ${fieldErrors.category ? "input-error" : ""}`}
+                              >
+                                <option value="" disabled hidden>
+                                  Select category
+                                </option>
+                                <option value="P">P</option>
+                                <option value="R">R</option>
+                                <option value="SDB">SDB</option>
+                              </select>
+                              <HiChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 neutral-text-muted" />
+                            </div>
+                            {fieldErrors.category && (
+                              <p className="danger-text text-xs mt-1.5">
+                                {fieldErrors.category}
+                              </p>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -1871,8 +1846,8 @@ className="btn btn-primary text-sm"
               {/* Edit Mode (when editingId exists) */}
               {editingId && (
                 <div className="space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="md:col-span-3">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="md:col-span-2">
                       <label className="text-sm font-semibold neutral-text block mb-2">
                         Question Text <span className="danger-text">*</span>
                       </label>
@@ -1899,20 +1874,37 @@ className="btn btn-primary text-sm"
                     </div>
                     <div>
                       <label className="text-sm font-semibold neutral-text block mb-2">
-                        Category
+                        Category <span className="danger-text">*</span>
                       </label>
-                      <input
-                        value={editingData.category}
-                        onChange={(e) => {
-                            setEditingData({
-                              ...editingData,
-                              category: e.target.value,
-                            });
-                        }}
-                        placeholder="e.g., Multiple Choice"
-                        disabled={actionLoading.update}
-                        className="input w-full"
-                      />
+                      <div className="relative">
+                        <select
+                          value={editingData.category}
+                          onChange={(e) => {
+                              setEditingData({
+                                ...editingData,
+                                category: e.target.value,
+                              });
+                            if (fieldErrors.category) {
+                              setFieldErrors({ ...fieldErrors, category: "" });
+                            }
+                          }}
+                          disabled={actionLoading.update}
+                          className={`input w-full pr-10 ${fieldErrors.category ? "input-error" : ""}`}
+                        >
+                          <option value="" disabled hidden>
+                            Select category
+                          </option>
+                          <option value="P">P</option>
+                          <option value="R">R</option>
+                          <option value="SDB">SDB</option>
+                        </select>
+                        <HiChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 neutral-text-muted" />
+                      </div>
+                      {fieldErrors.category && (
+                        <p className="danger-text text-xs mt-1.5">
+                          {fieldErrors.category}
+                        </p>
+                      )}
                     </div>
                     <div>
                       <label className="text-sm font-semibold neutral-text block mb-2">
