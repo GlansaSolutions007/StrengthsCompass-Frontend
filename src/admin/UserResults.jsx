@@ -186,7 +186,7 @@ export default function UserResults() {
       } else {
         setError(
           err.response?.data?.message ||
-            "Failed to load user details. Please try again."
+          "Failed to load user details. Please try again."
         );
       }
     } finally {
@@ -324,7 +324,7 @@ export default function UserResults() {
       data?.construct_labels ||
       data?.construct_names ||
       (constructDetailsData &&
-      constructDetailsData.length > 0
+        constructDetailsData.length > 0
         ? constructDetailsData.map((c) => c.name || c.construct_name || c.label)
         : []);
     if (
@@ -372,9 +372,9 @@ export default function UserResults() {
           const resultToLoad =
             testIdFromUrl != null && testIdFromUrl !== ""
               ? resultsData.find(
-                  (r) =>
-                    String(r.test_id ?? r.test?.id ?? "") === String(testIdFromUrl)
-                ) || resultsData[0]
+                (r) =>
+                  String(r.test_id ?? r.test?.id ?? "") === String(testIdFromUrl)
+              ) || resultsData[0]
               : resultsData[0];
           const testResultId = resultToLoad.id || resultToLoad.test_result_id;
           if (testResultId) {
@@ -595,29 +595,29 @@ export default function UserResults() {
       }
 
       setGeneratingPDF(true);
-      
+
       const testResultId = testResult.id;
       console.log("Calling API endpoint:", `/test-results/${testResultId}/report/pdf/mpdf`);
-      
+
       // Get the base URL from apiClient
       const baseURL = apiClient.defaults.baseURL || '';
       const fullUrl = `${baseURL}/test-results/${testResultId}/report/pdf/mpdf`;
-      
+
       // Get auth token and age group ID
       const token = localStorage.getItem("adminToken");
       const variantId = localStorage.getItem("adminSelectedVariantId");
       const headers = {
         'Accept': 'application/pdf'
       };
-      
+
       if (token) {
         headers['Authorization'] = `Bearer ${token}`;
       }
-      
+
       if (variantId) {
         headers['X-Age-Group-Id'] = variantId.toString();
       }
-      
+
       // Try fetching directly with fetch API for better blob handling
       const response = await fetch(fullUrl, {
         method: 'GET',
@@ -652,19 +652,45 @@ export default function UserResults() {
         throw new Error("Received empty file from server");
       }
 
+      // let downloadFilename = null;
+      // const contentDisposition = response.headers.get("Content-Disposition");
+      // if (contentDisposition) {
+      //   const filenameMatch = contentDisposition.match(/filename\*?=(?:UTF-8'')?["']?([^"';]+)["']?/i)
+      //     || contentDisposition.match(/filename=["']?([^"';]+)["']?/i);
+      //   if (filenameMatch && filenameMatch[1]) {
+      //     downloadFilename = filenameMatch[1].trim();
+      //     // Strip quotes if present
+      //     if (downloadFilename.startsWith('"') && downloadFilename.endsWith('"')) {
+      //       downloadFilename = downloadFilename.slice(1, -1);
+      //     }
+      //   }
+      // }
+      // if (!downloadFilename) {
+      //   // Fallback: build name with source for recognition (CERC / SC-Pro)
+      //   const userName = (user?.name?.replace(/\s+/g, "_") || "User");
+      //   const sourceSlug = testResult?.test?.source === "CERC" ? "CERC" : "SC-Pro";
+      //   downloadFilename = `axis-strengths-compass-report-${userName}-${testResult.id}-${sourceSlug}.pdf`;
+      // }
+
       // Create a blob URL and trigger download
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `Strengths-Compass-Test-Report-${
-        user?.name?.replace(/\s+/g, "_") || "User"
-      }_${Date.now()}.pdf`;
+      // link.download = `Strengths-Compass-Test-Report-${user?.name?.replace(/\s+/g, "_") || "User"
+      //   }_${Date.now()}.pdf`;
+      // link.download = downloadFilename;
+
+      const userName = user?.name?.replace(/\s+/g, "_") || "User";
+      const sourceSlug = testResult?.test?.source === "CERC" ? "CERC" : "SC-Pro";
+      link.download = `axis-strengths-compass-report-${userName}-${testResult.id}-${sourceSlug}.pdf`;
+      console.log(link.download,"NAME-----");
+      
       link.style.display = 'none';
       document.body.appendChild(link);
-      
+
       // Trigger download
       link.click();
-      
+
       // Clean up after a short delay
       setTimeout(() => {
         if (document.body.contains(link)) {
@@ -672,12 +698,12 @@ export default function UserResults() {
         }
         window.URL.revokeObjectURL(url);
       }, 100);
-      
+
       setGeneratingPDF(false);
     } catch (error) {
       console.error("Error downloading PDF:", error);
       setGeneratingPDF(false);
-      
+
       const errorMessage = error.message || "Failed to download PDF. Please check the console for details.";
       alert(`Error downloading PDF: ${errorMessage}`);
     }
@@ -1035,24 +1061,24 @@ export default function UserResults() {
                               console.log("Checking Guidance - SDB Percentage:", sdbPercentage, "Result:", result, "TestResult:", testResult);
                               return sdbPercentage && Number(sdbPercentage) >= 90;
                             })() && (
-                              <div className="test-report-section mb-6">
-                                <div 
-                                  className="rounded-lg p-4 border-l-4"
-                                  style={{
-                                    backgroundColor: '#fee2e2', 
-                                    borderLeftColor: '#dc2626',
-                                    borderLeftWidth: '4px'
-                                  }}
-                                >
-                                  <p className="font-bold mb-2" style={{ color: '#dc2626' }}>
-                                    Guidance:
-                                  </p>
-                                  <p className="font-bold text-sm text-gray-700">
-                                    "This profile may benefit from further exploration to distinguish between current strengths and aspirational qualities. A follow-up conversation with a coach can help personalize these insights."
-                                  </p>
+                                <div className="test-report-section mb-6">
+                                  <div
+                                    className="rounded-lg p-4 border-l-4"
+                                    style={{
+                                      backgroundColor: '#fee2e2',
+                                      borderLeftColor: '#dc2626',
+                                      borderLeftWidth: '4px'
+                                    }}
+                                  >
+                                    <p className="font-bold mb-2" style={{ color: '#dc2626' }}>
+                                      Guidance:
+                                    </p>
+                                    <p className="font-bold text-sm text-gray-700">
+                                      "This profile may benefit from further exploration to distinguish between current strengths and aspirational qualities. A follow-up conversation with a coach can help personalize these insights."
+                                    </p>
+                                  </div>
                                 </div>
-                              </div>
-                            )}
+                              )}
                           </>
                         );
                       })()}
