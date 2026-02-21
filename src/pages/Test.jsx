@@ -1042,21 +1042,17 @@ export default function Test() {
                   I consent to take this assessment for personal development purposes only. Results are self-reported tendencies, not diagnostic. I agree to use responsibly and release creators from liability.
                 </p>
                 <div className="flex items-start pt-2">
-                  <div className="flex items-center h-5 mt-0.5">
-                    <button
-                      type="button"
-                      role="checkbox"
-                      aria-checked={isConsent}
+                  <div className="flex items-center h-5">
+                    <input
+                      type="checkbox"
                       id="consent-checkbox"
-                      onClick={() => setIsConsent((c) => !c)}
-                      className={`flex items-center justify-center w-5 h-5 border-2 rounded cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 ${isConsent ? "bg-blue-600 border-blue-600 text-white" : "bg-white border-gray-300 text-transparent"}`}
-                    >
-                      <HiCheck className="w-3.5 h-3.5 shrink-0" strokeWidth={2.5} />
-                    </button>
+                      checked={isConsent}
+                      onChange={() => setIsConsent((c) => !c)}
+                      className="w-5 h-5 rounded cursor-pointer accent-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
+                    />
                   </div>
                   <label
                     htmlFor="consent-checkbox"
-                    onClick={() => setIsConsent((c) => !c)}
                     className="ml-3 text-sm text-gray-900 cursor-pointer select-none"
                   >
                     I agree to the terms and conditions above
