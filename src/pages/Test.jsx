@@ -60,6 +60,16 @@ export default function Test() {
   const [showLoginPassword, setShowLoginPassword] = useState(false);
   const itemsPerPage = 10;
 
+  // Shuffle array using Fisher-Yates algorithm
+  const shuffleArray = (array) => {
+    const shuffled = [...array];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    return shuffled;
+  };
+
   // Available languages for all age groups
   const languages = [
     { id: 1, name: "Telugu", code: "te" },
@@ -263,15 +273,16 @@ export default function Test() {
         setTestName(
           takeTest?.title || takeTest?.name || data?.title || data?.name || "Assessment Test"
         );
-        setQuestions(
-          takeQuestions.map((q) => ({
-            id: q.id,
-            question_text: q.question_text || q.questionText || q.question || "",
-            category: q.category || "",
-            order_no: q.order_no ?? q.orderNo ?? 0,
-            translations: q.translations || [],
-          }))
-        );
+        const mappedQuestions = takeQuestions.map((q) => ({
+          id: q.id,
+          question_text: q.question_text || q.questionText || q.question || "",
+          category: q.category || "",
+          order_no: q.order_no ?? q.orderNo ?? 0,
+          translations: q.translations || [],
+        }));
+        // Shuffle the questions
+        const shuffledQuestions = shuffleArray(mappedQuestions);
+        setQuestions(shuffledQuestions);
         if (takeOptions.length > 0) {
           const sortedOptions = takeOptions
             .map((o) => ({
