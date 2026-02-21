@@ -185,7 +185,7 @@ export default function TestList() {
             const isActive = active === 1;
             if (!isActive) return false;
             const source = (test.source || test.test_type || "").toString().trim().toLowerCase();
-            return source === "sc pro";
+            return source === "sc pro" || source === "cerc";
           })
           .map((test) => ({
             id: test.id,

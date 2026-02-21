@@ -222,29 +222,46 @@ export default function Test() {
       return;
     }
 
-    // For CERC tests the backend requires user_id to filter out SC Pro questions – ensure we always send it when available
-    let userIdForTake = userIdToPass ?? userId;
-    if (userIdForTake == null) {
-      try {
-        const stored = localStorage.getItem("userId");
-        if (stored) userIdForTake = parseInt(stored, 10);
-        else {
-          const user = localStorage.getItem("user");
-          if (user) {
-            const parsed = JSON.parse(user);
-            const id = parsed?.id ?? parsed?.user_id;
-            if (id != null) userIdForTake = parseInt(id, 10);
-          }
-        }
-      } catch (e) {}
-    }
-
+    // First, fetch test info to check if it's a CERC test
     try {
+      const testInfoResponse = await apiClient.get(`/tests/${idToUse}`);
+      const testInfo = testInfoResponse.data?.data;
+      const testSource = testInfo?.source || testInfo?.test?.source;
+      const isCercTest = testSource && testSource.toLowerCase().includes("cerc");
+      
+      // For CERC tests, only send user_id if user has completed SC Pro
+      // If user hasn't completed SC Pro, show all CERC questions
+      let userIdForTake = userIdToPass ?? userId;
+      let shouldSendUserId = true;
+      
+      if (isCercTest && userIdForTake) {
+        // Check if user has completed SC Pro test
+        const hasScProResults = localStorage.getItem("scProCompleted") === "true";
+        if (!hasScProResults) {
+          // User hasn't completed SC Pro, don't filter - show all questions
+          shouldSendUserId = false;
+        }
+      } else if (!isCercTest && userIdForTake == null) {
+        // For non-CERC tests, try to get user ID
+        try {
+          const stored = localStorage.getItem("userId");
+          if (stored) userIdForTake = parseInt(stored, 10);
+          else {
+            const user = localStorage.getItem("user");
+            if (user) {
+              const parsed = JSON.parse(user);
+              const id = parsed?.id ?? parsed?.user_id;
+              if (id != null) userIdForTake = parseInt(id, 10);
+            }
+          }
+        } catch (e) {}
+      }
+
       setLoading(true);
       setError(null);
 
       const takeParams = {};
-      if (userIdForTake) {
+      if (shouldSendUserId && userIdForTake) {
         takeParams.user_id = userIdForTake;
       }
 
@@ -266,6 +283,8 @@ export default function Test() {
           takeOptions: takeOptions.length,
           questionsFiltered,
           testSource: data?.test?.source,
+          isCercTest,
+          shouldSendUserId,
         });
       }
 
@@ -630,6 +649,12 @@ export default function Test() {
         // Check if CERC tests are available from submit response
         const hasCercTests = data.has_cerc_tests === true || data.has_cerc_tests === 1;
         const cercTests = Array.isArray(data.available_cerc_tests) ? data.available_cerc_tests : [];
+        
+        // If CERC tests are available, it means SC Pro was completed successfully
+        if (hasCercTests) {
+          localStorage.setItem("scProCompleted", "true");
+        }
+        
         if (hasCercTests && cercTests.length > 0) {
           setAvailableCercTests(cercTests);
           setShowCercPopup(true);
