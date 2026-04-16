@@ -1,9 +1,19 @@
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
-import { 
-  HiUserAdd, HiUser, HiMail, HiLockClosed, HiCheckCircle, 
-  HiExclamationCircle, HiPhone, HiCalendar, HiLocationMarker,
-  HiBriefcase, HiAcademicCap, HiEye, HiEyeOff
+import {
+  HiUserAdd,
+  HiUser,
+  HiMail,
+  HiLockClosed,
+  HiCheckCircle,
+  HiExclamationCircle,
+  HiPhone,
+  HiCalendar,
+  HiLocationMarker,
+  HiBriefcase,
+  HiAcademicCap,
+  HiEye,
+  HiEyeOff,
 } from "react-icons/hi";
 import apiClient from "../config/api";
 import AlertModal from "../components/AlertModal";
@@ -29,88 +39,106 @@ const InputField = ({
   const selectValue = formData[name] ?? "";
   const hasExplicitEmptyOption = options.some((opt) => opt.value === "");
   const placeholderText =
-    placeholder || (label ? `Select ${label.toLowerCase()}` : "Select an option");
+    placeholder ||
+    (label ? `Select ${label.toLowerCase()}` : "Select an option");
 
   return (
-  <div className="space-y-1">
-    {label && (
-      <label className="block text-sm font-medium neutral-text-muted">
-        {label}
-      </label>
-    )}
-    <div
-      className={`group flex w-full rounded-md overflow-hidden border transition-all focus-within:ring-2 focus-within:ring-secondary focus-within:border-secondary ${
-        errors[name] && touched[name]
-          ? "border-red-500"
-          : "border-neutral-300"
-      }`}
-    >
-      <div className="flex items-center justify-center bg-primary-bg-light px-3 transition-all group-focus-within:bg-secondary-bg-light">
-        <Icon className="h-5 w-5 primary-text group-focus-within:secondary-text transition-colors" />
-      </div>
-      {type === "select" ? (
-        <div className="flex-1 relative">
-          <select
-            name={name}
-            required
-            value={selectValue}
-            onChange={handleChange}
-            onBlur={() => handleBlur(name)}
-            className="w-full py-2 px-3 pr-8 bg-white text-sm focus:outline-none focus:bg-secondary-bg-light transition-colors appearance-none cursor-pointer"
-          >
-            {!hasExplicitEmptyOption && (!selectValue || selectValue === "") && (
-              <option value="" disabled hidden>
-                {placeholderText}
-              </option>
-            )}
-            {options.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
-          <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-            <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-            </svg>
-          </div>
+    <div className="space-y-1">
+      {label && (
+        <label className="block text-sm font-medium neutral-text-muted">
+          {label}
+        </label>
+      )}
+      <div
+        className={`group flex w-full rounded-md overflow-hidden border transition-all focus-within:ring-2 focus-within:ring-secondary focus-within:border-secondary ${
+          errors[name] && touched[name]
+            ? "border-red-500"
+            : "border-neutral-300"
+        }`}
+      >
+        <div className="flex items-center justify-center bg-primary-bg-light px-3 transition-all group-focus-within:bg-secondary-bg-light">
+          <Icon className="h-5 w-5 primary-text group-focus-within:secondary-text transition-colors" />
         </div>
-      ) : (
-        <>
-          <input
-            type={type === "password" ? (showPassword ? "text" : "password") : type}
-            name={name}
-            required
-            value={formData[name]}
-            onChange={handleChange}
-            onBlur={() => handleBlur(name)}
-            placeholder={placeholder}
-            className="flex-1 py-2 px-3 bg-white text-sm focus:outline-none focus:bg-secondary-bg-light transition-colors"
-            {...inputProps}
-          />
-          {type === "password" && onTogglePassword && (
-            <div
-              onClick={onTogglePassword}
-              className="flex items-center justify-center px-3 cursor-pointer"
-              aria-label={showPassword ? "Hide password" : "Show password"}
+        {type === "select" ? (
+          <div className="flex-1 relative">
+            <select
+              name={name}
+              required
+              value={selectValue}
+              onChange={handleChange}
+              onBlur={() => handleBlur(name)}
+              className="w-full py-2 px-3 pr-8 bg-white text-sm focus:outline-none focus:bg-secondary-bg-light transition-colors appearance-none cursor-pointer"
             >
-              {showPassword ? (
-                <HiEyeOff className="h-5 w-5 text-gray-500 hover:text-gray-700 transition-colors" />
-              ) : (
-                <HiEye className="h-5 w-5 text-gray-500 hover:text-gray-700 transition-colors" />
-              )}
+              {!hasExplicitEmptyOption &&
+                (!selectValue || selectValue === "") && (
+                  <option value="" disabled hidden>
+                    {placeholderText}
+                  </option>
+                )}
+              {options.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+            <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+              <svg
+                className="w-5 h-5 text-gray-400"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M19 9l-7 7-7-7"
+                />
+              </svg>
             </div>
-          )}
-        </>
+          </div>
+        ) : (
+          <>
+            <input
+              type={
+                type === "password"
+                  ? showPassword
+                    ? "text"
+                    : "password"
+                  : type
+              }
+              name={name}
+              required
+              value={formData[name]}
+              onChange={handleChange}
+              onBlur={() => handleBlur(name)}
+              placeholder={placeholder}
+              className="flex-1 py-2 px-3 bg-white text-sm focus:outline-none focus:bg-secondary-bg-light transition-colors"
+              {...inputProps}
+            />
+            {type === "password" && onTogglePassword && (
+              <div
+                onClick={onTogglePassword}
+                className="flex items-center justify-center px-3 cursor-pointer"
+                aria-label={showPassword ? "Hide password" : "Show password"}
+              >
+                {showPassword ? (
+                  <HiEyeOff className="h-5 w-5 text-gray-500 hover:text-gray-700 transition-colors" />
+                ) : (
+                  <HiEye className="h-5 w-5 text-gray-500 hover:text-gray-700 transition-colors" />
+                )}
+              </div>
+            )}
+          </>
+        )}
+      </div>
+      {errors[name] && touched[name] && (
+        <p className="danger-text text-xs mt-1 flex items-center gap-1.5">
+          <HiExclamationCircle className="w-3.5 h-3.5" />
+          {errors[name]}
+        </p>
       )}
     </div>
-    {errors[name] && touched[name] && (
-      <p className="danger-text text-xs mt-1 flex items-center gap-1.5">
-        <HiExclamationCircle className="w-3.5 h-3.5" />
-        {errors[name]}
-      </p>
-    )}
-  </div>
   );
 };
 
@@ -129,43 +157,79 @@ export default function RegisterPage() {
     state: "",
     country: "",
     profession: "",
+    other_profession: "",
     gender: "",
     age: "",
     educational_qualification: "",
     role: "user",
+    tch_teaching_subject: "",
+    tch_teaching_level: "",
+    tch_years_of_experience: "",
+    tch_current_role: "",
+    tch_school_context: "",
+    tch_school_name: "",
+    tch_consent: false,
   });
-  
+
   const [errors, setErrors] = useState({});
   const [touched, setTouched] = useState({});
   const [isLoading, setIsLoading] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [registerError, setRegisterError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [showPasswordConfirmation, setShowPasswordConfirmation] = useState(false);
+  const [showPasswordConfirmation, setShowPasswordConfirmation] =
+    useState(false);
   const [countries, setCountries] = useState([]);
   const [loadingCountries, setLoadingCountries] = useState(true);
   const [states, setStates] = useState([]);
   const [loadingStates, setLoadingStates] = useState(false);
   const [sameAsContact, setSameAsContact] = useState(false);
 
+  useEffect(() => {
+    if (formData.profession !== "others") {
+      setFormData((prev) => ({ ...prev, other_profession: "" }));
+    }
+  }, [formData.profession]);
+
+  useEffect(() => {
+    if (formData.profession === "teacher") {
+      setFormData((prev) => ({ ...prev, city: "", state: "" }));
+    } else {
+      setFormData((prev) => ({
+        ...prev,
+        tch_teaching_subject: "",
+        tch_teaching_level: "",
+        tch_years_of_experience: "",
+        tch_current_role: "",
+        tch_school_context: "",
+        tch_school_name: "",
+        tch_school_city: "",
+        tch_school_state: "",
+        tch_consent: false,
+      }));
+    }
+  }, [formData.profession]);
+
   // Check authentication and separate admin/user routes
   useEffect(() => {
     const adminToken = localStorage.getItem("adminToken");
-    
+
     // If admin is logged in, redirect to admin dashboard
     if (adminToken) {
       navigate("/admin/dashboard", { replace: true });
       return;
     }
 
-    const token = localStorage.getItem("token") || 
-                  localStorage.getItem("userToken") || 
-                  localStorage.getItem("authToken");
-    
+    const token =
+      localStorage.getItem("token") ||
+      localStorage.getItem("userToken") ||
+      localStorage.getItem("authToken");
+
     // If user has a token, redirect to test list page or pending destination
     if (token) {
       const redirectTarget =
-        location.state?.redirectTo || sessionStorage.getItem("redirectAfterAuth");
+        location.state?.redirectTo ||
+        sessionStorage.getItem("redirectAfterAuth");
       if (redirectTarget) {
         sessionStorage.removeItem("redirectAfterAuth");
         navigate(redirectTarget, { replace: true });
@@ -181,17 +245,20 @@ export default function RegisterPage() {
       try {
         setLoadingCountries(true);
         const response = await apiClient.get("/countries");
-        
+
         // Handle different response structures
         let countriesData = [];
         if (response.data?.data && Array.isArray(response.data.data)) {
           countriesData = response.data.data;
         } else if (Array.isArray(response.data)) {
           countriesData = response.data;
-        } else if (response.data?.countries && Array.isArray(response.data.countries)) {
+        } else if (
+          response.data?.countries &&
+          Array.isArray(response.data.countries)
+        ) {
           countriesData = response.data.countries;
         }
-        
+
         // Transform countries to options format if needed
         const formattedCountries = countriesData.map((country) => {
           // If country is a string, use it directly
@@ -199,14 +266,15 @@ export default function RegisterPage() {
             return { value: country, label: country, id: country };
           }
           // If country is an object, extract name/id
-          const countryId = country.id || country.country_id || country.name || country.country;
+          const countryId =
+            country.id || country.country_id || country.name || country.country;
           return {
             value: country.name || country.country || country.id || country,
             label: country.name || country.country || country.id || country,
             id: countryId,
           };
         });
-        
+
         setCountries(formattedCountries);
       } catch (err) {
         console.error("Error fetching countries:", err);
@@ -225,13 +293,15 @@ export default function RegisterPage() {
     const fetchStates = async () => {
       if (!formData.country) {
         setStates([]);
-        setFormData(prev => ({ ...prev, state: "" })); // Clear state when country is cleared
+        setFormData((prev) => ({ ...prev, state: "" })); // Clear state when country is cleared
         return;
       }
 
       // Find the selected country to get its ID
       const selectedCountry = countries.find(
-        country => country.value === formData.country || country.label === formData.country
+        (country) =>
+          country.value === formData.country ||
+          country.label === formData.country,
       );
 
       if (!selectedCountry || !selectedCountry.id) {
@@ -241,18 +311,23 @@ export default function RegisterPage() {
 
       try {
         setLoadingStates(true);
-        const response = await apiClient.get(`/countries/${selectedCountry.id}/states`);
-        
+        const response = await apiClient.get(
+          `/countries/${selectedCountry.id}/states`,
+        );
+
         // Handle different response structures
         let statesData = [];
         if (response.data?.data && Array.isArray(response.data.data)) {
           statesData = response.data.data;
         } else if (Array.isArray(response.data)) {
           statesData = response.data;
-        } else if (response.data?.states && Array.isArray(response.data.states)) {
+        } else if (
+          response.data?.states &&
+          Array.isArray(response.data.states)
+        ) {
           statesData = response.data.states;
         }
-        
+
         // Transform states to options format if needed
         const formattedStates = statesData.map((state) => {
           // If state is a string, use it directly
@@ -265,10 +340,10 @@ export default function RegisterPage() {
             label: state.name || state.state || state.id || state,
           };
         });
-        
+
         setStates(formattedStates);
         // Clear state field when country changes
-        setFormData(prev => ({ ...prev, state: "" }));
+        setFormData((prev) => ({ ...prev, state: "" }));
       } catch (err) {
         console.error("Error fetching states:", err);
         setStates([]);
@@ -292,7 +367,8 @@ export default function RegisterPage() {
       case "email":
         if (!value) return "Email is required";
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!emailRegex.test(value)) return "Please enter a valid email address";
+        if (!emailRegex.test(value))
+          return "Please enter a valid email address";
         return "";
       case "password":
         if (!value) return "Password is required";
@@ -305,14 +381,16 @@ export default function RegisterPage() {
       case "contact_number": {
         if (!value) return "Contact number is required";
         const digitsOnly = value.replace(/\D/g, "");
-        if (digitsOnly.length !== 10) return "Contact number must be exactly 10 digits";
+        if (digitsOnly.length !== 10)
+          return "Contact number must be exactly 10 digits";
         if (!/^\d{10}$/.test(digitsOnly)) return "Please enter only digits";
         return "";
       }
       case "whatsapp_number": {
         if (!value) return "";
         const digitsOnly = value.replace(/\D/g, "");
-        if (digitsOnly.length !== 10) return "WhatsApp number must be exactly 10 digits";
+        if (digitsOnly.length !== 10)
+          return "WhatsApp number must be exactly 10 digits";
         if (!/^\d{10}$/.test(digitsOnly)) return "Please enter only digits";
         return "";
       }
@@ -321,7 +399,8 @@ export default function RegisterPage() {
       case "country":
       case "profession":
       case "educational_qualification":
-        if (!value) return `${name.charAt(0).toUpperCase() + name.slice(1).replace(/_/g, " ")} is required`;
+        if (!value)
+          return `${name.charAt(0).toUpperCase() + name.slice(1).replace(/_/g, " ")} is required`;
         return "";
       case "gender":
         if (!value) return "Gender is required";
@@ -332,6 +411,37 @@ export default function RegisterPage() {
         if (isNaN(ageNum)) return "Please enter a valid age";
         if (ageNum < 13) return "You are too young to take this test.";
         if (ageNum > 120) return "You are too old to take this test.";
+        return "";
+      case "tch_teaching_subject":
+        if (!value) return "Teaching subject is required";
+        return "";
+      case "tch_teaching_level":
+        if (!value) return "Teaching level is required";
+        return "";
+      case "tch_years_of_experience": {
+        if (value === "" || value === undefined || value === null)
+          return "Years of experience is required";
+        const yoe = parseInt(value);
+        if (isNaN(yoe) || yoe < 0) return "Please enter a valid number (0 or more)";
+        return "";
+      }
+      case "tch_current_role":
+        if (!value) return "Current role is required";
+        return "";
+      case "tch_school_context":
+        if (!value) return "School context is required";
+        return "";
+      case "tch_school_name":
+        if (!value) return "School name is required";
+        return "";
+      case "tch_school_city":
+        if (!value) return "School city is required";
+        return "";
+      case "tch_school_state":
+        if (!value) return "School state is required";
+        return "";
+      case "tch_consent":
+        if (!value) return "Consent is required to proceed";
         return "";
       default:
         return "";
@@ -373,15 +483,18 @@ export default function RegisterPage() {
     }
 
     setFormData(updatedFormData);
-    
+
     if (touched[name]) {
       const error = validateField(name, value);
       setErrors({ ...errors, [name]: error });
     }
-    
+
     // Re-validate password_confirmation if password changes
     if (name === "password" && touched.password_confirmation) {
-      const confirmError = validateField("password_confirmation", formData.password_confirmation);
+      const confirmError = validateField(
+        "password_confirmation",
+        formData.password_confirmation,
+      );
       setErrors({ ...errors, password_confirmation: confirmError });
     }
   };
@@ -389,36 +502,42 @@ export default function RegisterPage() {
   const handleRegister = async (e) => {
     e.preventDefault();
     setRegisterError("");
-    
+
     // Mark all fields as touched
+    const isTeacher = formData.profession === "teacher";
     const allTouched = {};
-    Object.keys(formData).forEach(key => {
-      if (key !== "role") allTouched[key] = true;
+    Object.keys(formData).forEach((key) => {
+      if (key === "role") return;
+      if (isTeacher && (key === "city" || key === "state")) return;
+      if (!isTeacher && key.startsWith("tch_")) return;
+      allTouched[key] = true;
     });
     setTouched(allTouched);
-    
+
     // Validate all fields
     const newErrors = {};
     let hasErrors = false;
-    
-    Object.keys(formData).forEach(key => {
-      if (key !== "role") {
-        const error = validateField(key, formData[key]);
-        if (error) {
-          newErrors[key] = error;
-          hasErrors = true;
-        }
+
+    Object.keys(formData).forEach((key) => {
+      if (key === "role") return;
+      if (isTeacher && (key === "city" || key === "state")) return;
+      if (!isTeacher && key.startsWith("tch_")) return;
+      const error = validateField(key, formData[key]);
+      if (error) {
+        newErrors[key] = error;
+        hasErrors = true;
       }
     });
-    
+
     if (hasErrors) {
       setErrors(newErrors);
       return;
     }
-    
+
     setIsLoading(true);
-    
+
     try {
+      const isTeacher = formData.profession === "teacher";
       const payload = {
         first_name: capitalizeFirstLetter(formData.first_name.trim()),
         last_name: capitalizeFirstLetter(formData.last_name.trim()),
@@ -427,51 +546,78 @@ export default function RegisterPage() {
         password_confirmation: formData.password_confirmation,
         contact_number: formData.contact_number,
         whatsapp_number: formData.whatsapp_number,
-        city: formData.city,
-        state: formData.state,
+        ...(!isTeacher && {
+          city: formData.city,
+          state: formData.state,
+        }),
         country: formData.country,
-        profession: formData.profession,
+        profession:
+          formData.other_profession === ""
+            ? formData.profession
+            : formData.other_profession,
         gender: formData.gender,
         age: parseInt(formData.age),
         educational_qualification: formData.educational_qualification,
-        role: "user",
+        role: formData.profession,
+        ...(isTeacher && {
+          tch_teaching_subject: formData.tch_teaching_subject,
+          tch_teaching_level: formData.tch_teaching_level,
+          tch_years_of_experience: parseInt(formData.tch_years_of_experience),
+          tch_current_role: formData.tch_current_role,
+          tch_school_context: formData.tch_school_context,
+          tch_school_name: formData.tch_school_name,
+          tch_school_city: formData.tch_school_city,
+          tch_school_state: formData.tch_school_state,
+          tch_consent: formData.tch_consent,
+        }),
       };
-      
+
+      console.log("Registration payload:", payload);
+
       const response = await apiClient.post("/register", payload);
-      
+
       if (response.data?.status) {
         // Store user data in localStorage
-        let userId = response.data.data?.user?.id || 
-                    response.data.data?.user?.user_id ||
-                    response.data.data?.id ||
-                    response.data.data?.user_id;
-        
+        let userId =
+          response.data.data?.user?.id ||
+          response.data.data?.user?.user_id ||
+          response.data.data?.id ||
+          response.data.data?.user_id;
+
         if (response.data.data?.user) {
           localStorage.setItem("user", JSON.stringify(response.data.data.user));
           if (userId) {
             localStorage.setItem("userId", userId);
-            localStorage.setItem("adminSelectedVariantId", response.data.data.user.age_group_id ? response.data.data.user.age_group_id : response.data.data.age_group_id);
-
+            localStorage.setItem(
+              "adminSelectedVariantId",
+              response.data.data.user.age_group_id
+                ? response.data.data.user.age_group_id
+                : response.data.data.age_group_id,
+            );
           }
         } else if (response.data.data) {
           // If user data is directly in data
           localStorage.setItem("user", JSON.stringify(response.data.data));
           if (userId) {
             localStorage.setItem("userId", userId);
-            localStorage.setItem("adminSelectedVariantId", response.data.data.user.age_group_id ? response.data.data.user.age_group_id : response.data.data.age_group_id);
-
-
+            localStorage.setItem(
+              "adminSelectedVariantId",
+              response.data.data.user.age_group_id
+                ? response.data.data.user.age_group_id
+                : response.data.data.age_group_id,
+            );
           }
         }
-        
+
         if (response.data.data?.token) {
           localStorage.setItem("token", response.data.data.token);
         } else if (response.data.token) {
           localStorage.setItem("token", response.data.token);
         }
-        
+
         const redirectTarget =
-          location.state?.redirectTo || sessionStorage.getItem("redirectAfterAuth");
+          location.state?.redirectTo ||
+          sessionStorage.getItem("redirectAfterAuth");
         if (redirectTarget) {
           sessionStorage.removeItem("redirectAfterAuth");
           navigate(redirectTarget, { replace: true });
@@ -480,38 +626,52 @@ export default function RegisterPage() {
           navigate("/testlist", { replace: true });
         }
       } else {
-        setRegisterError(response.data?.message || "Registration failed. Please try again.");
+        setRegisterError(
+          response.data?.message || "Registration failed. Please try again.",
+        );
       }
     } catch (err) {
       console.error("Registration error:", err);
-      
+
       // Handle 422 validation errors - show detailed field errors
       if (err.response?.status === 422) {
-        const validationErrors = err.response.data?.errors || err.response.data?.error || {};
+        const validationErrors =
+          err.response.data?.errors || err.response.data?.error || {};
         let errorMessage = "";
-        
+
         // If errors is an object with field names
-        if (typeof validationErrors === 'object' && !Array.isArray(validationErrors)) {
+        if (
+          typeof validationErrors === "object" &&
+          !Array.isArray(validationErrors)
+        ) {
           const errorMessages = Object.entries(validationErrors)
             .map(([field, messages]) => {
-              const fieldName = field.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-              const messageArray = Array.isArray(messages) ? messages : [messages];
-              return `${fieldName}: ${messageArray.join(', ')}`;
+              const fieldName = field
+                .replace(/_/g, " ")
+                .replace(/\b\w/g, (l) => l.toUpperCase());
+              const messageArray = Array.isArray(messages)
+                ? messages
+                : [messages];
+              return `${fieldName}: ${messageArray.join(", ")}`;
             })
-            .join('\n');
-          errorMessage = errorMessages || err.response.data?.message || "Validation failed. Please check your input.";
+            .join("\n");
+          errorMessage =
+            errorMessages ||
+            err.response.data?.message ||
+            "Validation failed. Please check your input.";
         } else if (err.response.data?.message) {
           errorMessage = err.response.data.message;
         } else {
-          errorMessage = "Validation failed. Please check all fields and try again.";
+          errorMessage =
+            "Validation failed. Please check all fields and try again.";
         }
-        
+
         setRegisterError(errorMessage);
       } else {
         setRegisterError(
           err.response?.data?.message ||
-          err.response?.data?.error ||
-          `Registration failed: ${err.response?.statusText || "Please try again."}`
+            err.response?.data?.error ||
+            `Registration failed: ${err.response?.statusText || "Please try again."}`,
         );
       }
     } finally {
@@ -538,7 +698,7 @@ export default function RegisterPage() {
           navigate("/testlist");
         }}
       />
-      
+
       <AlertModal
         isOpen={!!registerError}
         onClose={() => setRegisterError("")}
@@ -625,7 +785,11 @@ export default function RegisterPage() {
               touched={touched}
               handleChange={handleChange}
               handleBlur={handleBlur}
-              inputProps={{ maxLength: 10, inputMode: "numeric", pattern: "\\d{10}" }}
+              inputProps={{
+                maxLength: 10,
+                inputMode: "numeric",
+                pattern: "\\d{10}",
+              }}
             />
             <InputField
               name="gender"
@@ -635,7 +799,7 @@ export default function RegisterPage() {
               options={[
                 { value: "male", label: "Male" },
                 { value: "female", label: "Female" },
-                { value: "other", label: "Other" }
+                { value: "other", label: "Other" },
               ]}
               formData={formData}
               errors={errors}
@@ -682,7 +846,10 @@ export default function RegisterPage() {
                         ...prev,
                         whatsapp_number: checked ? prev.contact_number : "",
                       }));
-                      setTouched((prev) => ({ ...prev, whatsapp_number: true }));
+                      setTouched((prev) => ({
+                        ...prev,
+                        whatsapp_number: true,
+                      }));
                     }}
                     className="sr-only"
                   />
@@ -724,26 +891,12 @@ export default function RegisterPage() {
               label="Country"
               type="select"
               icon={HiLocationMarker}
-              options={loadingCountries ? [{ value: "", label: "Loading countries..." }] : countries.length > 0 ? countries : [{ value: "", label: "Select Country" }]}
-              formData={formData}
-              errors={errors}
-              touched={touched}
-              handleChange={handleChange}
-              handleBlur={handleBlur}
-            />
-            <InputField
-              name="state"
-              label="State"
-              type="select"
-              icon={HiLocationMarker}
               options={
-                !formData.country
-                  ? [{ value: "", label: "Select a country first" }]
-                  : loadingStates
-                  ? [{ value: "", label: "Loading states..." }]
-                  : states.length > 0
-                  ? states
-                  : [{ value: "", label: "No states available" }]
+                loadingCountries
+                  ? [{ value: "", label: "Loading countries..." }]
+                  : countries.length > 0
+                    ? countries
+                    : [{ value: "", label: "Select Country" }]
               }
               formData={formData}
               errors={errors}
@@ -751,28 +904,165 @@ export default function RegisterPage() {
               handleChange={handleChange}
               handleBlur={handleBlur}
             />
-            <InputField
-              name="city"
-              label="City"
-              icon={HiLocationMarker}
-              placeholder="Enter your city"
-              formData={formData}
-              errors={errors}
-              touched={touched}
-              handleChange={handleChange}
-              handleBlur={handleBlur}
-            />
+            {formData.profession !== "teacher" && (
+              <InputField
+                name="state"
+                label="State"
+                type="select"
+                icon={HiLocationMarker}
+                options={
+                  !formData.country
+                    ? [{ value: "", label: "Select a country first" }]
+                    : loadingStates
+                      ? [{ value: "", label: "Loading states..." }]
+                      : states.length > 0
+                        ? states
+                        : [{ value: "", label: "No states available" }]
+                }
+                formData={formData}
+                errors={errors}
+                touched={touched}
+                handleChange={handleChange}
+                handleBlur={handleBlur}
+              />
+            )}
+            {formData.profession !== "teacher" && (
+              <InputField
+                name="city"
+                label="City"
+                icon={HiLocationMarker}
+                placeholder="Enter your city"
+                formData={formData}
+                errors={errors}
+                touched={touched}
+                handleChange={handleChange}
+                handleBlur={handleBlur}
+              />
+            )}
             <InputField
               name="profession"
               label="Profession"
+              type="select"
               icon={HiBriefcase}
-              placeholder="Enter your profession"
+              options={[
+                { value: "students", label: "Student" },
+                { value: "teacher", label: "Teacher" },
+                { value: "user", label: "Others" },
+              ]}
               formData={formData}
               errors={errors}
               touched={touched}
               handleChange={handleChange}
               handleBlur={handleBlur}
             />
+            {formData.profession === "user" && (
+              <InputField
+                name="other_profession"
+                label="Please specify your profession"
+                type="text"
+                icon={HiBriefcase}
+                placeholder="Enter your profession"
+                formData={formData}
+                errors={errors}
+                touched={touched}
+                handleChange={handleChange}
+                handleBlur={handleBlur}
+              />
+            )}
+            {formData.profession === "teacher" && (
+              <>
+                <InputField
+                  name="tch_teaching_subject"
+                  label="Teaching Subject"
+                  icon={HiAcademicCap}
+                  placeholder="e.g. Mathematics, Science"
+                  formData={formData}
+                  errors={errors}
+                  touched={touched}
+                  handleChange={handleChange}
+                  handleBlur={handleBlur}
+                />
+                <InputField
+                  name="tch_teaching_level"
+                  label="Teaching Level"
+                  icon={HiAcademicCap}
+                  placeholder="e.g. Primary, Secondary, Higher Secondary"
+                  formData={formData}
+                  errors={errors}
+                  touched={touched}
+                  handleChange={handleChange}
+                  handleBlur={handleBlur}
+                />
+                <InputField
+                  name="tch_years_of_experience"
+                  label="Years of Experience"
+                  type="number"
+                  icon={HiCalendar}
+                  placeholder="e.g. 5"
+                  formData={formData}
+                  errors={errors}
+                  touched={touched}
+                  handleChange={handleChange}
+                  handleBlur={handleBlur}
+                  inputProps={{ min: 0 }}
+                />
+                <InputField
+                  name="tch_current_role"
+                  label="Current Role"
+                  icon={HiBriefcase}
+                  placeholder="e.g. Class Teacher, Subject Teacher"
+                  formData={formData}
+                  errors={errors}
+                  touched={touched}
+                  handleChange={handleChange}
+                  handleBlur={handleBlur}
+                />
+                <InputField
+                  name="tch_school_context"
+                  label="School Context"
+                  icon={HiBriefcase}
+                  placeholder="e.g. Government, Private, International"
+                  formData={formData}
+                  errors={errors}
+                  touched={touched}
+                  handleChange={handleChange}
+                  handleBlur={handleBlur}
+                />
+                <InputField
+                  name="tch_school_name"
+                  label="School Name"
+                  icon={HiBriefcase}
+                  placeholder="Enter your school name"
+                  formData={formData}
+                  errors={errors}
+                  touched={touched}
+                  handleChange={handleChange}
+                  handleBlur={handleBlur}
+                />
+                <InputField
+                  name="tch_school_city"
+                  label="School City"
+                  icon={HiLocationMarker}
+                  placeholder="Enter school city"
+                  formData={formData}
+                  errors={errors}
+                  touched={touched}
+                  handleChange={handleChange}
+                  handleBlur={handleBlur}
+                />
+                <InputField
+                  name="tch_school_state"
+                  label="School State"
+                  icon={HiLocationMarker}
+                  placeholder="Enter school state"
+                  formData={formData}
+                  errors={errors}
+                  touched={touched}
+                  handleChange={handleChange}
+                  handleBlur={handleBlur}
+                />
+              </>
+            )}
             <InputField
               name="educational_qualification"
               label="Educational Qualification"
@@ -782,24 +1072,57 @@ export default function RegisterPage() {
                 { value: "High School", label: "High School" },
                 { value: "Diploma", label: "Diploma" },
                 { value: "Bachelor's", label: "Bachelor's" },
-                { value: "Bachelor of Engineering (B.E.)", label: "Bachelor of Engineering (B.E.)" },
-                { value: "Bachelor of Technology (B.Tech)", label: "Bachelor of Technology (B.Tech)" },
-                { value: "Bachelor of Commerce (B.Com)", label: "Bachelor of Commerce (B.Com)" },
-                { value: "Bachelor of Arts (B.A.)", label: "Bachelor of Arts (B.A.)" },
-                { value: "Bachelor of Science (B.Sc.)", label: "Bachelor of Science (B.Sc.)" },
+                {
+                  value: "Bachelor of Engineering (B.E.)",
+                  label: "Bachelor of Engineering (B.E.)",
+                },
+                {
+                  value: "Bachelor of Technology (B.Tech)",
+                  label: "Bachelor of Technology (B.Tech)",
+                },
+                {
+                  value: "Bachelor of Commerce (B.Com)",
+                  label: "Bachelor of Commerce (B.Com)",
+                },
+                {
+                  value: "Bachelor of Arts (B.A.)",
+                  label: "Bachelor of Arts (B.A.)",
+                },
+                {
+                  value: "Bachelor of Science (B.Sc.)",
+                  label: "Bachelor of Science (B.Sc.)",
+                },
                 { value: "MBBS", label: "MBBS" },
-                { value: "Bachelor of Law (LLB)", label: "Bachelor of Law (LLB)" },
+                {
+                  value: "Bachelor of Law (LLB)",
+                  label: "Bachelor of Law (LLB)",
+                },
                 { value: "Master's", label: "Master's" },
-                { value: "Master of Engineering (M.E.)", label: "Master of Engineering (M.E.)" },
-                { value: "Master of Technology (M.Tech)", label: "Master of Technology (M.Tech)" },
-                { value: "Master of Commerce (M.Com)", label: "Master of Commerce (M.Com)" },
-                { value: "Master of Arts (M.A.)", label: "Master of Arts (M.A.)" },
-                { value: "Master of Science (M.Sc.)", label: "Master of Science (M.Sc.)" },
+                {
+                  value: "Master of Engineering (M.E.)",
+                  label: "Master of Engineering (M.E.)",
+                },
+                {
+                  value: "Master of Technology (M.Tech)",
+                  label: "Master of Technology (M.Tech)",
+                },
+                {
+                  value: "Master of Commerce (M.Com)",
+                  label: "Master of Commerce (M.Com)",
+                },
+                {
+                  value: "Master of Arts (M.A.)",
+                  label: "Master of Arts (M.A.)",
+                },
+                {
+                  value: "Master of Science (M.Sc.)",
+                  label: "Master of Science (M.Sc.)",
+                },
                 { value: "Master of Law (LLM)", label: "Master of Law (LLM)" },
                 { value: "MD", label: "MD" },
                 { value: "MS", label: "MS" },
                 { value: "PhD", label: "PhD" },
-                { value: "Other", label: "Other" }
+                { value: "Other", label: "Other" },
               ]}
               formData={formData}
               errors={errors}
@@ -833,9 +1156,47 @@ export default function RegisterPage() {
               handleChange={handleChange}
               handleBlur={handleBlur}
               showPassword={showPasswordConfirmation}
-              onTogglePassword={() => setShowPasswordConfirmation(!showPasswordConfirmation)}
+              onTogglePassword={() =>
+                setShowPasswordConfirmation(!showPasswordConfirmation)
+              }
             />
           </div>
+
+          {formData.profession === "teacher" && (
+            <div className="flex items-start pt-1">
+              <div className="flex items-center h-4 mt-0.5">
+                <input
+                  type="checkbox"
+                  id="tch_consent"
+                  name="tch_consent"
+                  checked={formData.tch_consent}
+                  onChange={(e) => {
+                    const checked = e.target.checked;
+                    setFormData((prev) => ({ ...prev, tch_consent: checked }));
+                    if (touched.tch_consent) {
+                      setErrors((prev) => ({
+                        ...prev,
+                        tch_consent: checked ? "" : "Consent is required to proceed",
+                      }));
+                    }
+                  }}
+                  onBlur={() => handleBlur("tch_consent")}
+                  className="w-3.5 h-3.5 border-neutral-400 rounded cursor-pointer"
+                />
+              </div>
+              <div className="ml-2 text-xs">
+                <label htmlFor="tch_consent" className="neutral-text-muted cursor-pointer">
+                  I consent to the collection and use of the above information for educational research purposes.
+                </label>
+                {errors.tch_consent && touched.tch_consent && (
+                  <p className="danger-text text-xs mt-1 flex items-center gap-1.5">
+                    <HiExclamationCircle className="w-3.5 h-3.5" />
+                    {errors.tch_consent}
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* <div className="flex items-start pt-1">
             <div className="flex items-center h-4">
@@ -878,7 +1239,9 @@ export default function RegisterPage() {
         </form>
 
         <div className="mt-6 border-t neutral-border-light pt-4">
-          <p className="text-center text-xs neutral-text-muted">Already have an account?</p>
+          <p className="text-center text-xs neutral-text-muted">
+            Already have an account?
+          </p>
           <Link
             to="/login"
             className="mt-3 inline-flex items-center justify-center w-full btn btn-ghost"
