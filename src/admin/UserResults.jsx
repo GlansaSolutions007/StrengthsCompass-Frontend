@@ -1180,6 +1180,16 @@ export default function UserResults() {
                                         </p>
                                       </div>
                                     )}
+                                    {constructData.experience_stage_description && (
+                                      <div className="mb-3">
+                                        <span className="text-sm font-semibold text-gray-700">
+                                          Career Stage Insights:{" "}
+                                        </span>
+                                        <p className="text-sm text-gray-700 mt-1">
+                                          {constructData.experience_stage_description}
+                                        </p>
+                                      </div>
+                                    )}
                                     {constructData.behaviour && (
                                       <div className="mb-3">
                                         <span className="text-sm font-semibold text-gray-700">
