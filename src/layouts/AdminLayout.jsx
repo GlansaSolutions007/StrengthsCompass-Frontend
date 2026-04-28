@@ -37,6 +37,11 @@ export default function AdminLayout() {
   const [variantSuccess, setVariantSuccess] = useState(null);
   const [testName, setTestName] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [selectedRoleName, setSelectedRoleName] = useState(
+    localStorage.getItem("adminSelectedRoleName") || ""
+  );
+
+  const isTeacherRole = selectedRoleName.toLowerCase() === "teacher";
 
   // Check authentication and separate admin/user routes
   useEffect(() => {
@@ -63,10 +68,14 @@ export default function AdminLayout() {
         const token = localStorage.getItem("adminToken");
         if (!token) return;
 
-        const response = await apiClient.get("/age-groups");
+        const savedRoleId = localStorage.getItem("adminSelectedRoleId");
+        const response = await apiClient.get("/age-groups", {
+          params: savedRoleId ? { role_id: savedRoleId } : {},
+        });
         if (response.data?.status && response.data.data) {
           const groups = response.data.data.map((ag) => ({
             id: ag.id,
+            role: ag.role,
             name: ag.name || "",
             from: ag.from || "",
             to: ag.to || "",
@@ -79,6 +88,8 @@ export default function AdminLayout() {
             const savedVariant = groups.find((g) => g.id === parseInt(savedVariantId));
             if (savedVariant) {
               setSelectedVariant(savedVariant);
+            } else {
+              localStorage.removeItem("adminSelectedVariantId");
             }
           }
         }
@@ -88,6 +99,33 @@ export default function AdminLayout() {
     };
 
     fetchAgeGroups();
+  }, []);
+
+  useEffect(() => {
+    const fetchSelectedRole = async () => {
+      const savedRoleId = localStorage.getItem("adminSelectedRoleId");
+      const savedRoleName = localStorage.getItem("adminSelectedRoleName");
+
+      if (savedRoleName) {
+        setSelectedRoleName(savedRoleName);
+        return;
+      }
+
+      if (!savedRoleId) return;
+
+      try {
+        const response = await apiClient.get(`/roles/${savedRoleId}`);
+        const roleName = response.data?.data?.name || "";
+        if (roleName) {
+          localStorage.setItem("adminSelectedRoleName", roleName);
+          setSelectedRoleName(roleName);
+        }
+      } catch (err) {
+        console.error("Error fetching selected role:", err);
+      }
+    };
+
+    fetchSelectedRole();
   }, []);
 
   // Fetch test name if on test details page
@@ -447,6 +485,23 @@ export default function AdminLayout() {
               </span>
               <span className={`text-sm font-medium ${isRouteActive("/admin/dashboard/master/languages") ? "text-black" : "text-white"}`}>Languages</span>
             </NavLink>
+            {isTeacherRole && (
+              <NavLink
+                to="/admin/dashboard/master/experience-stages"
+                className={({ isActive }) =>
+                  `flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 group ${
+                    isActive
+                      ? "bg-[#eab308] text-black shadow-md"
+                      : "text-gray-300 hover:bg-gray-800 hover:text-white"
+                  }`
+                }
+              >
+                <span className={isRouteActive("/admin/dashboard/master/experience-stages") ? "text-black" : "text-gray-400 group-hover:text-white"}>
+                  <HiOutlineClipboardList className="w-5 h-5" />
+                </span>
+                <span className={`text-sm font-medium ${isRouteActive("/admin/dashboard/master/experience-stages") ? "text-black" : "text-white"}`}>Experience Stages</span>
+              </NavLink>
+            )}
           </div>
 
           <NavLink
@@ -557,5 +612,8 @@ function titleFromPath(pathname) {
     return "Dashboard";
   const seg = pathname.split("/").pop();
   if (!seg) return "Dashboard";
-  return seg.charAt(0).toUpperCase() + seg.slice(1);
+  return seg
+    .split("-")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
 }

@@ -591,7 +591,7 @@ export default function AdminMasterTestAdd() {
     const useExcelImport = addSource === "excel";
     const errors = {};
     if (!title.trim()) errors.title = "Title is required";
-    if (!testType || (testType !== "src pro" && testType !== "cerc")) {
+    if (!testType || (testType !== "src pro" && testType !== "cerc" && testType !== "src pro teacher")) {
       errors.test_type = "Please select a type";
     }
     if (testType === "cerc" && !previousTestId) {
@@ -680,7 +680,7 @@ export default function AdminMasterTestAdd() {
             .filter((id) => id != null && Number.isInteger(id));
           excelQuestionIds.forEach((id) => formData.append("question_ids[]", id));
         }
-        formData.append("source", testType === "cerc" ? "CERC" : "SC Pro");
+        formData.append("source", testType === "cerc" ? "CERC" : testType === "sc pro" ? "SC Pro" : "SC Pro Teacher");
         if (testType === "cerc" && previousTestId) {
           formData.append("sc_pro_test_id", String(previousTestId));
         }
@@ -726,7 +726,7 @@ export default function AdminMasterTestAdd() {
           cluster_ids: selectedClusterIds,
           construct_ids: payloadConstructIds,
           clusters: clustersArray,
-          source: testType === "cerc" ? "CERC" : "SC Pro",
+          source: testType === "cerc" ? "CERC" : testType === "sc pro" ? "SC Pro" : "SC Pro Teacher", 
         };
         if (testType === "cerc" && previousTestId) {
           payload.sc_pro_test_id = parseInt(previousTestId, 10) || previousTestId;
@@ -904,6 +904,7 @@ export default function AdminMasterTestAdd() {
                   >
                     <option value="">Select type</option>
                     <option value="src pro">src pro</option>
+                    <option value="src pro teacher">src pro (Teacher)</option>
                     <option value="cerc">cerc</option>
                   </select>
                   <HiChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-500" />

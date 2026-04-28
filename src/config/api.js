@@ -91,11 +91,15 @@ apiClient.interceptors.request.use(
       if ((config.method === "post" || config.method === "put" || config.method === "patch") && config.data) {
         // Handle FormData
         if (config.data instanceof FormData) {
-          config.data.append("age_group_id", variantId.toString());
+          if (!config.data.has("age_group_id")) {
+            config.data.append("age_group_id", variantId.toString());
+          }
         }
         // Handle plain objects
         else if (typeof config.data === "object" && !Array.isArray(config.data) && config.data !== null) {
-          config.data.age_group_id = variantId.toString();
+          if (config.data.age_group_id === undefined || config.data.age_group_id === null || config.data.age_group_id === "") {
+            config.data.age_group_id = variantId.toString();
+          }
         }
       }
     }

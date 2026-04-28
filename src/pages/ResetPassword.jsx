@@ -128,6 +128,7 @@ const ResetPassword = () => {
         }
       );
 
+      console.log("Reset Password Response:", response.data);
       if (response.data?.status) {
         setSuccessMessage(response.data?.message || "Password reset successful. You can now log in.");
         setTimeout(() => {

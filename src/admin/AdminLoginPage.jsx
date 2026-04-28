@@ -17,6 +17,26 @@ export default function AdminLoginPage() {
     return `${from} - ${to}`;
   };
 
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [ageGroupId, setAgeGroupId] = useState("");
+  const [role, setRole] = useState("");
+  const [roles, setRoles] = useState([]);
+  const [ageGroups, setAgeGroups] = useState([]);
+  const [loadingRoles, setLoadingRoles] = useState(true);
+  const [loadingAgeGroups, setLoadingAgeGroups] = useState(false);
+  const [errors, setErrors] = useState({});
+  const [touched, setTouched] = useState({});
+  const [loginError, setLoginError] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [forgotLoading, setForgotLoading] = useState(false);
+  const [forgotMessage, setForgotMessage] = useState("");
+  const [forgotError, setForgotError] = useState("");
+  const [forgotModalOpen, setForgotModalOpen] = useState(false);
+  const [forgotModalClosing, setForgotModalClosing] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState("");
+
   // Check authentication and separate admin/user routes
   useEffect(() => {
     const adminToken = localStorage.getItem("adminToken");
@@ -36,70 +56,79 @@ export default function AdminLoginPage() {
     }
   }, [navigate]);
 
-  // Fetch age groups on component mount
+  // Fetch roles on component mount. Age groups load after a role is selected.
   useEffect(() => {
-    const fetchAgeGroups = async () => {
+    const fetchRoles = async () => {
       try {
-        setLoadingAgeGroups(true);
-        const response = await apiClient.get("/current-age-group");
+        setLoadingRoles(true);
+        const response = await apiClient.get("/roles", {
+          params: { isActive: true },
+        });
         
         if (response.data?.status && response.data.data) {
-          // Handle both array and single object response
-          const groups = Array.isArray(response.data.data) 
+          const roles = Array.isArray(response.data.data) 
             ? response.data.data 
             : [response.data.data];
           
+          setRoles(
+            roles.map((role) => ({
+              id: role.id,
+              name: role.name || ""
+            }))
+          );
+        }
+      } catch (err) {
+        console.error("Error fetching roles:", err);
+      } finally {
+        setLoadingRoles(false);
+      }
+    };
+
+    fetchRoles();
+  }, []);
+
+  useEffect(() => {
+    const fetchAgeGroups = async () => {
+      if (!role) {
+        setAgeGroups([]);
+        setAgeGroupId("");
+        setLoadingAgeGroups(false);
+        return;
+      }
+
+      try {
+        setLoadingAgeGroups(true);
+        const response = await apiClient.get("/age-groups", {
+          params: { role_id: role, is_active: true },
+        });
+
+        if (response.data?.status && response.data.data) {
+          const groups = Array.isArray(response.data.data)
+            ? response.data.data
+            : [response.data.data];
+
           setAgeGroups(
             groups.map((ag) => ({
               id: ag.id,
+              role: ag.role,
               name: ag.name || "",
               from: ag.from || "",
               to: ag.to || "",
             }))
           );
+        } else {
+          setAgeGroups([]);
         }
       } catch (err) {
         console.error("Error fetching age groups:", err);
-        // If endpoint doesn't exist, try alternative endpoint
-        try {
-          const altResponse = await apiClient.get("/age-groups");
-          if (altResponse.data?.status && altResponse.data.data) {
-            setAgeGroups(
-              altResponse.data.data.map((ag) => ({
-                id: ag.id,
-                name: ag.name || "",
-                from: ag.from || "",
-                to: ag.to || "",
-              }))
-            );
-          }
-        } catch (altErr) {
-          console.error("Error fetching age groups from alternative endpoint:", altErr);
-        }
+        setAgeGroups([]);
       } finally {
         setLoadingAgeGroups(false);
       }
     };
 
     fetchAgeGroups();
-  }, []);
-
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [ageGroupId, setAgeGroupId] = useState("");
-  const [ageGroups, setAgeGroups] = useState([]);
-  const [loadingAgeGroups, setLoadingAgeGroups] = useState(true);
-  const [errors, setErrors] = useState({});
-  const [touched, setTouched] = useState({});
-  const [loginError, setLoginError] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
-  const [forgotLoading, setForgotLoading] = useState(false);
-  const [forgotMessage, setForgotMessage] = useState("");
-  const [forgotError, setForgotError] = useState("");
-  const [forgotModalOpen, setForgotModalOpen] = useState(false);
-  const [forgotModalClosing, setForgotModalClosing] = useState(false);
-  const [forgotEmail, setForgotEmail] = useState("");
+  }, [role]);
 
   const validateEmail = (email) => {
     if (!email) return "Email is required";
@@ -119,12 +148,19 @@ export default function AdminLoginPage() {
     return "";
   };
 
+  const validateRole = (roleId) => {
+    if (!roleId || roleId === "") return "Role is required";
+    return "";
+  };
+
   const handleBlur = (field) => {
     setTouched({ ...touched, [field]: true });
     if (field === "email") {
       setErrors({ ...errors, email: validateEmail(email) });
     } else if (field === "password") {
       setErrors({ ...errors, password: validatePassword(password) });
+    } else if (field === "role") {
+      setErrors({ ...errors, role: validateRole(role) });
     } else if (field === "ageGroup") {
       setErrors({ ...errors, ageGroup: validateAgeGroup(ageGroupId) });
     }
@@ -143,6 +179,17 @@ export default function AdminLoginPage() {
       if (touched.password) {
         setErrors({ ...errors, password: validatePassword(value) });
       }
+    } else if (field === "role") {
+      setRole(value);
+      setAgeGroupId("");
+      setAgeGroups([]);
+      localStorage.removeItem("adminSelectedVariantId");
+      localStorage.removeItem("adminSelectedRoleId");
+      localStorage.removeItem("adminSelectedRoleName");
+      setLoginError("");
+      if (touched.role) {
+        setErrors({ ...errors, role: validateRole(value), ageGroup: "" });
+      }
     } else if (field === "ageGroup") {
       setAgeGroupId(value);
       setLoginError("");
@@ -159,15 +206,17 @@ export default function AdminLoginPage() {
     
     const emailError = validateEmail(email);
     const passwordError = validatePassword(password);
+    const roleError = validateRole(role);
     const ageGroupError = validateAgeGroup(ageGroupId);
 
-    if (emailError || passwordError || ageGroupError) {
+    if (emailError || passwordError || roleError || ageGroupError) {
       setErrors({ 
         email: emailError, 
         password: passwordError,
+        role: roleError,
         ageGroup: ageGroupError
       });
-      setTouched({ email: true, password: true, ageGroup: true });
+      setTouched({ email: true, password: true, role: true, ageGroup: true });
       setIsLoading(false);
       return;
     }
@@ -209,6 +258,11 @@ export default function AdminLoginPage() {
           if (variantResponse.data?.status || variantResponse.status === 200) {
             // Store selected age group in localStorage
             localStorage.setItem("adminSelectedVariantId", ageGroupId);
+            localStorage.setItem("adminSelectedRoleId", role);
+            localStorage.setItem(
+              "adminSelectedRoleName",
+              roles.find((item) => item.id === parseInt(role))?.name || ""
+            );
             console.log("Age group set successfully:", variantResponse.data);
           }
         } catch (variantErr) {
@@ -216,6 +270,11 @@ export default function AdminLoginPage() {
           // Continue with navigation even if age group setting fails
           // Store locally as fallback
           localStorage.setItem("adminSelectedVariantId", ageGroupId);
+          localStorage.setItem("adminSelectedRoleId", role);
+          localStorage.setItem(
+            "adminSelectedRoleName",
+            roles.find((item) => item.id === parseInt(role))?.name || ""
+          );
         }
         
         navigate("/admin/dashboard");
@@ -397,6 +456,59 @@ export default function AdminLoginPage() {
 
         <form onSubmit={handleLogin} noValidate className="space-y-6">
         <div className="space-y-2">
+          <label className="block text-sm font-medium neutral-text-muted">
+              Select Role
+            </label>
+            <div
+              className={`group flex w-full rounded-md overflow-hidden border transition-all focus-within:ring-2 focus-within:ring-secondary focus-within:border-secondary ${
+                errors.role && touched.role
+                  ? "border-red-500"
+                  : "border-neutral-300"
+              }`}
+            >
+              {/* Left Icon Box */}
+              <div
+                className="flex items-center justify-center bg-primary-bg-light px-3 transition-all group-focus-within:bg-secondary-bg-light"
+              >
+                <HiUser className="h-5 w-5 primary-text group-focus-within:secondary-text transition-colors" />
+              </div>
+
+              {/* Select Field */}
+              <div className="relative flex-1">
+                <select
+                  required
+                  value={role}
+                  onChange={(e) => handleChange("role", e.target.value)}
+                  onBlur={() => handleBlur("role")}
+                  disabled={loadingRoles || isLoading}
+                  className="w-full py-2 px-3 bg-white text-sm focus:outline-none focus:bg-secondary-bg-light transition-colors appearance-none pr-8"
+                >
+                  {loadingRoles ? (
+                    <option value="">Loading roles...</option>
+                  ) : roles.length === 0 ? (
+                    <option value="">No roles available</option>
+                  ) : (
+                    <>
+                      <option value="" disabled>
+                        Select role
+                      </option>
+                      {roles.map((r) => (
+                        <option key={r.id} value={r.id}>
+                          {r.name}
+                        </option>
+                      ))}
+                    </>
+                  )}
+                </select>
+                <HiChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 neutral-text-muted" />
+              </div>
+            </div>
+            {errors.role && touched.role && (
+              <p className="danger-text text-xs mt-1 flex items-center gap-1">
+                <HiExclamationCircle className="w-3 h-3" />
+                {errors.role}
+              </p>
+            )}
             <label className="block text-sm font-medium neutral-text-muted">
               Age Group
             </label>
@@ -421,10 +533,12 @@ export default function AdminLoginPage() {
                   value={ageGroupId}
                   onChange={(e) => handleChange("ageGroup", e.target.value)}
                   onBlur={() => handleBlur("ageGroup")}
-                  disabled={loadingAgeGroups || isLoading}
+                  disabled={!role || loadingAgeGroups || isLoading}
                   className="w-full py-2 px-3 bg-white text-sm focus:outline-none focus:bg-secondary-bg-light transition-colors appearance-none pr-8"
                 >
-                  {loadingAgeGroups ? (
+                  {!role ? (
+                    <option value="">Select role first</option>
+                  ) : loadingAgeGroups ? (
                     <option value="">Loading age groups...</option>
                   ) : ageGroups.length === 0 ? (
                     <option value="">No age groups available</option>

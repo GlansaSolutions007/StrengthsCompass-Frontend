@@ -28,6 +28,7 @@ import ResetPassword from "./pages/ResetPassword";
 import AdminMasterSchools from "./admin/master/AdminMasterSchools";
 import AdminMasterOrganizations from "./admin/master/AdminMasterOrganizations";
 import AdminMasterLanguages from "./admin/master/AdminMasterLanguages";
+import AdminMasterExperienceStages from "./admin/master/AdminMasterExperienceStages";
 import SchoolDetails from "./admin/SchoolDetails";
 import OrganizationDetails from "./admin/OrganizationDetails";
 import LanguageSelection from "./pages/LanguageSelection";
@@ -68,6 +69,7 @@ export default function App() {
         <Route path="master/organizations" element={<AdminMasterOrganizations />} />
         <Route path="master/organizations/:organizationId" element={<OrganizationDetails />} />
         <Route path="master/languages" element={<AdminMasterLanguages />} />
+        <Route path="master/experience-stages" element={<AdminMasterExperienceStages />} />
       </Route>
 
      

@@ -186,7 +186,7 @@ export default function RegisterPage() {
   const [sameAsContact, setSameAsContact] = useState(false);
 
   useEffect(() => {
-    if (formData.profession !== "others") {
+    if (formData.profession !== "user") {
       setFormData((prev) => ({ ...prev, other_profession: "" }));
     }
   }, [formData.profession]);
@@ -402,6 +402,11 @@ export default function RegisterPage() {
         if (!value)
           return `${name.charAt(0).toUpperCase() + name.slice(1).replace(/_/g, " ")} is required`;
         return "";
+      case "other_profession":
+        if (formData.profession === "user" && !value.trim()) {
+          return "Profession is required";
+        }
+        return "";
       case "gender":
         if (!value) return "Gender is required";
         return "";
@@ -538,6 +543,10 @@ export default function RegisterPage() {
 
     try {
       const isTeacher = formData.profession === "teacher";
+      const profession =
+        formData.profession === "user"
+          ? formData.other_profession.trim()
+          : formData.profession;
       const payload = {
         first_name: capitalizeFirstLetter(formData.first_name.trim()),
         last_name: capitalizeFirstLetter(formData.last_name.trim()),
@@ -551,14 +560,11 @@ export default function RegisterPage() {
           state: formData.state,
         }),
         country: formData.country,
-        profession:
-          formData.other_profession === ""
-            ? formData.profession
-            : formData.other_profession,
+        profession,
         gender: formData.gender,
         age: parseInt(formData.age),
         educational_qualification: formData.educational_qualification,
-        role: formData.profession,
+        role: isTeacher ? "teacher" : "user",
         ...(isTeacher && {
           tch_teaching_subject: formData.tch_teaching_subject,
           tch_teaching_level: formData.tch_teaching_level,
@@ -945,7 +951,7 @@ export default function RegisterPage() {
               type="select"
               icon={HiBriefcase}
               options={[
-                { value: "students", label: "Student" },
+                { value: "student", label: "Student" },
                 { value: "teacher", label: "Teacher" },
                 { value: "user", label: "Others" },
               ]}
