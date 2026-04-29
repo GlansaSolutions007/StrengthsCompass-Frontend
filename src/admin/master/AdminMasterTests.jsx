@@ -332,7 +332,7 @@ export default function AdminMasterTests() {
     if (!title.trim()) {
       errors.title = "Title is required";
     }
-    if (!testType || (testType !== "src pro" && testType !== "cerc")) {
+    if (!testType || (testType !== "SC Pro" && testType !== "cerc")) {
       errors.test_type = "Please select a type";
     }
     if (testType === "cerc" && !previousTestId) {
@@ -582,7 +582,7 @@ export default function AdminMasterTests() {
 
     // Get and show Type from source or test_type
     const rawType = (item.source || item.test_type || item.type || "").toString().trim().toLowerCase();
-    const typeValue = rawType === "cerc" ? "cerc" : rawType === "sc pro" ? "src pro" : "";
+    const typeValue = rawType === "cerc" ? "cerc" : rawType === "sc pro" ? "SC Pro" : "";
     setTestType(typeValue);
 
     // Show previous test (SC Pro) when type is cerc
@@ -859,7 +859,7 @@ export default function AdminMasterTests() {
     if (!title.trim()) {
       errors.title = "Title is required";
     }
-    if (!testType || (testType !== "src pro" && testType !== "cerc")) {
+    if (!testType || (testType !== "SC Pro" && testType !== "cerc")) {
       errors.test_type = "Please select a type";
     }
     if (testType === "cerc" && !previousTestId) {
@@ -1486,7 +1486,7 @@ export default function AdminMasterTests() {
                       className={`input w-full pr-10 ${fieldErrors.test_type ? "input-error" : ""}`}
                     >
                       <option value="">Select type</option>
-                      <option value="src pro">src pro</option>
+                      <option value="SC Pro">SC Pro</option>
                       <option value="cerc">cerc</option>
                     </select>
                     <HiChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 neutral-text-muted" />
@@ -1518,7 +1518,7 @@ export default function AdminMasterTests() {
                           .filter((t) => {
                             if (editingId && t.id === editingId) return false;
                             const type = t.test_type ?? t.type;
-                            return type === "src pro" || type == null;
+                            return type === "SC Pro" || type == null;
                           })
                           .map((t) => (
                             <option key={t.id} value={t.id}>

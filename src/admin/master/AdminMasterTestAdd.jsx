@@ -591,7 +591,7 @@ export default function AdminMasterTestAdd() {
     const useExcelImport = addSource === "excel";
     const errors = {};
     if (!title.trim()) errors.title = "Title is required";
-    if (!testType || (testType !== "src pro" && testType !== "cerc" && testType !== "src pro teacher")) {
+    if (!testType || (testType !== "SC Pro" && testType !== "cerc" && testType !== "SC Pro teacher")) {
       errors.test_type = "Please select a type";
     }
     if (testType === "cerc" && !previousTestId) {
@@ -903,8 +903,8 @@ export default function AdminMasterTestAdd() {
                     className={`input w-full pr-10 ${fieldErrors.test_type ? "input-error" : ""}`}
                   >
                     <option value="">Select type</option>
-                    <option value="src pro">src pro</option>
-                    <option value="src pro teacher">src pro (Teacher)</option>
+                    <option value="SC Pro">SC Pro</option>
+                    <option value="SC Pro teacher">SC Pro (Teacher)</option>
                     <option value="cerc">cerc</option>
                   </select>
                   <HiChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-500" />
@@ -934,7 +934,7 @@ export default function AdminMasterTestAdd() {
                       {items
                         .filter(
                           (t) =>
-                            (t.test_type ?? t.type) === "src pro" ||
+                            (t.test_type ?? t.type) === "SC Pro" ||
                             (t.test_type ?? t.type) == null
                         )
                         .map((t) => (
