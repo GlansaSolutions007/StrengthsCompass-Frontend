@@ -71,10 +71,12 @@ export default function AdminLoginPage() {
             : [response.data.data];
           
           setRoles(
-            roles.map((role) => ({
-              id: role.id,
-              name: role.name || ""
-            }))
+            roles
+              .filter((role) => role.name?.toLowerCase() !== "admin")
+              .map((role) => ({
+                id: role.id,
+                name: role.name || ""
+              }))
           );
         }
       } catch (err) {
@@ -773,4 +775,3 @@ export default function AdminLoginPage() {
     </>
   );
 }
-

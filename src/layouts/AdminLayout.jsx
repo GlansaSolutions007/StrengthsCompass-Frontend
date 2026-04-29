@@ -37,6 +37,11 @@ export default function AdminLayout() {
   const [variantSuccess, setVariantSuccess] = useState(null);
   const [testName, setTestName] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [roles, setRoles] = useState([]);
+  const [loadingRoles, setLoadingRoles] = useState(true);
+  const [selectedRoleId, setSelectedRoleId] = useState(
+    localStorage.getItem("adminSelectedRoleId") || ""
+  );
   const [selectedRoleName, setSelectedRoleName] = useState(
     localStorage.getItem("adminSelectedRoleName") || ""
   );
@@ -61,16 +66,43 @@ export default function AdminLayout() {
     }
   }, [navigate]);
 
-  // Fetch age groups and load saved variant
+  // Fetch all roles (excluding admin) on mount
+  useEffect(() => {
+    const fetchRoles = async () => {
+      try {
+        setLoadingRoles(true);
+        const response = await apiClient.get("/roles", {
+          params: { isActive: true },
+        });
+        if (response.data?.status && response.data.data) {
+          const allRoles = Array.isArray(response.data.data)
+            ? response.data.data
+            : [response.data.data];
+          setRoles(
+            allRoles
+              .filter((r) => r.name?.toLowerCase() !== "admin")
+              .map((r) => ({ id: r.id, name: r.name || "" }))
+          );
+        }
+      } catch (err) {
+        console.error("Error fetching roles:", err);
+      } finally {
+        setLoadingRoles(false);
+      }
+    };
+
+    fetchRoles();
+  }, []);
+
+  // Fetch age groups and load saved variant — re-runs when selectedRoleId changes
   useEffect(() => {
     const fetchAgeGroups = async () => {
       try {
         const token = localStorage.getItem("adminToken");
         if (!token) return;
 
-        const savedRoleId = localStorage.getItem("adminSelectedRoleId");
         const response = await apiClient.get("/age-groups", {
-          params: savedRoleId ? { role_id: savedRoleId } : {},
+          params: selectedRoleId ? { role_id: selectedRoleId, is_active: true } : {},
         });
         if (response.data?.status && response.data.data) {
           const groups = response.data.data.map((ag) => ({
@@ -89,8 +121,11 @@ export default function AdminLayout() {
             if (savedVariant) {
               setSelectedVariant(savedVariant);
             } else {
+              setSelectedVariant(null);
               localStorage.removeItem("adminSelectedVariantId");
             }
+          } else {
+            setSelectedVariant(null);
           }
         }
       } catch (err) {
@@ -99,34 +134,7 @@ export default function AdminLayout() {
     };
 
     fetchAgeGroups();
-  }, []);
-
-  useEffect(() => {
-    const fetchSelectedRole = async () => {
-      const savedRoleId = localStorage.getItem("adminSelectedRoleId");
-      const savedRoleName = localStorage.getItem("adminSelectedRoleName");
-
-      if (savedRoleName) {
-        setSelectedRoleName(savedRoleName);
-        return;
-      }
-
-      if (!savedRoleId) return;
-
-      try {
-        const response = await apiClient.get(`/roles/${savedRoleId}`);
-        const roleName = response.data?.data?.name || "";
-        if (roleName) {
-          localStorage.setItem("adminSelectedRoleName", roleName);
-          setSelectedRoleName(roleName);
-        }
-      } catch (err) {
-        console.error("Error fetching selected role:", err);
-      }
-    };
-
-    fetchSelectedRole();
-  }, []);
+  }, [selectedRoleId]);
 
   // Fetch test name if on test details page
   useEffect(() => {
@@ -154,6 +162,18 @@ export default function AdminLayout() {
 
     fetchTestName();
   }, [location.pathname]);
+
+  // Handle role change — resets age group and reloads age groups
+  const handleRoleChange = (roleId) => {
+    const roleName = roles.find((r) => r.id === parseInt(roleId))?.name || "";
+    setSelectedRoleId(roleId);
+    setSelectedRoleName(roleName);
+    setSelectedVariant(null);
+    setAgeGroups([]);
+    localStorage.setItem("adminSelectedRoleId", roleId);
+    localStorage.setItem("adminSelectedRoleName", roleName);
+    localStorage.removeItem("adminSelectedVariantId");
+  };
 
   // Handle variant change
   const handleVariantChange = async (ageGroupId) => {
@@ -555,9 +575,41 @@ export default function AdminLayout() {
                   </p>
                 </div>
               </div>
-              {/* Variant (Age Group) Selector - Hidden on TestDetails page */}
+              {/* Role + Variant (Age Group) Selectors - Hidden on TestDetails page */}
               {!location.pathname.includes("/master/tests/") && (
                 <div className="flex flex-col sm:flex-row mr-10 items-start sm:items-center gap-2 sm:gap-3 w-full sm:w-auto">
+                  {/* Role Selector */}
+                  <label className="text-xs sm:text-sm font-semibold neutral-text whitespace-nowrap">
+                    Role:
+                  </label>
+                  <div className="relative w-full sm:w-auto">
+                    <select
+                      value={selectedRoleId}
+                      onChange={(e) => handleRoleChange(e.target.value)}
+                      disabled={loadingRoles}
+                      className="input pr-10 w-full sm:min-w-[150px] bg-white border border-neutral-300 focus:ring-2 focus:ring-secondary focus:border-secondary text-sm"
+                    >
+                      {loadingRoles ? (
+                        <option value="">Loading...</option>
+                      ) : (
+                        <>
+                          {!selectedRoleId && (
+                            <option value="" disabled>
+                              Select Role
+                            </option>
+                          )}
+                          {roles.map((r) => (
+                            <option key={r.id} value={r.id}>
+                              {r.name}
+                            </option>
+                          ))}
+                        </>
+                      )}
+                    </select>
+                    <HiChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 neutral-text-muted" />
+                  </div>
+
+                  {/* Age Group Selector */}
                   <label className="text-xs sm:text-sm font-semibold neutral-text whitespace-nowrap">
                     Variant (Age Group):
                   </label>
@@ -565,11 +617,13 @@ export default function AdminLayout() {
                     <select
                       value={selectedVariant?.id || ""}
                       onChange={(e) => handleVariantChange(e.target.value)}
-                      disabled={loadingVariant || ageGroups.length === 0}
+                      disabled={loadingVariant || !selectedRoleId || ageGroups.length === 0}
                       className="input pr-10 w-full sm:min-w-[200px] bg-white border border-neutral-300 focus:ring-2 focus:ring-secondary focus:border-secondary text-sm"
                     >
-                      {ageGroups.length === 0 ? (
-                        <option value="">Loading...</option>
+                      {!selectedRoleId ? (
+                        <option value="">Select role first</option>
+                      ) : ageGroups.length === 0 ? (
+                        <option value="">No age groups available</option>
                       ) : (
                         <>
                           {!selectedVariant && (
