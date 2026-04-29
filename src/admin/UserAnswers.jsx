@@ -115,6 +115,7 @@ const normalizeAnswersData = (rawAnswers = []) =>
           ? Number(selectedIndexRaw)
           : null,
       selectedLabel,
+      finalScore: answerPayload.final_score ?? null,
     };
   });
 
@@ -390,7 +391,7 @@ export default function UserAnswers() {
           (question.selectedValue !== null && question.selectedValue !== undefined
             ? `Option Value ${question.selectedValue}`
             : "N/A");
-        const finalScore = selectedOption?.value ?? question.selectedValue ?? "";
+        const finalScore = question.finalScore ?? selectedOption?.value ?? question.selectedValue ?? "";
 
         return {
           "#": index + 1,
@@ -582,7 +583,8 @@ export default function UserAnswers() {
                         {displayAnswer}
                       </td>
                       <td className="py-4 px-4 align-top text-sm text-gray-500">
-                        {selectedOption?.value ??
+                        {question.finalScore ??
+                          selectedOption?.value ??
                           question.selectedValue ??
                           "—"}
                       </td>
