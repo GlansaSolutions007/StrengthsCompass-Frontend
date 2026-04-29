@@ -680,7 +680,14 @@ export default function AdminMasterTestAdd() {
             .filter((id) => id != null && Number.isInteger(id));
           excelQuestionIds.forEach((id) => formData.append("question_ids[]", id));
         }
-        formData.append("source", testType === "cerc" ? "CERC" : testType === "sc pro" ? "SC Pro" : "SC Pro Teacher");
+        formData.append(
+          "source",
+          testType === "cerc"
+            ? "CERC"
+            : testType === "SC Pro"
+            ? "SC Pro"
+            : "SC Pro Teacher"
+        );
         if (testType === "cerc" && previousTestId) {
           formData.append("sc_pro_test_id", String(previousTestId));
         }
@@ -726,7 +733,12 @@ export default function AdminMasterTestAdd() {
           cluster_ids: selectedClusterIds,
           construct_ids: payloadConstructIds,
           clusters: clustersArray,
-          source: testType === "cerc" ? "CERC" : testType === "sc pro" ? "SC Pro" : "SC Pro Teacher", 
+          source:
+            testType === "cerc"
+              ? "CERC"
+              : testType === "SC Pro"
+              ? "SC Pro"
+              : "SC Pro Teacher",
         };
         if (testType === "cerc" && previousTestId) {
           payload.sc_pro_test_id = parseInt(previousTestId, 10) || previousTestId;
